@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,10 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { aiService, SceneBreakdown } from "@/services/aiService";
+import { mediaService, VideoClip } from "@/services/mediaService";
+import { videoService } from "@/services/videoService";
+import { useAuth } from "@/contexts/AuthContext";
 
 type GenerationStep = "script" | "style" | "media" | "branding" | "voiceover" | "generate" | "preview";
 
@@ -25,7 +30,13 @@ export function VideoGenerator() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [scenes, setScenes] = useState<SceneBreakdown[]>([]);
+  const [sceneVideos, setSceneVideos] = useState<Map<string, VideoClip>>(new Map());
+  const [renderId, setRenderId] = useState<string | null>(null);
+  const [renderCheckInterval, setRenderCheckInterval] = useState<number | null>(null);
+  
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -38,6 +49,15 @@ export function VideoGenerator() {
     
     checkAuth();
   }, [navigate]);
+
+  // Clean up render check interval when component unmounts
+  useEffect(() => {
+    return () => {
+      if (renderCheckInterval) {
+        clearInterval(renderCheckInterval);
+      }
+    };
+  }, [renderCheckInterval]);
 
   const videoStyles = [
     { value: "ad", label: "Advertisement" },
@@ -78,19 +98,41 @@ export function VideoGenerator() {
     }
   };
 
-  const simulateVideoGeneration = async () => {
-    setIsGenerating(true);
-    setGenerationProgress(0);
-
+  const generateScenes = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      setGenerationProgress(10);
       
-      if (!user) {
-        toast.error("You must be logged in to generate videos");
-        navigate("/login");
-        return;
+      // Generate scenes using Gemini API
+      const generatedScenes = await aiService.generateScenes(textPrompt);
+      setScenes(generatedScenes);
+      
+      setGenerationProgress(30);
+      
+      // Find video clips for each scene
+      const updatedScenes = [...generatedScenes];
+      const newSceneVideos = new Map<string, VideoClip>();
+      
+      for (const scene of updatedScenes) {
+        try {
+          const videos = await mediaService.searchVideos(scene.keywords);
+          if (videos && videos.length > 0) {
+            newSceneVideos.set(scene.id, videos[0]);
+          }
+        } catch (error) {
+          console.error(`Error finding videos for scene: ${scene.id}`, error);
+        }
       }
-
+      
+      setSceneVideos(newSceneVideos);
+      setGenerationProgress(60);
+      
+      // Prepare scenes for rendering
+      const scenesForRendering = updatedScenes.map(scene => ({
+        ...scene,
+        videoUrl: newSceneVideos.get(scene.id)?.url || ""
+      }));
+      
+      // Create a project in the database
       const projectData = {
         title: textPrompt.slice(0, 50) + (textPrompt.length > 50 ? '...' : ''),
         prompt: textPrompt,
@@ -98,66 +140,71 @@ export function VideoGenerator() {
         media_source: mediaSource,
         brand_colors: brandColors,
         voice_type: voiceType,
-        user_id: user.id,
+        user_id: user?.id || "",
         status: 'processing'
       };
-
-      const { data, error } = await supabase
-        .from('video_projects')
-        .insert(projectData)
-        .select();
-
-      if (error) {
-        console.error("Error creating video project:", error);
-        toast.error("Failed to create video project");
-        setIsGenerating(false);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        setProjectId(data[0].id);
-      }
-
-      const interval = setInterval(async () => {
-        setGenerationProgress((prev) => {
-          const newProgress = prev + 10;
-          
-          if (newProgress >= 100) {
-            clearInterval(interval);
-            setIsGenerating(false);
-            setGeneratedVideoUrl("/placeholder.svg");
-            setCurrentStep("preview");
-
-            if (projectId || (data && data[0]?.id)) {
-              const videoProjectId = projectId || data[0].id;
-              supabase
-                .from('video_projects')
-                .update({
-                  status: 'completed',
-                  video_url: '/placeholder.svg',
-                  thumbnail_url: '/placeholder.svg',
-                  duration: 45
-                })
-                .eq('id', videoProjectId)
-                .then(({ error }) => {
-                  if (error) {
-                    console.error("Error updating video project:", error);
-                  }
-                });
+      
+      const newProject = await videoService.createProject(projectData);
+      if (newProject) {
+        setProjectId(newProject.id);
+        
+        // Render the video using Shotstack API
+        const renderIdResponse = await mediaService.renderVideo(
+          scenesForRendering, 
+          user?.id || "", 
+          newProject.id
+        );
+        
+        setRenderId(renderIdResponse);
+        setGenerationProgress(80);
+        
+        // Set up interval to check render status
+        const intervalId = window.setInterval(async () => {
+          try {
+            const { status, url } = await mediaService.checkRenderStatus(renderIdResponse);
+            
+            if (status === "done" && url) {
+              clearInterval(intervalId);
+              setRenderCheckInterval(null);
+              setGenerationProgress(100);
+              setGeneratedVideoUrl(url);
+              setIsGenerating(false);
+              setCurrentStep("preview");
+              
+              // Update the project with the video URL
+              await videoService.updateProject(newProject.id, {
+                status: "completed",
+                video_url: url,
+                thumbnail_url: url,
+                duration: scenesForRendering.reduce((acc, scene) => acc + scene.duration, 0)
+              });
+              
+              toast.success("Your video has been generated successfully!");
+            } else if (status === "failed") {
+              clearInterval(intervalId);
+              setRenderCheckInterval(null);
+              setIsGenerating(false);
+              setGenerationProgress(0);
+              
+              // Update the project status
+              await videoService.updateProject(newProject.id, {
+                status: "failed"
+              });
+              
+              toast.error("Video generation failed. Please try again.");
             }
-
-            toast.success("Your video has been generated successfully!");
-            return 100;
+          } catch (error) {
+            console.error("Error checking render status:", error);
           }
-          
-          return newProgress;
-        });
-      }, 800);
+        }, 5000);
+        
+        setRenderCheckInterval(intervalId);
+      }
     } catch (error) {
-      const err = error as Error;
-      console.error("Error during video generation:", err);
-      toast.error("An error occurred during video generation");
+      console.error("Error generating video:", error);
       setIsGenerating(false);
+      setGenerationProgress(0);
+      toast.error("Error generating video. Please try again.");
     }
   };
 
@@ -167,11 +214,23 @@ export function VideoGenerator() {
       return;
     }
     
-    simulateVideoGeneration();
+    setIsGenerating(true);
+    generateScenes();
   };
 
   const handleDownload = () => {
-    toast.success("Your video is being downloaded");
+    if (generatedVideoUrl) {
+      // Create a temporary anchor element to trigger download
+      const a = document.createElement('a');
+      a.href = generatedVideoUrl;
+      a.download = `smartvid-${projectId || Date.now()}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast.success("Your video is being downloaded");
+    } else {
+      toast.error("No video available to download");
+    }
   };
 
   const handleShare = () => {

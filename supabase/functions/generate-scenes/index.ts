@@ -29,6 +29,8 @@ serve(async (req) => {
       );
     }
 
+    console.log("Generating scenes for prompt:", prompt);
+
     const genAI = new GoogleGenerativeAI(API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
@@ -52,6 +54,7 @@ serve(async (req) => {
     ]);
     
     const response = result.response.text();
+    console.log("Gemini response:", response);
     
     // Parse the JSON from the response
     const jsonStartIndex = response.indexOf('[');
@@ -66,6 +69,7 @@ serve(async (req) => {
         id: crypto.randomUUID(),
         ...scene
       }));
+      console.log("Parsed scenes:", scenes);
     } catch (e) {
       console.error("Error parsing JSON:", e);
       throw new Error("Failed to parse scene breakdown");

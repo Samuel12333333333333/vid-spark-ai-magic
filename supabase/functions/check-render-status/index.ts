@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,17 +20,7 @@ serve(async (req) => {
       throw new Error("SHOTSTACK_API_KEY is not defined");
     }
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-      throw new Error("Supabase credentials are not defined");
-    }
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-
-    const { renderId, projectId } = await req.json();
-    
+    const { renderId } = await req.json();
     if (!renderId) {
       return new Response(
         JSON.stringify({ error: "Render ID is required" }),
@@ -39,7 +28,9 @@ serve(async (req) => {
       );
     }
 
-    // Call Shotstack API to check render status
+    console.log(`Checking status for render ID: ${renderId}`);
+
+    // Check status with Shotstack API
     const response = await fetch(`https://api.shotstack.io/stage/render/${renderId}`, {
       method: "GET",
       headers: {
@@ -52,30 +43,17 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const status = data.response.status;
-    const url = data.response.url;
+    console.log(`Render status: ${data.response.status}`);
 
-    // If render is complete and we have a project ID, update the project in Supabase
-    if (projectId && status === "done" && url) {
-      await supabase
-        .from("video_projects")
-        .update({
-          status: "completed",
-          video_url: url,
-          thumbnail_url: `https://api.shotstack.io/stage/render/${renderId}/thumbnail`,
-        })
-        .eq("id", projectId);
-    } else if (projectId && status === "failed") {
-      await supabase
-        .from("video_projects")
-        .update({
-          status: "failed"
-        })
-        .eq("id", projectId);
-    }
+    // Transform the response
+    const status = data.response.status;
+    const url = status === "done" ? data.response.url : null;
 
     return new Response(
-      JSON.stringify({ status, url }),
+      JSON.stringify({ 
+        status: status === "ready" ? "done" : status,
+        url
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

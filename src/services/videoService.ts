@@ -21,84 +21,114 @@ export interface VideoProject {
 
 export const videoService = {
   async getProjects(): Promise<VideoProject[]> {
-    const { data, error } = await supabase
-      .from('video_projects')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('video_projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error('Error fetching video projects:', error);
+        throw error;
+      }
       
-    if (error) {
-      console.error('Error fetching video projects:', error);
+      return (data || []) as VideoProject[];
+    } catch (error) {
+      console.error('Error in getProjects:', error);
       throw error;
     }
-    
-    return (data || []) as VideoProject[];
   },
   
   async getRecentProjects(limit: number = 3): Promise<VideoProject[]> {
-    const { data, error } = await supabase
-      .from('video_projects')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    try {
+      const { data, error } = await supabase
+        .from('video_projects')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+        
+      if (error) {
+        console.error('Error fetching recent video projects:', error);
+        throw error;
+      }
       
-    if (error) {
-      console.error('Error fetching recent video projects:', error);
+      return (data || []) as VideoProject[];
+    } catch (error) {
+      console.error('Error in getRecentProjects:', error);
       throw error;
     }
-    
-    return (data || []) as VideoProject[];
   },
   
   async getProjectById(id: string): Promise<VideoProject | null> {
-    const { data, error } = await supabase
-      .from('video_projects')
-      .select('*')
-      .eq('id', id)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('video_projects')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      if (error) {
+        console.error(`Error fetching video project with id ${id}:`, error);
+        return null;
+      }
       
-    if (error) {
-      console.error(`Error fetching video project with id ${id}:`, error);
-      return null;
+      return data as VideoProject;
+    } catch (error) {
+      console.error('Error in getProjectById:', error);
+      throw error;
     }
-    
-    return data as VideoProject;
   },
   
   async createProject(project: Omit<VideoProject, 'id' | 'created_at' | 'updated_at'>): Promise<VideoProject | null> {
-    const { data, error } = await supabase
-      .from('video_projects')
-      .insert(project)
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('video_projects')
+        .insert(project)
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('Error creating video project:', error);
+        throw error;
+      }
       
-    if (error) {
-      console.error('Error creating video project:', error);
+      return data as VideoProject;
+    } catch (error) {
+      console.error('Error in createProject:', error);
       throw error;
     }
-    
-    return data as VideoProject;
   },
   
   async updateProject(id: string, updates: Partial<VideoProject>): Promise<void> {
-    const { error } = await supabase
-      .from('video_projects')
-      .update(updates)
-      .eq('id', id);
-      
-    if (error) {
-      console.error(`Error updating video project with id ${id}:`, error);
+    try {
+      const { error } = await supabase
+        .from('video_projects')
+        .update(updates)
+        .eq('id', id);
+        
+      if (error) {
+        console.error(`Error updating video project with id ${id}:`, error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in updateProject:', error);
       throw error;
     }
   },
   
   async deleteProject(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('video_projects')
-      .delete()
-      .eq('id', id);
-      
-    if (error) {
-      console.error(`Error deleting video project with id ${id}:`, error);
+    try {
+      const { error } = await supabase
+        .from('video_projects')
+        .delete()
+        .eq('id', id);
+        
+      if (error) {
+        console.error(`Error deleting video project with id ${id}:`, error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in deleteProject:', error);
       throw error;
     }
   }

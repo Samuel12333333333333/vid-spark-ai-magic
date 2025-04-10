@@ -30,6 +30,7 @@ serve(async (req) => {
 
     // Join keywords with comma for better search results
     const query = keywords.join(", ");
+    console.log("Searching Pexels videos for:", query);
     
     const response = await fetch(
       `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&per_page=5&orientation=landscape`,
@@ -45,6 +46,7 @@ serve(async (req) => {
     }
 
     const data = await response.json();
+    console.log(`Found ${data.videos.length} videos for query: ${query}`);
     
     // Transform the data into our desired format
     const videos = data.videos.map((video) => {

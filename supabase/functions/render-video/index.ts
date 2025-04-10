@@ -46,6 +46,8 @@ serve(async (req) => {
       );
     }
 
+    console.log(`Rendering video for project ${projectId} with ${scenes.length} scenes`);
+
     // Create Shotstack timeline from scenes
     const timeline = {
       soundtrack: {
@@ -96,6 +98,8 @@ serve(async (req) => {
       output
     };
 
+    console.log("Sending request to Shotstack API:", JSON.stringify(shotstackPayload));
+
     // Call Shotstack API to render the video
     const response = await fetch("https://api.shotstack.io/stage/render", {
       method: "POST",
@@ -107,11 +111,14 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Shotstack API error response:", errorText);
       throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
     const renderId = data.response.id;
+    console.log("Shotstack render ID:", renderId);
 
     // Update the project in Supabase with the render ID
     await supabase
