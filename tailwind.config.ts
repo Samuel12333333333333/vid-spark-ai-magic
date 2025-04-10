@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,20 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				smartvid: {
+					50: '#f0f9ff',
+					100: '#e0f2fe',
+					200: '#bae6fd',
+					300: '#7dd3fc',
+					400: '#38bdf8',
+					500: '#0ea5e9',
+					600: '#0284c7',
+					700: '#0369a1',
+					800: '#075985',
+					900: '#0c4a6e',
+					purple: '#8B5CF6',
+					indigo: '#6366F1'
 				}
 			},
 			borderRadius: {
@@ -84,11 +99,27 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				shine: {
+					"0%": { backgroundPosition: "200% 0" },
+					"100%": { backgroundPosition: "-200% 0" }
+				},
+				"gradient-xy": {
+					"0%, 100%": {
+						"background-size": "400% 400%",
+						"background-position": "left center"
+					},
+					"50%": {
+						"background-size": "200% 200%",
+						"background-position": "right center"
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				shine: "shine 8s ease-in-out infinite",
+				"gradient-xy": "gradient-xy 15s ease infinite"
 			}
 		}
 	},
