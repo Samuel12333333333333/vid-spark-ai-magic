@@ -80,7 +80,7 @@ export function VideoGenerator() {
         return;
       }
 
-      const { data, error } = await supabase.from('video_projects').insert({
+      const projectData = {
         title: textPrompt.slice(0, 50) + (textPrompt.length > 50 ? '...' : ''),
         prompt: textPrompt,
         style: videoStyle,
@@ -89,7 +89,12 @@ export function VideoGenerator() {
         voice_type: voiceType,
         user_id: user.user.id,
         status: 'processing'
-      }).select().single();
+      };
+
+      const { data, error } = await supabase
+        .from('video_projects')
+        .insert(projectData)
+        .select();
 
       if (error) {
         console.error("Error creating video project:", error);
@@ -109,17 +114,24 @@ export function VideoGenerator() {
             setGeneratedVideoUrl("/placeholder.svg"); // Replace with actual video URL
             setCurrentStep("preview");
 
-            // Update the video project with the generated URL
-            supabase.from('video_projects').update({
-              status: 'completed',
-              video_url: '/placeholder.svg',
-              thumbnail_url: '/placeholder.svg',
-              duration: 45
-            }).eq('id', data.id).then(({ error }) => {
-              if (error) {
-                console.error("Error updating video project:", error);
-              }
-            });
+            const projectId = data?.[0]?.id;
+            if (projectId) {
+              // Update the video project with the generated URL
+              supabase
+                .from('video_projects')
+                .update({
+                  status: 'completed',
+                  video_url: '/placeholder.svg',
+                  thumbnail_url: '/placeholder.svg',
+                  duration: 45
+                })
+                .eq('id', projectId)
+                .then(({ error }) => {
+                  if (error) {
+                    console.error("Error updating video project:", error);
+                  }
+                });
+            }
 
             toast.success("Your video has been generated successfully!");
             return 100;
