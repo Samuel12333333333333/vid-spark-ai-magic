@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, SlidersHorizontal, Rows3, Grid2X2 } from "lucide-react";
+import { Plus, Search, SlidersHorizontal, Rows3, Grid2X2, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { RecentProjects } from "@/components/dashboard/RecentProjects";
 import { VideoProject, videoService } from "@/services/videoService";

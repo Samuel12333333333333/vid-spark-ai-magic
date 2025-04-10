@@ -2,6 +2,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface AuthContextType {
   session: Session | null;
@@ -21,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -29,6 +32,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
+        
+        if (event === 'SIGNED_IN') {
+          toast.success('Successfully signed in!');
+        } else if (event === 'SIGNED_OUT') {
+          toast.info('You have been signed out');
+          navigate('/login');
+        }
       }
     );
 
@@ -40,13 +50,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
     } catch (error) {
       console.error('Error signing out:', error);
+      toast.error('Error signing out. Please try again.');
     }
   };
 

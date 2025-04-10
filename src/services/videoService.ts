@@ -16,6 +16,7 @@ export interface VideoProject {
   created_at: string;
   updated_at: string;
   user_id: string;
+  render_id?: string;
 }
 
 export const videoService = {
@@ -30,7 +31,7 @@ export const videoService = {
       throw error;
     }
     
-    return data || [];
+    return (data || []) as VideoProject[];
   },
   
   async getRecentProjects(limit: number = 3): Promise<VideoProject[]> {
@@ -45,7 +46,7 @@ export const videoService = {
       throw error;
     }
     
-    return data || [];
+    return (data || []) as VideoProject[];
   },
   
   async getProjectById(id: string): Promise<VideoProject | null> {
@@ -60,7 +61,7 @@ export const videoService = {
       return null;
     }
     
-    return data;
+    return data as VideoProject;
   },
   
   async createProject(project: Omit<VideoProject, 'id' | 'created_at' | 'updated_at'>): Promise<VideoProject | null> {
@@ -75,7 +76,7 @@ export const videoService = {
       throw error;
     }
     
-    return data;
+    return data as VideoProject;
   },
   
   async updateProject(id: string, updates: Partial<VideoProject>): Promise<void> {

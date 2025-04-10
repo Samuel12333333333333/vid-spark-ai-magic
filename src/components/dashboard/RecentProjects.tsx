@@ -3,14 +3,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Play, FileEdit, Trash2 } from "lucide-react";
-
-interface VideoProject {
-  id: string;
-  title: string;
-  thumbnail: string;
-  status: "completed" | "processing" | "failed";
-  date: string;
-}
+import { VideoProject } from "@/services/videoService";
+import { formatDistanceToNow } from "date-fns";
 
 interface RecentProjectsProps {
   projects: VideoProject[];
@@ -23,7 +17,7 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
         <Card key={project.id} className="overflow-hidden">
           <div className="relative">
             <img
-              src={project.thumbnail || "/placeholder.svg"}
+              src={project.thumbnail_url || "/placeholder.svg"}
               alt={project.title}
               className="w-full aspect-video object-cover"
             />
@@ -58,7 +52,9 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="font-medium text-sm line-clamp-1">{project.title}</h3>
-                <p className="text-xs text-muted-foreground">{project.date}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatDistanceToNow(new Date(project.created_at), { addSuffix: true })}
+                </p>
               </div>
               <div className="flex gap-1">
                 {project.status === "completed" && (
