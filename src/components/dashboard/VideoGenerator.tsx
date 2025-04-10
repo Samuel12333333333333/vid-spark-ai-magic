@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,7 +24,20 @@ export function VideoGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState("");
+  const [projectId, setProjectId] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("You must be logged in to generate videos");
+        navigate("/login");
+      }
+    };
+    
+    checkAuth();
+  }, [navigate]);
 
   const videoStyles = [
     { value: "ad", label: "Advertisement" },
@@ -71,10 +83,9 @@ export function VideoGenerator() {
     setGenerationProgress(0);
 
     try {
-      // Create a video project in Supabase
-      const { data: user } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       
-      if (!user.user) {
+      if (!user) {
         toast.error("You must be logged in to generate videos");
         navigate("/login");
         return;
@@ -87,7 +98,7 @@ export function VideoGenerator() {
         media_source: mediaSource,
         brand_colors: brandColors,
         voice_type: voiceType,
-        user_id: user.user.id,
+        user_id: user.id,
         status: 'processing'
       };
 
@@ -103,7 +114,10 @@ export function VideoGenerator() {
         return;
       }
 
-      // Simulate a progress update
+      if (data && data.length > 0) {
+        setProjectId(data[0].id);
+      }
+
       const interval = setInterval(async () => {
         setGenerationProgress((prev) => {
           const newProgress = prev + 10;
@@ -111,12 +125,11 @@ export function VideoGenerator() {
           if (newProgress >= 100) {
             clearInterval(interval);
             setIsGenerating(false);
-            setGeneratedVideoUrl("/placeholder.svg"); // Replace with actual video URL
+            setGeneratedVideoUrl("/placeholder.svg");
             setCurrentStep("preview");
 
-            const projectId = data?.[0]?.id;
-            if (projectId) {
-              // Update the video project with the generated URL
+            if (projectId || (data && data[0]?.id)) {
+              const videoProjectId = projectId || data[0].id;
               supabase
                 .from('video_projects')
                 .update({
@@ -125,7 +138,7 @@ export function VideoGenerator() {
                   thumbnail_url: '/placeholder.svg',
                   duration: 45
                 })
-                .eq('id', projectId)
+                .eq('id', videoProjectId)
                 .then(({ error }) => {
                   if (error) {
                     console.error("Error updating video project:", error);
@@ -141,7 +154,8 @@ export function VideoGenerator() {
         });
       }, 800);
     } catch (error) {
-      console.error("Error during video generation:", error);
+      const err = error as Error;
+      console.error("Error during video generation:", err);
       toast.error("An error occurred during video generation");
       setIsGenerating(false);
     }
@@ -161,8 +175,13 @@ export function VideoGenerator() {
   };
 
   const handleShare = () => {
-    navigator.clipboard.writeText("https://example.com/share/video123");
-    toast.success("Video link copied to clipboard");
+    if (projectId) {
+      const shareUrl = `${window.location.origin}/video/${projectId}`;
+      navigator.clipboard.writeText(shareUrl);
+      toast.success("Video link copied to clipboard");
+    } else {
+      toast.error("Cannot share video: Project ID is missing");
+    }
   };
 
   return (

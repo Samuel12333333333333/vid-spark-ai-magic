@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,20 +7,108 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Save, CreditCard, Bell, ShieldAlert } from "lucide-react";
+import { Save, CreditCard, Bell, ShieldAlert, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { profileService, UserProfile } from "@/services/profileService";
 
 export default function SettingsPage() {
-  const [fullName, setFullName] = useState("John Doe");
-  const [email, setEmail] = useState("john@example.com");
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   
-  const handleSaveProfile = () => {
-    toast.success("Profile information saved");
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      try {
+        setIsLoading(true);
+        const profileData = await profileService.getProfile(user.id);
+        
+        if (profileData) {
+          setProfile(profileData);
+          setFullName(profileData.username || "");
+        }
+        
+        setEmail(user.email || "");
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+        toast.error("Failed to load profile information");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchProfile();
+  }, [user]);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) {
+      return;
+    }
+    
+    const file = e.target.files[0];
+    setAvatarFile(file);
+    
+    // Preview the image
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAvatarPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+  
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    
+    try {
+      setIsSaving(true);
+      
+      // Update profile username
+      await profileService.updateProfile(user.id, { 
+        username: fullName
+      });
+      
+      // Upload avatar if selected
+      if (avatarFile) {
+        await profileService.uploadAvatar(user.id, avatarFile);
+      }
+      
+      // Refresh profile data
+      const updatedProfile = await profileService.getProfile(user.id);
+      if (updatedProfile) {
+        setProfile(updatedProfile);
+      }
+      
+      toast.success("Profile information saved");
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      toast.error("Failed to save profile information");
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   const handleSaveBilling = () => {
     toast.success("Billing information updated");
   };
+
+  const userInitials = fullName
+    ? fullName.split(" ").map((n) => n[0]).join("").toUpperCase()
+    : user?.email?.charAt(0).toUpperCase() || "U";
+  
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-smartvid-600" />
+      </div>
+    );
+  }
   
   return (
     <div className="space-y-8">
@@ -52,12 +139,27 @@ export default function SettingsPage() {
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex flex-col items-center space-y-4">
                   <Avatar className="w-24 h-24">
-                    <AvatarImage src="" alt="Profile" />
-                    <AvatarFallback className="text-lg">JD</AvatarFallback>
+                    <AvatarImage 
+                      src={avatarPreview || profile?.avatar_url || ""} 
+                      alt="Profile" 
+                    />
+                    <AvatarFallback className="text-lg">{userInitials}</AvatarFallback>
                   </Avatar>
-                  <Button variant="outline" size="sm">
-                    Change Avatar
-                  </Button>
+                  <div>
+                    <Input
+                      id="avatar-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarChange}
+                    />
+                    <Label
+                      htmlFor="avatar-upload"
+                      className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground ring-offset-background transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
+                    >
+                      Change Avatar
+                    </Label>
+                  </div>
                 </div>
                 
                 <div className="flex-1 space-y-4">
@@ -76,8 +178,11 @@ export default function SettingsPage() {
                       id="email" 
                       type="email" 
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      disabled
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Your email address is associated with your account and cannot be changed
+                    </p>
                   </div>
                   
                   <div className="space-y-2">
@@ -120,9 +225,18 @@ export default function SettingsPage() {
               </div>
             </CardContent>
             <CardFooter className="border-t px-6 py-4">
-              <Button onClick={handleSaveProfile}>
-                <Save className="mr-2 h-4 w-4" />
-                Save Changes
+              <Button onClick={handleSaveProfile} disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
               </Button>
             </CardFooter>
           </Card>

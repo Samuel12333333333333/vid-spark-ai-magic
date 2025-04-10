@@ -3,7 +3,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 // Layouts
 import { DashboardLayout } from "@/layouts/DashboardLayout";
@@ -22,10 +23,33 @@ import GeneratorPage from "./pages/dashboard/GeneratorPage";
 import BrandKitPage from "./pages/dashboard/BrandKitPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 
+// Protected Route component
+const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+  const { session, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+  
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return children;
+};
+
 const queryClient = new QueryClient();
 
-const App = () => (
+const AppWithProviders = () => (
   <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
+  </QueryClientProvider>
+);
+
+const AppRoutes = () => {
+  return (
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -36,8 +60,15 @@ const App = () => (
           <Route path="/login" element={<AuthPage />} />
           <Route path="/register" element={<AuthPage />} />
           
-          {/* Dashboard Routes */}
-          <Route path="/dashboard" element={<DashboardLayout />}>
+          {/* Dashboard Routes - Protected */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route index element={<DashboardHome />} />
             <Route path="videos" element={<VideosPage />} />
             <Route path="templates" element={<TemplatesPage />} />
@@ -52,7 +83,9 @@ const App = () => (
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
-  </QueryClientProvider>
-);
+  );
+};
+
+const App = () => <AppWithProviders />;
 
 export default App;

@@ -1,21 +1,60 @@
 
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Bell } from "lucide-react";
+import { Bell, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export function DashboardLayout() {
-  // Mock user data
-  const user = {
-    name: "John Doe",
-    email: "john@example.com",
-    avatar: "",
+  const { user, signOut } = useAuth();
+  const [profile, setProfile] = useState<{ username?: string, avatar_url?: string } | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('username, avatar_url')
+          .eq('id', user.id)
+          .single();
+          
+        if (error) {
+          console.error('Error fetching profile:', error);
+          return;
+        }
+        
+        setProfile(data);
+      } catch (error) {
+        console.error('Error in profile fetch:', error);
+      }
+    };
+    
+    fetchProfile();
+  }, [user]);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast.success("Logged out successfully");
+      navigate("/login");
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast.error("Failed to log out");
+    }
   };
 
-  const userInitials = user.name
+  const userName = profile?.username || user?.email?.split('@')[0] || "User";
+  const userEmail = user?.email || "";
+  const userInitials = userName
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -43,19 +82,22 @@ export function DashboardLayout() {
                     className="relative h-8 w-8 rounded-full"
                   >
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.avatar} alt={user.name} />
+                      <AvatarImage src={profile?.avatar_url || ""} alt={userName} />
                       <AvatarFallback>{userInitials}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem className="font-semibold">{user.name}</DropdownMenuItem>
+                  <DropdownMenuItem className="font-semibold">{userName}</DropdownMenuItem>
                   <DropdownMenuItem className="text-sm text-muted-foreground">
-                    {user.email}
+                    {userEmail}
                   </DropdownMenuItem>
-                  <DropdownMenuItem>Profile</DropdownMenuItem>
-                  <DropdownMenuItem>Settings</DropdownMenuItem>
-                  <DropdownMenuItem>Sign out</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>Profile</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>Settings</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign out
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

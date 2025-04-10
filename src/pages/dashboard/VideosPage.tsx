@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,61 +7,59 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, SlidersHorizontal, Rows3, Grid2X2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { RecentProjects } from "@/components/dashboard/RecentProjects";
+import { VideoProject, videoService } from "@/services/videoService";
+import { toast } from "sonner";
 
 export default function VideosPage() {
   const [view, setView] = useState<"grid" | "list">("grid");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [videos, setVideos] = useState<VideoProject[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("all");
 
-  // Mock data for videos
-  const allVideos = [
-    {
-      id: "1",
-      title: "Product Launch Announcement",
-      thumbnail: "/placeholder.svg",
-      status: "completed" as const,
-      date: "Today",
-    },
-    {
-      id: "2",
-      title: "Social Media Ad",
-      thumbnail: "/placeholder.svg",
-      status: "processing" as const,
-      date: "Today",
-    },
-    {
-      id: "3",
-      title: "Educational Tutorial",
-      thumbnail: "/placeholder.svg",
-      status: "completed" as const,
-      date: "Yesterday",
-    },
-    {
-      id: "4",
-      title: "Company Overview",
-      thumbnail: "/placeholder.svg",
-      status: "completed" as const,
-      date: "Last week",
-    },
-    {
-      id: "5",
-      title: "Feature Explanation",
-      thumbnail: "/placeholder.svg",
-      status: "completed" as const,
-      date: "Last week",
-    },
-    {
-      id: "6",
-      title: "Customer Testimonial",
-      thumbnail: "/placeholder.svg",
-      status: "failed" as const,
-      date: "Last week",
-    },
-  ];
+  useEffect(() => {
+    const fetchVideos = async () => {
+      try {
+        setIsLoading(true);
+        const allVideos = await videoService.getProjects();
+        setVideos(allVideos);
+      } catch (error) {
+        console.error("Error fetching videos:", error);
+        toast.error("Failed to load videos");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // Filter videos based on status
-  const filteredVideos = filterStatus === "all" 
-    ? allVideos 
-    : allVideos.filter(video => video.status === filterStatus);
+    fetchVideos();
+  }, []);
+
+  // Filter videos based on status and search term
+  const filteredVideos = videos
+    .filter(video => filterStatus === "all" || video.status === filterStatus)
+    .filter(video => 
+      searchTerm === "" || 
+      video.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      video.prompt.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+  const getVideosForTab = (tab: string) => {
+    switch (tab) {
+      case "all":
+        return filteredVideos;
+      case "recent":
+        return videos.slice(0, 3);
+      case "shared":
+        // In a real app, you would filter for shared videos
+        return [];
+      case "trash":
+        // In a real app, you would have a "deleted" flag or a separate trash collection
+        return [];
+      default:
+        return filteredVideos;
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -84,6 +82,8 @@ export default function VideosPage() {
           <Input 
             placeholder="Search videos..." 
             className="pl-9"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         
@@ -122,7 +122,7 @@ export default function VideosPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="all">
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="all">All Videos</TabsTrigger>
           <TabsTrigger value="recent">Recent</TabsTrigger>
@@ -131,8 +131,12 @@ export default function VideosPage() {
         </TabsList>
         
         <TabsContent value="all" className="pt-6">
-          {filteredVideos.length > 0 ? (
-            <RecentProjects projects={filteredVideos} />
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-smartvid-600" />
+            </div>
+          ) : getVideosForTab("all").length > 0 ? (
+            <RecentProjects projects={getVideosForTab("all")} />
           ) : (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">No videos found matching your criteria</p>
@@ -144,7 +148,20 @@ export default function VideosPage() {
         </TabsContent>
         
         <TabsContent value="recent" className="pt-6">
-          <RecentProjects projects={allVideos.slice(0, 3)} />
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-smartvid-600" />
+            </div>
+          ) : getVideosForTab("recent").length > 0 ? (
+            <RecentProjects projects={getVideosForTab("recent")} />
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground mb-4">No recent videos found</p>
+              <Button asChild>
+                <Link to="/dashboard/generator">Create Your First Video</Link>
+              </Button>
+            </div>
+          )}
         </TabsContent>
         
         <TabsContent value="shared" className="pt-6">

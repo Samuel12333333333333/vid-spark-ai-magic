@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { AlertCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 type AuthMode = "login" | "register";
 
@@ -22,7 +23,7 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
   const [error, setError] = useState("");
   
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
 
   useEffect(() => {
     // Check if user is already logged in
@@ -82,10 +83,15 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
         
         if (error) throw error;
         else {
-          toast({
+          uiToast({
             title: "Registration successful!",
             description: "Please check your email to verify your account.",
           });
+          
+          toast.success("Account created successfully!");
+          setMode("login");
+          setPassword("");
+          setConfirmPassword("");
         }
       }
       
