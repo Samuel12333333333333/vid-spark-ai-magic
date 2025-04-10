@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 type AuthMode = "login" | "register";
 
@@ -20,6 +21,31 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
   const [error, setError] = useState("");
   
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        navigate("/dashboard");
+      }
+    };
+    
+    checkSession();
+    
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_, session) => {
+        if (session) {
+          navigate("/dashboard");
+        }
+      }
+    );
+    
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,11 +65,26 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
     setIsLoading(true);
     
     try {
-      // Simulate auth action
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (mode === "login") {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        
+        if (error) throw error;
+        else {
+          toast.success("Registration successful! Please check your email to verify your account.");
+        }
+      }
       
-      // For demo purposes, just navigate to dashboard
-      navigate("/dashboard");
+      // No need to navigate here, the onAuthStateChange listener will handle it
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");
     } finally {

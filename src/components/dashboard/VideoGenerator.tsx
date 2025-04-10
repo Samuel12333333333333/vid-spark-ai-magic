@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Video, Sparkles, Download, Share2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 type GenerationStep = "script" | "style" | "media" | "branding" | "voiceover" | "generate" | "preview";
 
@@ -23,6 +25,7 @@ export function VideoGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState("");
+  const navigate = useNavigate();
 
   const videoStyles = [
     { value: "ad", label: "Advertisement" },
@@ -63,27 +66,73 @@ export function VideoGenerator() {
     }
   };
 
-  const simulateVideoGeneration = () => {
+  const simulateVideoGeneration = async () => {
     setIsGenerating(true);
     setGenerationProgress(0);
 
-    // Simulate a progress update
-    const interval = setInterval(() => {
-      setGenerationProgress((prev) => {
-        const newProgress = prev + 10;
-        
-        if (newProgress >= 100) {
-          clearInterval(interval);
-          setIsGenerating(false);
-          setGeneratedVideoUrl("/placeholder.svg"); // Replace with actual video URL
-          setCurrentStep("preview");
-          toast.success("Your video has been generated successfully!");
-          return 100;
-        }
-        
-        return newProgress;
-      });
-    }, 800);
+    try {
+      // Create a video project in Supabase
+      const { data: user } = await supabase.auth.getUser();
+      
+      if (!user.user) {
+        toast.error("You must be logged in to generate videos");
+        navigate("/login");
+        return;
+      }
+
+      const { data, error } = await supabase.from('video_projects').insert({
+        title: textPrompt.slice(0, 50) + (textPrompt.length > 50 ? '...' : ''),
+        prompt: textPrompt,
+        style: videoStyle,
+        media_source: mediaSource,
+        brand_colors: brandColors,
+        voice_type: voiceType,
+        user_id: user.user.id,
+        status: 'processing'
+      }).select().single();
+
+      if (error) {
+        console.error("Error creating video project:", error);
+        toast.error("Failed to create video project");
+        setIsGenerating(false);
+        return;
+      }
+
+      // Simulate a progress update
+      const interval = setInterval(async () => {
+        setGenerationProgress((prev) => {
+          const newProgress = prev + 10;
+          
+          if (newProgress >= 100) {
+            clearInterval(interval);
+            setIsGenerating(false);
+            setGeneratedVideoUrl("/placeholder.svg"); // Replace with actual video URL
+            setCurrentStep("preview");
+
+            // Update the video project with the generated URL
+            supabase.from('video_projects').update({
+              status: 'completed',
+              video_url: '/placeholder.svg',
+              thumbnail_url: '/placeholder.svg',
+              duration: 45
+            }).eq('id', data.id).then(({ error }) => {
+              if (error) {
+                console.error("Error updating video project:", error);
+              }
+            });
+
+            toast.success("Your video has been generated successfully!");
+            return 100;
+          }
+          
+          return newProgress;
+        });
+      }, 800);
+    } catch (error) {
+      console.error("Error during video generation:", error);
+      toast.error("An error occurred during video generation");
+      setIsGenerating(false);
+    }
   };
 
   const handleVideoGenerate = () => {
