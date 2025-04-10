@@ -2,7 +2,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 interface AuthContextType {
@@ -23,7 +22,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -37,7 +35,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           toast.success('Successfully signed in!');
         } else if (event === 'SIGNED_OUT') {
           toast.info('You have been signed out');
-          navigate('/login');
+          // Instead of using navigate which requires Router context,
+          // we'll use window.location for navigation after sign out
+          if (window.location.pathname !== '/login' && 
+              window.location.pathname !== '/' && 
+              window.location.pathname !== '/register') {
+            window.location.href = '/login';
+          }
         }
       }
     );
@@ -50,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
 
   const signOut = async () => {
     try {

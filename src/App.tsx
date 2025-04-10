@@ -40,52 +40,46 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
 
 const queryClient = new QueryClient();
 
-const AppWithProviders = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
-  </QueryClientProvider>
-);
-
-const AppRoutes = () => {
+const App = () => {
   return (
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<AuthPage />} />
-          <Route path="/register" element={<AuthPage />} />
-          
-          {/* Dashboard Routes - Protected */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<DashboardHome />} />
-            <Route path="videos" element={<VideosPage />} />
-            <Route path="templates" element={<TemplatesPage />} />
-            <Route path="scripts" element={<ScriptsPage />} />
-            <Route path="generator" element={<GeneratorPage />} />
-            <Route path="brand" element={<BrandKitPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-          </Route>
-          
-          {/* 404 Route */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<AuthPage />} />
+              <Route path="/register" element={<AuthPage />} />
+              
+              {/* Dashboard Routes - Protected */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<DashboardHome />} />
+                <Route path="videos" element={<VideosPage />} />
+                <Route path="templates" element={<TemplatesPage />} />
+                <Route path="scripts" element={<ScriptsPage />} />
+                <Route path="generator" element={<GeneratorPage />} />
+                <Route path="brand" element={<BrandKitPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+              </Route>
+              
+              {/* 404 Route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </TooltipProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </BrowserRouter>
   );
 };
-
-const App = () => <AppWithProviders />;
 
 export default App;
