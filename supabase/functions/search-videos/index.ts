@@ -17,7 +17,11 @@ serve(async (req) => {
   try {
     const API_KEY = Deno.env.get("PEXELS_API_KEY");
     if (!API_KEY) {
-      throw new Error("PEXELS_API_KEY is not defined");
+      console.error("PEXELS_API_KEY is not defined");
+      return new Response(
+        JSON.stringify({ error: "API key is missing. Please check your environment variables." }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
     }
 
     const { keywords } = await req.json();
@@ -28,42 +32,44 @@ serve(async (req) => {
       );
     }
 
-    // Join keywords with comma for better search results
-    const query = keywords.join(", ");
-    console.log("Searching Pexels videos for:", query);
-    
-    const response = await fetch(
-      `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&per_page=5&orientation=landscape`,
-      {
-        headers: {
-          Authorization: API_KEY
-        }
+    // Join keywords with spaces for the search query
+    const searchQuery = keywords.join(' ');
+    console.log(`Searching Pexels for: ${searchQuery}`);
+
+    // Search for videos with Pexels API
+    const response = await fetch(`https://api.pexels.com/videos/search?query=${encodeURIComponent(searchQuery)}&per_page=5&orientation=landscape`, {
+      method: "GET",
+      headers: {
+        "Authorization": API_KEY
       }
-    );
+    });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Pexels API error: ${response.status} ${response.statusText}`, errorText);
       throw new Error(`Pexels API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log(`Found ${data.videos.length} videos for query: ${query}`);
-    
-    // Transform the data into our desired format
-    const videos = data.videos.map((video) => {
-      // Find the HD or SD file
+    console.log(`Found ${data.videos?.length || 0} videos`);
+
+    // Transform the Pexels response to our expected format
+    const videos = data.videos?.map(video => {
+      // Find HD or SD file
       const videoFile = video.video_files.find(file => 
-        file.quality === "hd" || file.quality === "sd"
+        (file.quality === "hd" || file.quality === "sd") && 
+        file.file_type.includes("mp4")
       ) || video.video_files[0];
       
       return {
         id: video.id.toString(),
         url: videoFile.link,
-        preview: video.image,
+        preview: video.image, // Use the video thumbnail
         duration: video.duration,
         width: videoFile.width,
         height: videoFile.height
       };
-    });
+    }) || [];
 
     return new Response(
       JSON.stringify({ videos }),

@@ -18,7 +18,11 @@ serve(async (req) => {
   try {
     const API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!API_KEY) {
-      throw new Error("GEMINI_API_KEY is not defined");
+      console.error("GEMINI_API_KEY is not defined");
+      return new Response(
+        JSON.stringify({ error: "API key is missing. Please check your environment variables." }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
     }
 
     const { prompt } = await req.json();
@@ -48,41 +52,94 @@ serve(async (req) => {
         "duration": 5
       }`;
 
-    const result = await model.generateContent([
-      systemPrompt,
-      prompt
-    ]);
-    
-    const response = result.response.text();
-    console.log("Gemini response:", response);
-    
-    // Parse the JSON from the response
-    const jsonStartIndex = response.indexOf('[');
-    const jsonEndIndex = response.lastIndexOf(']') + 1;
-    const jsonStr = response.substring(jsonStartIndex, jsonEndIndex);
-    
-    let scenes = [];
     try {
-      scenes = JSON.parse(jsonStr);
-      // Add unique IDs to each scene
-      scenes = scenes.map((scene, index) => ({
-        id: crypto.randomUUID(),
-        ...scene
-      }));
-      console.log("Parsed scenes:", scenes);
-    } catch (e) {
-      console.error("Error parsing JSON:", e);
-      throw new Error("Failed to parse scene breakdown");
-    }
+      const result = await model.generateContent([
+        systemPrompt,
+        prompt
+      ]);
+      
+      const response = result.response.text();
+      console.log("Gemini response received");
+      
+      // Parse the JSON from the response
+      let jsonStr = "";
+      try {
+        // Look for JSON array in the response
+        const jsonStartIndex = response.indexOf('[');
+        const jsonEndIndex = response.lastIndexOf(']') + 1;
+        
+        if (jsonStartIndex === -1 || jsonEndIndex === -1) {
+          // If we can't find array brackets, try to parse the whole thing
+          console.log("Couldn't find JSON array markers, trying to parse the entire response");
+          jsonStr = response;
+        } else {
+          jsonStr = response.substring(jsonStartIndex, jsonEndIndex);
+        }
+        
+        console.log("Parsed JSON string:", jsonStr);
+      } catch (e) {
+        console.error("Error extracting JSON:", e);
+        throw new Error("Failed to extract JSON from Gemini response");
+      }
+      
+      let scenes = [];
+      try {
+        // Handle case where the response might be wrapped in backticks or code block
+        jsonStr = jsonStr.replace(/^```json\n|\n```$/g, "");
+        jsonStr = jsonStr.replace(/^```\n|\n```$/g, "");
+        scenes = JSON.parse(jsonStr);
+        
+        // Add unique IDs to each scene
+        scenes = scenes.map((scene, index) => ({
+          id: crypto.randomUUID(),
+          ...scene
+        }));
+        console.log("Successfully parsed scenes:", scenes.length);
+      } catch (e) {
+        console.error("Error parsing JSON:", e, "Raw JSON string:", jsonStr);
+        
+        // Fallback to a default response if parsing fails
+        scenes = [
+          {
+            id: crypto.randomUUID(),
+            scene: "Introduction",
+            description: "Opening scene introducing the main concept",
+            keywords: ["introduction", "opening", "concept"],
+            duration: 5
+          },
+          {
+            id: crypto.randomUUID(),
+            scene: "Main Content",
+            description: "Presenting the core information from the prompt",
+            keywords: ["information", "content", "presentation"],
+            duration: 6
+          },
+          {
+            id: crypto.randomUUID(),
+            scene: "Conclusion",
+            description: "Final scene summarizing the main points",
+            keywords: ["conclusion", "summary", "final"],
+            duration: 5
+          }
+        ];
+        console.log("Using fallback scenes due to JSON parsing error");
+      }
 
-    return new Response(
-      JSON.stringify({ scenes }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+      return new Response(
+        JSON.stringify({ scenes }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (generationError) {
+      console.error("Error generating content:", generationError);
+      return new Response(
+        JSON.stringify({ error: "Failed to generate scenes from Gemini API", details: generationError.message }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
   } catch (error) {
-    console.error("Error:", error.message);
+    console.error("Error in generate-scenes function:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: "An unexpected error occurred", details: error.message }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }

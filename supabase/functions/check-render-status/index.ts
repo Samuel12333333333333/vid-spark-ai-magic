@@ -17,7 +17,11 @@ serve(async (req) => {
   try {
     const API_KEY = Deno.env.get("SHOTSTACK_API_KEY");
     if (!API_KEY) {
-      throw new Error("SHOTSTACK_API_KEY is not defined");
+      console.error("SHOTSTACK_API_KEY is not defined");
+      return new Response(
+        JSON.stringify({ error: "API key is missing. Please check your environment variables." }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
     }
 
     const { renderId } = await req.json();
@@ -39,6 +43,8 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Shotstack API error: ${response.status} ${response.statusText}`, errorText);
       throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
     }
 
