@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { aiService, SceneBreakdown } from "@/services/aiService";
 import { mediaService, VideoClip } from "@/services/mediaService";
-import { videoService } from "@/services/videoService";
+import { videoService, VideoProject } from "@/services/videoService";
 import { useAuth } from "@/contexts/AuthContext";
 
 type GenerationStep = "script" | "style" | "media" | "branding" | "voiceover" | "generate" | "preview";
@@ -50,7 +49,6 @@ export function VideoGenerator() {
     checkAuth();
   }, [navigate]);
 
-  // Clean up render check interval when component unmounts
   useEffect(() => {
     return () => {
       if (renderCheckInterval) {
@@ -102,13 +100,11 @@ export function VideoGenerator() {
     try {
       setGenerationProgress(10);
       
-      // Generate scenes using Gemini API
       const generatedScenes = await aiService.generateScenes(textPrompt);
       setScenes(generatedScenes);
       
       setGenerationProgress(30);
       
-      // Find video clips for each scene
       const updatedScenes = [...generatedScenes];
       const newSceneVideos = new Map<string, VideoClip>();
       
@@ -126,13 +122,11 @@ export function VideoGenerator() {
       setSceneVideos(newSceneVideos);
       setGenerationProgress(60);
       
-      // Prepare scenes for rendering
       const scenesForRendering = updatedScenes.map(scene => ({
         ...scene,
         videoUrl: newSceneVideos.get(scene.id)?.url || ""
       }));
       
-      // Create a project in the database
       const projectData = {
         title: textPrompt.slice(0, 50) + (textPrompt.length > 50 ? '...' : ''),
         prompt: textPrompt,
@@ -141,14 +135,13 @@ export function VideoGenerator() {
         brand_colors: brandColors,
         voice_type: voiceType,
         user_id: user?.id || "",
-        status: 'processing'
+        status: 'processing' as 'pending' | 'processing' | 'completed' | 'failed'
       };
       
       const newProject = await videoService.createProject(projectData);
       if (newProject) {
         setProjectId(newProject.id);
         
-        // Render the video using Shotstack API
         const renderIdResponse = await mediaService.renderVideo(
           scenesForRendering, 
           user?.id || "", 
@@ -158,7 +151,6 @@ export function VideoGenerator() {
         setRenderId(renderIdResponse);
         setGenerationProgress(80);
         
-        // Set up interval to check render status
         const intervalId = window.setInterval(async () => {
           try {
             const { status, url } = await mediaService.checkRenderStatus(renderIdResponse);
@@ -171,9 +163,8 @@ export function VideoGenerator() {
               setIsGenerating(false);
               setCurrentStep("preview");
               
-              // Update the project with the video URL
               await videoService.updateProject(newProject.id, {
-                status: "completed",
+                status: "completed" as "pending" | "processing" | "completed" | "failed",
                 video_url: url,
                 thumbnail_url: url,
                 duration: scenesForRendering.reduce((acc, scene) => acc + scene.duration, 0)
@@ -186,9 +177,8 @@ export function VideoGenerator() {
               setIsGenerating(false);
               setGenerationProgress(0);
               
-              // Update the project status
               await videoService.updateProject(newProject.id, {
-                status: "failed"
+                status: "failed" as "pending" | "processing" | "completed" | "failed"
               });
               
               toast.error("Video generation failed. Please try again.");
@@ -220,7 +210,6 @@ export function VideoGenerator() {
 
   const handleDownload = () => {
     if (generatedVideoUrl) {
-      // Create a temporary anchor element to trigger download
       const a = document.createElement('a');
       a.href = generatedVideoUrl;
       a.download = `smartvid-${projectId || Date.now()}.mp4`;
