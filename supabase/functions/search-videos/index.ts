@@ -67,12 +67,29 @@ serve(async (req) => {
         preview: video.image, // Use the video thumbnail
         duration: video.duration,
         width: videoFile.width,
-        height: videoFile.height
+        height: videoFile.height,
+        // Add attribution data from Pexels requirements
+        attribution: {
+          photographer: video.user.name,
+          photographerUrl: video.user.url,
+          sourceSite: "Pexels",
+          sourceUrl: "https://www.pexels.com/"
+        }
       };
     }) || [];
 
+    // Add Pexels attribution to the response
+    const response_with_attribution = {
+      videos,
+      attribution: {
+        text: "Videos provided by Pexels",
+        url: "https://www.pexels.com/",
+        logoUrl: "https://images.pexels.com/lib/api/pexels.png"
+      }
+    };
+
     return new Response(
-      JSON.stringify({ videos }),
+      JSON.stringify(response_with_attribution),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

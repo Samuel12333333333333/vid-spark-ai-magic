@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -153,7 +154,13 @@ export function VideoGenerator() {
         
         const intervalId = window.setInterval(async () => {
           try {
+            if (!renderIdResponse) {
+              console.error("No render ID to check status for");
+              return;
+            }
+            
             const { status, url } = await mediaService.checkRenderStatus(renderIdResponse);
+            console.log(`Checking render status: ${status}, URL: ${url || 'not ready'}`);
             
             if (status === "done" && url) {
               clearInterval(intervalId);
@@ -182,6 +189,12 @@ export function VideoGenerator() {
               });
               
               toast.error("Video generation failed. Please try again.");
+            } else {
+              // Update progress for intermediate steps
+              if (status === "queued") setGenerationProgress(80);
+              if (status === "fetching") setGenerationProgress(85);
+              if (status === "rendering") setGenerationProgress(90);
+              if (status === "saving") setGenerationProgress(95);
             }
           } catch (error) {
             console.error("Error checking render status:", error);

@@ -48,6 +48,10 @@ serve(async (req) => {
 
     console.log(`Rendering video for project ${projectId} with ${scenes.length} scenes`);
 
+    // Calculate total duration for reference
+    const totalDuration = scenes.reduce((sum, scene) => sum + scene.duration, 0);
+    console.log(`Total video duration: ${totalDuration} seconds`);
+
     // Create Shotstack timeline from scenes
     const timeline = {
       soundtrack: {
@@ -55,50 +59,68 @@ serve(async (req) => {
         effect: "fadeOut"
       },
       background: "#000000",
-      tracks: scenes.map((scene, index) => {
-        return {
-          clips: [
-            {
+      tracks: [
+        // Video track
+        {
+          clips: scenes.map((scene, index) => {
+            // Calculate start position based on previous scenes
+            const startPosition = scenes
+              .slice(0, index)
+              .reduce((sum, s) => sum + s.duration, 0);
+            
+            return {
               asset: {
                 type: "video",
                 src: scene.videoUrl
               },
-              start: index * scene.duration,
+              start: startPosition,
               length: scene.duration,
-              effect: "zoomIn",
+              effect: index % 2 === 0 ? "zoomIn" : "slideUp", // Alternate effects for visual interest
               transition: {
                 in: index === 0 ? "fade" : "fade",
                 out: index === scenes.length - 1 ? "fade" : "fade"
               },
               fit: "cover"
-            },
-            {
+            };
+          })
+        },
+        // Text overlay track
+        {
+          clips: scenes.map((scene, index) => {
+            // Calculate start position based on previous scenes
+            const startPosition = scenes
+              .slice(0, index)
+              .reduce((sum, s) => sum + s.duration, 0);
+            
+            return {
               asset: {
                 type: "title",
                 text: scene.scene,
                 style: "minimal",
-                size: "small"
+                size: "medium",
+                position: "bottom"
               },
-              start: index * scene.duration,
-              length: scene.duration,
-              position: "bottom"
-            }
-          ]
-        };
-      })
+              start: startPosition,
+              length: scene.duration
+            };
+          })
+        }
+      ]
     };
 
     const output = {
       format: "mp4",
-      resolution: "sd"
+      resolution: "sd",
+      aspectRatio: "16:9"
     };
 
     const shotstackPayload = {
       timeline,
-      output
+      output,
+      callback: null // Optional webhook URL could be configured here
     };
 
-    console.log("Sending request to Shotstack API:", JSON.stringify(shotstackPayload));
+    console.log("Sending request to Shotstack API");
 
     // Call Shotstack API to render the video
     const response = await fetch("https://api.shotstack.io/stage/render", {
@@ -121,16 +143,24 @@ serve(async (req) => {
     console.log("Shotstack render ID:", renderId);
 
     // Update the project in Supabase with the render ID
-    await supabase
+    const { error: updateError } = await supabase
       .from("video_projects")
       .update({
         render_id: renderId,
         status: "processing"
       })
       .eq("id", projectId);
+      
+    if (updateError) {
+      console.error("Error updating project in database:", updateError);
+      // Still continue since we have the render ID to return
+    }
 
     return new Response(
-      JSON.stringify({ renderId }),
+      JSON.stringify({ 
+        renderId,
+        estimatedDuration: totalDuration
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

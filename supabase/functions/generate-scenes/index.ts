@@ -53,6 +53,7 @@ serve(async (req) => {
       }`;
 
     try {
+      console.log("Calling Gemini API...");
       const result = await model.generateContent([
         systemPrompt,
         prompt
@@ -60,6 +61,7 @@ serve(async (req) => {
       
       const response = result.response.text();
       console.log("Gemini response received");
+      console.log("Raw response:", response);
       
       // Parse the JSON from the response
       let jsonStr = "";
@@ -76,7 +78,7 @@ serve(async (req) => {
           jsonStr = response.substring(jsonStartIndex, jsonEndIndex);
         }
         
-        console.log("Parsed JSON string:", jsonStr);
+        console.log("Extracted JSON string:", jsonStr);
       } catch (e) {
         console.error("Error extracting JSON:", e);
         throw new Error("Failed to extract JSON from Gemini response");

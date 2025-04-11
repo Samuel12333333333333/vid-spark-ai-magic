@@ -52,13 +52,21 @@ serve(async (req) => {
     console.log(`Render status: ${data.response.status}`);
 
     // Transform the response
+    // Shotstack statuses: 'queued', 'fetching', 'rendering', 'saving', 'done', 'failed'
+    // We're mapping 'ready' to 'done' to standardize statuses
     const status = data.response.status;
     const url = status === "done" ? data.response.url : null;
 
     return new Response(
       JSON.stringify({ 
         status: status === "ready" ? "done" : status,
-        url
+        url,
+        // Include additional information for debugging/monitoring
+        details: {
+          id: data.response.id,
+          created: data.response.created,
+          updated: data.response.updated,
+        }
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
