@@ -16,11 +16,16 @@ serve(async (req) => {
   }
 
   try {
+    // Get the API key - note the correct secret name is GEMINI_API_KEY
     const API_KEY = Deno.env.get("GEMINI_API_KEY");
+    
     if (!API_KEY) {
       console.error("GEMINI_API_KEY is not defined");
       return new Response(
-        JSON.stringify({ error: "API key is missing. Please check your environment variables." }),
+        JSON.stringify({ 
+          error: "API key is missing. Please check your environment variables.",
+          details: "The GEMINI_API_KEY environment variable is not set."
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
@@ -61,7 +66,6 @@ serve(async (req) => {
       
       const response = result.response.text();
       console.log("Gemini response received");
-      console.log("Raw response:", response);
       
       // Parse the JSON from the response
       let jsonStr = "";

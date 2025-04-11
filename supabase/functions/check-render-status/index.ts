@@ -19,7 +19,10 @@ serve(async (req) => {
     if (!API_KEY) {
       console.error("SHOTSTACK_API_KEY is not defined");
       return new Response(
-        JSON.stringify({ error: "API key is missing. Please check your environment variables." }),
+        JSON.stringify({ 
+          error: "API key is missing. Please check your environment variables.", 
+          details: "The SHOTSTACK_API_KEY environment variable is not set."
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
@@ -32,48 +35,84 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Checking status for render ID: ${renderId}`);
+    console.log("Checking render status for ID:", renderId);
 
-    // Check status with Shotstack API
+    // Call Shotstack API to check render status
     const response = await fetch(`https://api.shotstack.io/stage/render/${renderId}`, {
       method: "GET",
       headers: {
+        "Content-Type": "application/json",
         "x-api-key": API_KEY
       }
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Shotstack API error: ${response.status} ${response.statusText}`, errorText);
+      console.error("Shotstack API error response:", errorText);
       throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log(`Render status: ${data.response.status}`);
+    console.log(`Render status for ID ${renderId}:`, data.response.status);
 
-    // Transform the response
-    // Shotstack statuses: 'queued', 'fetching', 'rendering', 'saving', 'done', 'failed'
-    // We're mapping 'ready' to 'done' to standardize statuses
-    const status = data.response.status;
-    const url = status === "done" ? data.response.url : null;
+    // Return status and URL if available
+    const result = {
+      status: data.response.status,
+      url: data.response.url || null
+    };
+
+    // Update the video project in Supabase if render is done
+    if (result.status === "done" && result.url) {
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+      const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      
+      if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+        // Import Supabase client
+        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.7.1");
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+        
+        try {
+          // Find the project with this render ID
+          const { data: projects, error: findError } = await supabase
+            .from("video_projects")
+            .select("id")
+            .eq("render_id", renderId)
+            .limit(1);
+            
+          if (findError) throw findError;
+          
+          if (projects && projects.length > 0) {
+            const projectId = projects[0].id;
+            
+            // Update the project status and URL
+            const { error: updateError } = await supabase
+              .from("video_projects")
+              .update({
+                status: "completed",
+                video_url: result.url,
+                thumbnail_url: result.url // Could be improved to generate an actual thumbnail
+              })
+              .eq("id", projectId);
+              
+            if (updateError) throw updateError;
+            
+            console.log(`Updated project ${projectId} status to completed`);
+          }
+        } catch (dbError) {
+          console.error("Database update error:", dbError);
+          // We still continue to return the render status even if DB update fails
+        }
+      }
+    }
 
     return new Response(
-      JSON.stringify({ 
-        status: status === "ready" ? "done" : status,
-        url,
-        // Include additional information for debugging/monitoring
-        details: {
-          id: data.response.id,
-          created: data.response.created,
-          updated: data.response.updated,
-        }
-      }),
+      JSON.stringify(result),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error:", error.message);
+    console.error("Error in check-render-status function:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: "An unexpected error occurred", details: error.message }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }

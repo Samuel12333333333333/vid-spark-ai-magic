@@ -12,11 +12,21 @@ export interface SceneBreakdown {
 export const aiService = {
   async generateScenes(prompt: string): Promise<SceneBreakdown[]> {
     try {
+      console.log("Calling generate-scenes function with prompt:", prompt);
+      
       const { data, error } = await supabase.functions.invoke('generate-scenes', {
         body: { prompt }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error from generate-scenes function:", error);
+        throw new Error(`Failed to generate scenes: ${error.message}`);
+      }
+      
+      if (!data || !data.scenes || !Array.isArray(data.scenes)) {
+        console.error("Invalid response from generate-scenes function:", data);
+        throw new Error("Invalid response from scene generation service");
+      }
       
       return data.scenes;
     } catch (error) {

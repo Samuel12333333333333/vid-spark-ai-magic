@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
-import { Loader2, Video, Sparkles, Download, Share2 } from "lucide-react";
+import { Loader2, Video, Sparkles, Download, Share2, AlertTriangle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +15,7 @@ import { aiService, SceneBreakdown } from "@/services/aiService";
 import { mediaService, VideoClip } from "@/services/mediaService";
 import { videoService, VideoProject } from "@/services/videoService";
 import { useAuth } from "@/contexts/AuthContext";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type GenerationStep = "script" | "style" | "media" | "branding" | "voiceover" | "generate" | "preview";
 
@@ -102,6 +102,11 @@ export function VideoGenerator() {
       setGenerationProgress(10);
       
       const generatedScenes = await aiService.generateScenes(textPrompt);
+      
+      if (!generatedScenes || generatedScenes.length === 0) {
+        throw new Error("No scenes were generated. Please try a different prompt.");
+      }
+      
       setScenes(generatedScenes);
       
       setGenerationProgress(30);
@@ -111,13 +116,24 @@ export function VideoGenerator() {
       
       for (const scene of updatedScenes) {
         try {
+          if (!scene.keywords || scene.keywords.length === 0) {
+            console.warn(`Scene ${scene.id} has no keywords, using scene title instead`);
+            scene.keywords = [scene.scene];
+          }
+          
           const videos = await mediaService.searchVideos(scene.keywords);
           if (videos && videos.length > 0) {
             newSceneVideos.set(scene.id, videos[0]);
+          } else {
+            console.warn(`No videos found for scene: ${scene.id}`);
           }
         } catch (error) {
           console.error(`Error finding videos for scene: ${scene.id}`, error);
         }
+      }
+      
+      if (newSceneVideos.size === 0) {
+        throw new Error("Couldn't find any suitable videos for your scenes. Please try a different prompt.");
       }
       
       setSceneVideos(newSceneVideos);
@@ -126,7 +142,11 @@ export function VideoGenerator() {
       const scenesForRendering = updatedScenes.map(scene => ({
         ...scene,
         videoUrl: newSceneVideos.get(scene.id)?.url || ""
-      }));
+      })).filter(scene => scene.videoUrl);
+      
+      if (scenesForRendering.length === 0) {
+        throw new Error("No videos found for any scenes. Please try again with a different prompt.");
+      }
       
       const projectData = {
         title: textPrompt.slice(0, 50) + (textPrompt.length > 50 ? '...' : ''),
@@ -148,6 +168,10 @@ export function VideoGenerator() {
           user?.id || "", 
           newProject.id
         );
+        
+        if (!renderIdResponse) {
+          throw new Error("Failed to start video rendering. Please try again.");
+        }
         
         setRenderId(renderIdResponse);
         setGenerationProgress(80);
@@ -207,7 +231,7 @@ export function VideoGenerator() {
       console.error("Error generating video:", error);
       setIsGenerating(false);
       setGenerationProgress(0);
-      toast.error("Error generating video. Please try again.");
+      toast.error(error instanceof Error ? error.message : "Error generating video. Please try again.");
     }
   };
 
@@ -251,6 +275,19 @@ export function VideoGenerator() {
         <h1 className="text-3xl font-bold mb-2">Create New Video</h1>
         <p className="text-muted-foreground">Follow the steps below to generate your video</p>
       </div>
+
+      <Alert className="mb-6">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>API Key Required</AlertTitle>
+        <AlertDescription>
+          Make sure the required API keys are set in your Supabase project:
+          <ul className="list-disc ml-6 mt-2">
+            <li>GEMINI_API_KEY - For scene generation</li>
+            <li>PEXELS_API_KEY - For stock video clips</li>
+            <li>SHOTSTACK_API_KEY - For video rendering</li>
+          </ul>
+        </AlertDescription>
+      </Alert>
 
       <Tabs value={currentStep} onValueChange={(value) => setCurrentStep(value as GenerationStep)}>
         <TabsList className="grid grid-cols-7 mb-8">

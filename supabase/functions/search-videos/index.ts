@@ -19,7 +19,10 @@ serve(async (req) => {
     if (!API_KEY) {
       console.error("PEXELS_API_KEY is not defined");
       return new Response(
-        JSON.stringify({ error: "API key is missing. Please check your environment variables." }),
+        JSON.stringify({ 
+          error: "API key is missing. Please check your environment variables.",
+          details: "The PEXELS_API_KEY environment variable is not set."
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
@@ -32,70 +35,60 @@ serve(async (req) => {
       );
     }
 
-    // Join keywords with spaces for the search query
-    const searchQuery = keywords.join(' ');
-    console.log(`Searching Pexels for: ${searchQuery}`);
+    // Join keywords with a space for the search query
+    const searchQuery = keywords.join(" ");
+    console.log("Searching videos for query:", searchQuery);
 
-    // Search for videos with Pexels API
-    const response = await fetch(`https://api.pexels.com/videos/search?query=${encodeURIComponent(searchQuery)}&per_page=5&orientation=landscape`, {
-      method: "GET",
-      headers: {
-        "Authorization": API_KEY
+    // Call Pexels API to search for videos
+    const response = await fetch(
+      `https://api.pexels.com/videos/search?query=${encodeURIComponent(searchQuery)}&per_page=3&orientation=landscape`,
+      {
+        method: "GET",
+        headers: {
+          "Authorization": API_KEY
+        }
       }
-    });
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Pexels API error: ${response.status} ${response.statusText}`, errorText);
+      console.error("Pexels API error response:", errorText);
       throw new Error(`Pexels API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log(`Found ${data.videos?.length || 0} videos`);
+    console.log(`Found ${data.videos.length} videos for query: ${searchQuery}`);
 
-    // Transform the Pexels response to our expected format
-    const videos = data.videos?.map(video => {
-      // Find HD or SD file
+    // Transform Pexels response to our format
+    const videos = data.videos.map(video => {
+      // Find HD quality video file
       const videoFile = video.video_files.find(file => 
-        (file.quality === "hd" || file.quality === "sd") && 
-        file.file_type.includes("mp4")
+        file.quality === "hd" && file.width >= 1280
       ) || video.video_files[0];
-      
+
+      // Use the first picture as preview
+      const preview = video.video_pictures.length > 0 
+        ? video.video_pictures[0].picture 
+        : video.image;
+
       return {
         id: video.id.toString(),
         url: videoFile.link,
-        preview: video.image, // Use the video thumbnail
+        preview: preview,
         duration: video.duration,
         width: videoFile.width,
-        height: videoFile.height,
-        // Add attribution data from Pexels requirements
-        attribution: {
-          photographer: video.user.name,
-          photographerUrl: video.user.url,
-          sourceSite: "Pexels",
-          sourceUrl: "https://www.pexels.com/"
-        }
+        height: videoFile.height
       };
-    }) || [];
-
-    // Add Pexels attribution to the response
-    const response_with_attribution = {
-      videos,
-      attribution: {
-        text: "Videos provided by Pexels",
-        url: "https://www.pexels.com/",
-        logoUrl: "https://images.pexels.com/lib/api/pexels.png"
-      }
-    };
+    });
 
     return new Response(
-      JSON.stringify(response_with_attribution),
+      JSON.stringify({ videos }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error:", error.message);
+    console.error("Error in search-videos function:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: "An unexpected error occurred", details: error.message }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
