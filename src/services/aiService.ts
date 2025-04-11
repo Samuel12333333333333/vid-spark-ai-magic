@@ -23,7 +23,17 @@ export const aiService = {
         throw new Error(`Failed to generate scenes: ${error.message}`);
       }
       
-      if (!data || !data.scenes || !Array.isArray(data.scenes)) {
+      if (!data) {
+        console.error("No data returned from generate-scenes function");
+        throw new Error("No response from scene generation service");
+      }
+
+      if (data.error) {
+        console.error("Error in generate-scenes response:", data.error);
+        throw new Error(data.error.details || data.error);
+      }
+      
+      if (!data.scenes || !Array.isArray(data.scenes)) {
         console.error("Invalid response from generate-scenes function:", data);
         throw new Error("Invalid response from scene generation service");
       }

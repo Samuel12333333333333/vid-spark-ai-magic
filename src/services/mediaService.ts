@@ -24,7 +24,17 @@ export const mediaService = {
         throw new Error(`Failed to search videos: ${error.message}`);
       }
       
-      if (!data || !data.videos || !Array.isArray(data.videos)) {
+      if (!data) {
+        console.error("No data returned from search-videos function");
+        throw new Error("No response from video search service");
+      }
+
+      if (data.error) {
+        console.error("Error in search-videos response:", data.error);
+        throw new Error(data.error.details || data.error);
+      }
+      
+      if (!data.videos || !Array.isArray(data.videos)) {
         console.error("Invalid response from search-videos function:", data);
         throw new Error("Invalid response from video search service");
       }
@@ -53,7 +63,17 @@ export const mediaService = {
         throw new Error(`Failed to render video: ${error.message}`);
       }
       
-      if (!data || !data.renderId) {
+      if (!data) {
+        console.error("No data returned from render-video function");
+        throw new Error("No response from video rendering service");
+      }
+
+      if (data.error) {
+        console.error("Error in render-video response:", data.error);
+        throw new Error(data.error.details || data.error);
+      }
+      
+      if (!data.renderId) {
         console.error("Invalid response from render-video function:", data);
         throw new Error("Invalid response from video rendering service");
       }
@@ -78,7 +98,17 @@ export const mediaService = {
         throw new Error(`Failed to check render status: ${error.message}`);
       }
       
-      if (!data || !data.status) {
+      if (!data) {
+        console.error("No data returned from check-render-status function");
+        throw new Error("No response from render status service");
+      }
+
+      if (data.error) {
+        console.error("Error in check-render-status response:", data.error);
+        throw new Error(data.error.details || data.error);
+      }
+      
+      if (!data.status) {
         console.error("Invalid response from check-render-status function:", data);
         throw new Error("Invalid response from render status service");
       }

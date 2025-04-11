@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    // Get the API key - note the correct secret name is GEMINI_API_KEY
+    // Get the API key
     const API_KEY = Deno.env.get("GEMINI_API_KEY");
     
     if (!API_KEY) {
@@ -64,6 +64,10 @@ serve(async (req) => {
         prompt
       ]);
       
+      if (!result || !result.response) {
+        throw new Error("No response received from Gemini API");
+      }
+
       const response = result.response.text();
       console.log("Gemini response received");
       

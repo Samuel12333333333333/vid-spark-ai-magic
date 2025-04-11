@@ -18,14 +18,28 @@ serve(async (req) => {
   try {
     const API_KEY = Deno.env.get("SHOTSTACK_API_KEY");
     if (!API_KEY) {
-      throw new Error("SHOTSTACK_API_KEY is not defined");
+      console.error("SHOTSTACK_API_KEY is not defined");
+      return new Response(
+        JSON.stringify({ 
+          error: "API key is missing. Please check your environment variables.",
+          details: "The SHOTSTACK_API_KEY environment variable is not set."
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
     }
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
     if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-      throw new Error("Supabase credentials are not defined");
+      console.error("Supabase credentials are not defined");
+      return new Response(
+        JSON.stringify({ 
+          error: "Supabase credentials are missing", 
+          details: "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set"
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
@@ -52,6 +66,17 @@ serve(async (req) => {
     const totalDuration = scenes.reduce((sum, scene) => sum + scene.duration, 0);
     console.log(`Total video duration: ${totalDuration} seconds`);
 
+    // Validate video URLs in scenes
+    const validScenes = scenes.filter(scene => scene.videoUrl && typeof scene.videoUrl === 'string');
+    
+    if (validScenes.length === 0) {
+      console.error("No valid video URLs found in scenes");
+      return new Response(
+        JSON.stringify({ error: "No valid video URLs found in scenes" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
+
     // Create Shotstack timeline from scenes
     const timeline = {
       soundtrack: {
@@ -62,9 +87,9 @@ serve(async (req) => {
       tracks: [
         // Video track
         {
-          clips: scenes.map((scene, index) => {
+          clips: validScenes.map((scene, index) => {
             // Calculate start position based on previous scenes
-            const startPosition = scenes
+            const startPosition = validScenes
               .slice(0, index)
               .reduce((sum, s) => sum + s.duration, 0);
             
@@ -86,9 +111,9 @@ serve(async (req) => {
         },
         // Text overlay track
         {
-          clips: scenes.map((scene, index) => {
+          clips: validScenes.map((scene, index) => {
             // Calculate start position based on previous scenes
-            const startPosition = scenes
+            const startPosition = validScenes
               .slice(0, index)
               .reduce((sum, s) => sum + s.duration, 0);
             
@@ -122,49 +147,60 @@ serve(async (req) => {
 
     console.log("Sending request to Shotstack API");
 
-    // Call Shotstack API to render the video
-    const response = await fetch("https://api.shotstack.io/stage/render", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": API_KEY
-      },
-      body: JSON.stringify(shotstackPayload)
-    });
+    try {
+      // Call Shotstack API to render the video
+      const response = await fetch("https://api.shotstack.io/stage/render", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY
+        },
+        body: JSON.stringify(shotstackPayload)
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Shotstack API error response:", errorText);
-      throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Shotstack API error response:", errorText);
+        throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const renderId = data.response.id;
+      console.log("Shotstack render ID:", renderId);
+
+      // Update the project in Supabase with the render ID
+      const { error: updateError } = await supabase
+        .from("video_projects")
+        .update({
+          render_id: renderId,
+          status: "processing"
+        })
+        .eq("id", projectId);
+        
+      if (updateError) {
+        console.error("Error updating project in database:", updateError);
+        // Still continue since we have the render ID to return
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          renderId,
+          estimatedDuration: totalDuration
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (apiError) {
+      console.error("Error calling Shotstack API:", apiError);
+      return new Response(
+        JSON.stringify({ 
+          error: "Error rendering video with Shotstack API", 
+          details: apiError.message 
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
     }
-
-    const data = await response.json();
-    const renderId = data.response.id;
-    console.log("Shotstack render ID:", renderId);
-
-    // Update the project in Supabase with the render ID
-    const { error: updateError } = await supabase
-      .from("video_projects")
-      .update({
-        render_id: renderId,
-        status: "processing"
-      })
-      .eq("id", projectId);
-      
-    if (updateError) {
-      console.error("Error updating project in database:", updateError);
-      // Still continue since we have the render ID to return
-    }
-
-    return new Response(
-      JSON.stringify({ 
-        renderId,
-        estimatedDuration: totalDuration
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
   } catch (error) {
-    console.error("Error:", error.message);
+    console.error("Error in render-video function:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }

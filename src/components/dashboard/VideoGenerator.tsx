@@ -34,7 +34,16 @@ export function VideoGenerator() {
   const [sceneVideos, setSceneVideos] = useState<Map<string, VideoClip>>(new Map());
   const [renderId, setRenderId] = useState<string | null>(null);
   const [renderCheckInterval, setRenderCheckInterval] = useState<number | null>(null);
-  
+  const [apiErrors, setApiErrors] = useState<{
+    gemini: boolean;
+    pexels: boolean;
+    shotstack: boolean;
+  }>({
+    gemini: false,
+    pexels: false,
+    shotstack: false
+  });
+
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -100,40 +109,60 @@ export function VideoGenerator() {
   const generateScenes = async () => {
     try {
       setGenerationProgress(10);
+      setApiErrors({
+        gemini: false,
+        pexels: false,
+        shotstack: false
+      });
       
-      const generatedScenes = await aiService.generateScenes(textPrompt);
-      
-      if (!generatedScenes || generatedScenes.length === 0) {
-        throw new Error("No scenes were generated. Please try a different prompt.");
+      let generatedScenes: SceneBreakdown[];
+      try {
+        generatedScenes = await aiService.generateScenes(textPrompt);
+        
+        if (!generatedScenes || generatedScenes.length === 0) {
+          throw new Error("No scenes were generated. Please try a different prompt.");
+        }
+      } catch (error) {
+        console.error("Error generating scenes:", error);
+        setApiErrors(prev => ({ ...prev, gemini: true }));
+        throw new Error("Failed to generate scenes. Please check if the Gemini API Key is set correctly.");
       }
       
       setScenes(generatedScenes);
-      
       setGenerationProgress(30);
       
       const updatedScenes = [...generatedScenes];
       const newSceneVideos = new Map<string, VideoClip>();
       
-      for (const scene of updatedScenes) {
-        try {
-          if (!scene.keywords || scene.keywords.length === 0) {
-            console.warn(`Scene ${scene.id} has no keywords, using scene title instead`);
-            scene.keywords = [scene.scene];
+      try {
+        for (const scene of updatedScenes) {
+          try {
+            if (!scene.keywords || scene.keywords.length === 0) {
+              console.warn(`Scene ${scene.id} has no keywords, using scene title instead`);
+              scene.keywords = [scene.scene];
+            }
+            
+            const videos = await mediaService.searchVideos(scene.keywords);
+            if (videos && videos.length > 0) {
+              newSceneVideos.set(scene.id, videos[0]);
+            } else {
+              console.warn(`No videos found for scene: ${scene.id}`);
+            }
+          } catch (error) {
+            console.error(`Error finding videos for scene: ${scene.id}`, error);
           }
-          
-          const videos = await mediaService.searchVideos(scene.keywords);
-          if (videos && videos.length > 0) {
-            newSceneVideos.set(scene.id, videos[0]);
-          } else {
-            console.warn(`No videos found for scene: ${scene.id}`);
-          }
-        } catch (error) {
-          console.error(`Error finding videos for scene: ${scene.id}`, error);
         }
-      }
-      
-      if (newSceneVideos.size === 0) {
-        throw new Error("Couldn't find any suitable videos for your scenes. Please try a different prompt.");
+        
+        if (newSceneVideos.size === 0) {
+          setApiErrors(prev => ({ ...prev, pexels: true }));
+          throw new Error("Couldn't find any suitable videos for your scenes. Please check if the Pexels API Key is set correctly.");
+        }
+      } catch (error) {
+        console.error("Error searching for videos:", error);
+        if (!apiErrors.pexels) {
+          setApiErrors(prev => ({ ...prev, pexels: true }));
+        }
+        throw error;
       }
       
       setSceneVideos(newSceneVideos);
@@ -159,74 +188,99 @@ export function VideoGenerator() {
         status: 'processing' as 'pending' | 'processing' | 'completed' | 'failed'
       };
       
-      const newProject = await videoService.createProject(projectData);
-      if (newProject) {
-        setProjectId(newProject.id);
-        
-        const renderIdResponse = await mediaService.renderVideo(
+      let newProject: VideoProject | null;
+      try {
+        newProject = await videoService.createProject(projectData);
+        if (!newProject) {
+          throw new Error("Failed to create video project.");
+        }
+      } catch (error) {
+        console.error("Error creating project:", error);
+        throw new Error("Failed to create video project. Please try again later.");
+      }
+      
+      setProjectId(newProject.id);
+      
+      let renderIdResponse: string;
+      try {
+        renderIdResponse = await mediaService.renderVideo(
           scenesForRendering, 
           user?.id || "", 
           newProject.id
         );
         
         if (!renderIdResponse) {
-          throw new Error("Failed to start video rendering. Please try again.");
+          setApiErrors(prev => ({ ...prev, shotstack: true }));
+          throw new Error("Failed to start video rendering. Please check if the Shotstack API Key is set correctly.");
+        }
+      } catch (error) {
+        console.error("Error rendering video:", error);
+        if (!apiErrors.shotstack) {
+          setApiErrors(prev => ({ ...prev, shotstack: true }));
         }
         
-        setRenderId(renderIdResponse);
-        setGenerationProgress(80);
+        if (newProject) {
+          await videoService.updateProject(newProject.id, {
+            status: "failed" as "pending" | "processing" | "completed" | "failed"
+          });
+        }
         
-        const intervalId = window.setInterval(async () => {
-          try {
-            if (!renderIdResponse) {
-              console.error("No render ID to check status for");
-              return;
-            }
-            
-            const { status, url } = await mediaService.checkRenderStatus(renderIdResponse);
-            console.log(`Checking render status: ${status}, URL: ${url || 'not ready'}`);
-            
-            if (status === "done" && url) {
-              clearInterval(intervalId);
-              setRenderCheckInterval(null);
-              setGenerationProgress(100);
-              setGeneratedVideoUrl(url);
-              setIsGenerating(false);
-              setCurrentStep("preview");
-              
-              await videoService.updateProject(newProject.id, {
-                status: "completed" as "pending" | "processing" | "completed" | "failed",
-                video_url: url,
-                thumbnail_url: url,
-                duration: scenesForRendering.reduce((acc, scene) => acc + scene.duration, 0)
-              });
-              
-              toast.success("Your video has been generated successfully!");
-            } else if (status === "failed") {
-              clearInterval(intervalId);
-              setRenderCheckInterval(null);
-              setIsGenerating(false);
-              setGenerationProgress(0);
-              
-              await videoService.updateProject(newProject.id, {
-                status: "failed" as "pending" | "processing" | "completed" | "failed"
-              });
-              
-              toast.error("Video generation failed. Please try again.");
-            } else {
-              // Update progress for intermediate steps
-              if (status === "queued") setGenerationProgress(80);
-              if (status === "fetching") setGenerationProgress(85);
-              if (status === "rendering") setGenerationProgress(90);
-              if (status === "saving") setGenerationProgress(95);
-            }
-          } catch (error) {
-            console.error("Error checking render status:", error);
-          }
-        }, 5000);
-        
-        setRenderCheckInterval(intervalId);
+        throw error;
       }
+      
+      setRenderId(renderIdResponse);
+      setGenerationProgress(80);
+      
+      const intervalId = window.setInterval(async () => {
+        try {
+          if (!renderIdResponse) {
+            console.error("No render ID to check status for");
+            return;
+          }
+          
+          const { status, url } = await mediaService.checkRenderStatus(renderIdResponse);
+          console.log(`Checking render status: ${status}, URL: ${url || 'not ready'}`);
+          
+          if (status === "done" && url) {
+            clearInterval(intervalId);
+            setRenderCheckInterval(null);
+            setGenerationProgress(100);
+            setGeneratedVideoUrl(url);
+            setIsGenerating(false);
+            setCurrentStep("preview");
+            
+            await videoService.updateProject(newProject.id, {
+              status: "completed" as "pending" | "processing" | "completed" | "failed",
+              video_url: url,
+              thumbnail_url: url,
+              duration: scenesForRendering.reduce((acc, scene) => acc + scene.duration, 0)
+            });
+            
+            toast.success("Your video has been generated successfully!");
+          } else if (status === "failed") {
+            clearInterval(intervalId);
+            setRenderCheckInterval(null);
+            setIsGenerating(false);
+            setGenerationProgress(0);
+            setApiErrors(prev => ({ ...prev, shotstack: true }));
+            
+            await videoService.updateProject(newProject.id, {
+              status: "failed" as "pending" | "processing" | "completed" | "failed"
+            });
+            
+            toast.error("Video generation failed. Please try again.");
+          } else {
+            if (status === "queued") setGenerationProgress(80);
+            if (status === "fetching") setGenerationProgress(85);
+            if (status === "rendering") setGenerationProgress(90);
+            if (status === "saving") setGenerationProgress(95);
+          }
+        } catch (error) {
+          console.error("Error checking render status:", error);
+        }
+      }, 5000);
+      
+      setRenderCheckInterval(intervalId);
     } catch (error) {
       console.error("Error generating video:", error);
       setIsGenerating(false);
@@ -276,15 +330,21 @@ export function VideoGenerator() {
         <p className="text-muted-foreground">Follow the steps below to generate your video</p>
       </div>
 
-      <Alert className="mb-6">
+      <Alert className="mb-6" variant={apiErrors.gemini || apiErrors.pexels || apiErrors.shotstack ? "destructive" : "default"}>
         <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>API Key Required</AlertTitle>
+        <AlertTitle>API Keys Required</AlertTitle>
         <AlertDescription>
           Make sure the required API keys are set in your Supabase project:
           <ul className="list-disc ml-6 mt-2">
-            <li>GEMINI_API_KEY - For scene generation</li>
-            <li>PEXELS_API_KEY - For stock video clips</li>
-            <li>SHOTSTACK_API_KEY - For video rendering</li>
+            <li className={apiErrors.gemini ? "text-destructive font-semibold" : ""}>
+              GEMINI_API_KEY - For scene generation {apiErrors.gemini && "(Error detected)"}
+            </li>
+            <li className={apiErrors.pexels ? "text-destructive font-semibold" : ""}>
+              PEXELS_API_KEY - For stock video clips {apiErrors.pexels && "(Error detected)"}
+            </li>
+            <li className={apiErrors.shotstack ? "text-destructive font-semibold" : ""}>
+              SHOTSTACK_API_KEY - For video rendering {apiErrors.shotstack && "(Error detected)"}
+            </li>
           </ul>
         </AlertDescription>
       </Alert>
