@@ -54,10 +54,13 @@ serve(async (req) => {
       }`;
 
     try {
-      // Using the updated Gemini 2.0 API
+      // Direct REST API call to Gemini
       console.log("Calling Gemini API...");
       
-      const response = await fetch("https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent", {
+      // Use the standard Gemini API endpoint for text generation
+      const apiUrl = "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent";
+      
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -88,14 +91,16 @@ serve(async (req) => {
       }
       
       const result = await response.json();
-      console.log("Gemini response received");
+      console.log("Gemini response received:", JSON.stringify(result).slice(0, 200) + '...');
       
       if (!result || !result.candidates || !result.candidates[0] || !result.candidates[0].content) {
         console.error("Invalid response structure from Gemini API:", result);
         throw new Error("Invalid response from Gemini API");
       }
       
+      // Extract the text from the response
       const textResponse = result.candidates[0].content.parts[0].text || "";
+      console.log("Text response:", textResponse.slice(0, 200) + '...');
       
       // Parse the JSON from the response
       let jsonStr = "";
@@ -112,7 +117,7 @@ serve(async (req) => {
           jsonStr = textResponse.substring(jsonStartIndex, jsonEndIndex);
         }
         
-        console.log("Extracted JSON string:", jsonStr);
+        console.log("Extracted JSON string:", jsonStr.slice(0, 200) + '...');
       } catch (e) {
         console.error("Error extracting JSON:", e);
         throw new Error("Failed to extract JSON from Gemini response");
