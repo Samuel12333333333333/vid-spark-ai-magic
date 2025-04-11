@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.1.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,9 +39,6 @@ serve(async (req) => {
 
     console.log("Generating scenes for prompt:", prompt);
 
-    const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
     const systemPrompt = `You are an expert video editor. Break down the following prompt into 3-5 distinct scenes for a short-form video.
       For each scene include:
       1. A clear scene description (setting, action, subject)
@@ -58,32 +54,62 @@ serve(async (req) => {
       }`;
 
     try {
+      // Using the updated Gemini 2.0 API
       console.log("Calling Gemini API...");
-      const result = await model.generateContent([
-        systemPrompt,
-        prompt
-      ]);
       
-      if (!result || !result.response) {
-        throw new Error("No response received from Gemini API");
+      const response = await fetch("https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": API_KEY
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { text: systemPrompt },
+                { text: prompt }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.4,
+            topP: 0.8,
+            topK: 40
+          }
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("Gemini API error:", response.status, errorData);
+        throw new Error(`Gemini API error: ${response.status} - ${errorData}`);
       }
-
-      const response = result.response.text();
+      
+      const result = await response.json();
       console.log("Gemini response received");
+      
+      if (!result || !result.candidates || !result.candidates[0] || !result.candidates[0].content) {
+        console.error("Invalid response structure from Gemini API:", result);
+        throw new Error("Invalid response from Gemini API");
+      }
+      
+      const textResponse = result.candidates[0].content.parts[0].text || "";
       
       // Parse the JSON from the response
       let jsonStr = "";
       try {
         // Look for JSON array in the response
-        const jsonStartIndex = response.indexOf('[');
-        const jsonEndIndex = response.lastIndexOf(']') + 1;
+        const jsonStartIndex = textResponse.indexOf('[');
+        const jsonEndIndex = textResponse.lastIndexOf(']') + 1;
         
         if (jsonStartIndex === -1 || jsonEndIndex === -1) {
           // If we can't find array brackets, try to parse the whole thing
           console.log("Couldn't find JSON array markers, trying to parse the entire response");
-          jsonStr = response;
+          jsonStr = textResponse;
         } else {
-          jsonStr = response.substring(jsonStartIndex, jsonEndIndex);
+          jsonStr = textResponse.substring(jsonStartIndex, jsonEndIndex);
         }
         
         console.log("Extracted JSON string:", jsonStr);
