@@ -26,34 +26,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      (event, currentSession) => {
+        if (currentSession) {
+          setSession(currentSession);
+          setUser(currentSession.user);
+        } else {
+          setSession(null);
+          setUser(null);
+        }
         setIsLoading(false);
         
         if (event === 'SIGNED_IN') {
           toast.success('Successfully signed in!');
         } else if (event === 'SIGNED_OUT') {
           toast.info('You have been signed out');
-          // Instead of using navigate which requires Router context,
-          // we'll use window.location for navigation after sign out
-          if (window.location.pathname !== '/login' && 
-              window.location.pathname !== '/' && 
-              window.location.pathname !== '/register') {
-            window.location.href = '/login';
+          
+          // Handle navigation without React Router dependency
+          if (window.location.pathname.startsWith('/dashboard')) {
+            window.location.href = '/auth';
           }
         }
       }
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      if (currentSession) {
+        setSession(currentSession);
+        setUser(currentSession.user);
+      }
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
