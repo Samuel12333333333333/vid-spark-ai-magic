@@ -54,32 +54,30 @@ serve(async (req) => {
       }`;
 
     try {
-      // Direct REST API call to Gemini
-      console.log("Calling Gemini API...");
+      // Using the updated Gemini 2.0 API endpoint as specified in the feedback
+      console.log("Calling Gemini API with new endpoint...");
       
-      // Use the standard Gemini API endpoint for text generation
-      const apiUrl = "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent";
+      // Use the new Gemini 2.0 flash model API endpoint
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
       
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": API_KEY
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           contents: [
             {
-              role: "user",
               parts: [
-                { text: systemPrompt },
-                { text: prompt }
+                { text: systemPrompt + "\n\n" + prompt }
               ]
             }
           ],
           generationConfig: {
             temperature: 0.4,
             topP: 0.8,
-            topK: 40
+            topK: 40,
+            maxOutputTokens: 2048
           }
         })
       });
@@ -93,12 +91,13 @@ serve(async (req) => {
       const result = await response.json();
       console.log("Gemini response received:", JSON.stringify(result).slice(0, 200) + '...');
       
+      // New structure for Gemini 2.0 response
       if (!result || !result.candidates || !result.candidates[0] || !result.candidates[0].content) {
         console.error("Invalid response structure from Gemini API:", result);
         throw new Error("Invalid response from Gemini API");
       }
       
-      // Extract the text from the response
+      // Extract the text from the response - updated for Gemini 2.0 structure
       const textResponse = result.candidates[0].content.parts[0].text || "";
       console.log("Text response:", textResponse.slice(0, 200) + '...');
       
