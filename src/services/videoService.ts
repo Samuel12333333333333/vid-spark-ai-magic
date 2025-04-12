@@ -88,7 +88,6 @@ export const videoService = {
       if (data) {
         // Validate video URL
         data.video_url = mediaService.validateVideoUrl(data.video_url);
-        data.thumbnail_url = data.thumbnail_url || '/placeholder.svg';
       }
       
       return data as VideoProject;
@@ -127,10 +126,7 @@ export const videoService = {
       
       const { error } = await supabase
         .from('video_projects')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
+        .update(updates)
         .eq('id', id);
         
       if (error) {
@@ -157,67 +153,6 @@ export const videoService = {
     } catch (error) {
       console.error('Error in deleteProject:', error);
       throw error;
-    }
-  },
-  
-  // Poll for video render completion
-  async pollRenderStatus(projectId: string, renderId: string): Promise<void> {
-    try {
-      const checkStatus = async () => {
-        try {
-          const result = await mediaService.checkRenderStatus(renderId);
-          
-          if (result.status === "done" && result.url) {
-            // Update project with completed video
-            await this.updateProject(projectId, {
-              status: "completed",
-              video_url: result.url,
-              thumbnail_url: result.url // In a production app, generate a proper thumbnail
-            });
-            
-            console.log(`Video render completed for project ${projectId}`);
-            return true;
-          } else if (result.status === "failed") {
-            await this.updateProject(projectId, { status: "failed" });
-            console.error(`Video render failed for project ${projectId}`);
-            return true;
-          }
-          
-          // Still processing
-          console.log(`Video render status for project ${projectId}: ${result.status}`);
-          return false;
-        } catch (error) {
-          console.error(`Error checking render status for project ${projectId}:`, error);
-          await this.updateProject(projectId, { status: "failed" });
-          return true; // Stop polling on error
-        }
-      };
-      
-      // Initial delay before first check
-      setTimeout(async () => {
-        let completed = false;
-        let attempts = 0;
-        const maxAttempts = 30; // Stop after ~5 minutes (30 attempts * 10 seconds)
-        
-        while (!completed && attempts < maxAttempts) {
-          completed = await checkStatus();
-          
-          if (!completed) {
-            // Wait 10 seconds before checking again
-            await new Promise(resolve => setTimeout(resolve, 10000));
-            attempts++;
-          }
-        }
-        
-        // If we've reached max attempts without completion
-        if (attempts >= maxAttempts && !completed) {
-          console.error(`Render timeout for project ${projectId}`);
-          await this.updateProject(projectId, { status: "failed" });
-        }
-      }, 5000);
-    } catch (error) {
-      console.error(`Error in pollRenderStatus for project ${projectId}:`, error);
-      await this.updateProject(projectId, { status: "failed" });
     }
   }
 };

@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,88 +7,20 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Save, 
-  CreditCard, 
-  Bell, 
-  ShieldAlert, 
-  Loader2, 
-  Camera, 
-  UserCircle, 
-  Mail, 
-  Lock, 
-  AlertTriangle
-} from "lucide-react";
+import { Save, CreditCard, Bell, ShieldAlert, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { profileService, UserProfile } from "@/services/profileService";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { useIsMobile } from "@/hooks/use-mobile";
-
-// Form validation schemas
-const profileFormSchema = z.object({
-  username: z.string().min(2, {
-    message: "Username must be at least 2 characters.",
-  }).max(30, {
-    message: "Username must not be longer than 30 characters.",
-  }),
-});
-
-const emailFormSchema = z.object({
-  email: z.string().email({
-    message: "Please enter a valid email address.",
-  }),
-});
-
-const passwordFormSchema = z.object({
-  currentPassword: z.string().min(6, {
-    message: "Current password is required.",
-  }),
-  newPassword: z.string().min(8, {
-    message: "Password must be at least 8 characters.",
-  }),
-  confirmPassword: z.string(),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Passwords do not match.",
-  path: ["confirmPassword"],
-});
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const isMobile = useIsMobile();
-  
-  // Form setup
-  const profileForm = useForm<z.infer<typeof profileFormSchema>>({
-    resolver: zodResolver(profileFormSchema),
-    defaultValues: {
-      username: "",
-    },
-  });
-  
-  const emailForm = useForm<z.infer<typeof emailFormSchema>>({
-    resolver: zodResolver(emailFormSchema),
-    defaultValues: {
-      email: user?.email || "",
-    },
-  });
-  
-  const passwordForm = useForm<z.infer<typeof passwordFormSchema>>({
-    resolver: zodResolver(passwordFormSchema),
-    defaultValues: {
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    },
-  });
   
   useEffect(() => {
     const fetchProfile = async () => {
@@ -101,10 +32,10 @@ export default function SettingsPage() {
         
         if (profileData) {
           setProfile(profileData);
-          profileForm.setValue("username", profileData.username || "");
+          setFullName(profileData.username || "");
         }
         
-        emailForm.setValue("email", user.email || "");
+        setEmail(user.email || "");
       } catch (error) {
         console.error("Error fetching profile:", error);
         toast.error("Failed to load profile information");
@@ -114,11 +45,7 @@ export default function SettingsPage() {
     };
     
     fetchProfile();
-  }, [user, profileForm, emailForm]);
-
-  const handleAvatarClick = () => {
-    fileInputRef.current?.click();
-  };
+  }, [user]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) {
@@ -126,20 +53,6 @@ export default function SettingsPage() {
     }
     
     const file = e.target.files[0];
-    // Validate file type and size
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    
-    if (!validTypes.includes(file.type)) {
-      toast.error("Please upload a valid image file (JPEG, PNG, GIF, or WEBP)");
-      return;
-    }
-    
-    if (file.size > maxSize) {
-      toast.error("Image file is too large. Maximum size is 5MB");
-      return;
-    }
-    
     setAvatarFile(file);
     
     // Preview the image
@@ -150,24 +63,21 @@ export default function SettingsPage() {
     reader.readAsDataURL(file);
   };
   
-  const handleSaveProfile = async (data: z.infer<typeof profileFormSchema>) => {
+  const handleSaveProfile = async () => {
     if (!user) return;
     
     try {
       setIsSaving(true);
       
-      // Upload avatar if selected
-      if (avatarFile) {
-        const avatarUrl = await profileService.uploadAvatar(user.id, avatarFile);
-        if (avatarUrl) {
-          toast.success("Avatar uploaded successfully");
-        }
-      }
-      
       // Update profile username
       await profileService.updateProfile(user.id, { 
-        username: data.username
+        username: fullName
       });
+      
+      // Upload avatar if selected
+      if (avatarFile) {
+        await profileService.uploadAvatar(user.id, avatarFile);
+      }
       
       // Refresh profile data
       const updatedProfile = await profileService.getProfile(user.id);
@@ -184,41 +94,12 @@ export default function SettingsPage() {
     }
   };
   
-  const handleUpdateEmail = async (data: z.infer<typeof emailFormSchema>) => {
-    try {
-      setIsSaving(true);
-      
-      // In a real application, you would call Supabase to update the email
-      // await supabase.auth.updateUser({ email: data.email });
-      
-      toast.success("Email update request sent. Please check your inbox to confirm.");
-    } catch (error) {
-      console.error("Error updating email:", error);
-      toast.error("Failed to update email");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-  
-  const handleUpdatePassword = async (data: z.infer<typeof passwordFormSchema>) => {
-    try {
-      setIsSaving(true);
-      
-      // In a real application, you would call Supabase to update the password
-      // await supabase.auth.updateUser({ password: data.newPassword });
-      
-      toast.success("Password updated successfully");
-      passwordForm.reset();
-    } catch (error) {
-      console.error("Error updating password:", error);
-      toast.error("Failed to update password");
-    } finally {
-      setIsSaving(false);
-    }
+  const handleSaveBilling = () => {
+    toast.success("Billing information updated");
   };
 
-  const userInitials = profile?.username
-    ? profile.username.split(" ").map((n) => n[0]).join("").toUpperCase()
+  const userInitials = fullName
+    ? fullName.split(" ").map((n) => n[0]).join("").toUpperCase()
     : user?.email?.charAt(0).toUpperCase() || "U";
   
   if (isLoading) {
@@ -230,7 +111,7 @@ export default function SettingsPage() {
   }
   
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold mb-2">Settings</h1>
         <p className="text-muted-foreground">
@@ -239,26 +120,14 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="account">
-        <TabsList className="w-full md:w-auto overflow-x-auto">
-          <TabsTrigger value="account" className="flex items-center gap-2">
-            <UserCircle className="h-4 w-4" />
-            <span>Account</span>
-          </TabsTrigger>
-          <TabsTrigger value="billing" className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            <span>Billing</span>
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
-            <Bell className="h-4 w-4" />
-            <span>Notifications</span>
-          </TabsTrigger>
-          <TabsTrigger value="api" className="flex items-center gap-2">
-            <ShieldAlert className="h-4 w-4" />
-            <span>API</span>
-          </TabsTrigger>
+        <TabsList>
+          <TabsTrigger value="account">Account</TabsTrigger>
+          <TabsTrigger value="billing">Billing</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="api">API</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="account" className="mt-6 space-y-6">
+        <TabsContent value="account" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Profile Information</CardTitle>
@@ -269,206 +138,107 @@ export default function SettingsPage() {
             <CardContent className="space-y-6">
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex flex-col items-center space-y-4">
-                  <div 
-                    className="relative group cursor-pointer"
-                    onClick={handleAvatarClick}
-                  >
-                    <Avatar className="w-24 h-24 border-2 border-muted">
-                      <AvatarImage 
-                        src={avatarPreview || profile?.avatar_url || ""} 
-                        alt="Profile" 
-                      />
-                      <AvatarFallback className="text-lg bg-smartvid-600 text-white">{userInitials}</AvatarFallback>
-                    </Avatar>
-                    <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Camera className="h-6 w-6 text-white" />
-                    </div>
-                  </div>
-                  <Input
-                    ref={fileInputRef}
-                    id="avatar-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleAvatarChange}
-                  />
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleAvatarClick}
-                  >
-                    Change Avatar
-                  </Button>
-                </div>
-                
-                <div className="flex-1">
-                  <Form {...profileForm}>
-                    <form onSubmit={profileForm.handleSubmit(handleSaveProfile)} className="space-y-4">
-                      <FormField
-                        control={profileForm.control}
-                        name="username"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Display Name</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Your name" />
-                            </FormControl>
-                            <FormDescription>
-                              This is the name that will be displayed to other users.
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <Button 
-                        type="submit" 
-                        disabled={isSaving || !profileForm.formState.isDirty && !avatarFile}
-                      >
-                        {isSaving ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="mr-2 h-4 w-4" />
-                            Save Changes
-                          </>
-                        )}
-                      </Button>
-                    </form>
-                  </Form>
-                </div>
-              </div>
-              
-              <div className="border-t pt-6">
-                <h3 className="font-medium mb-4 flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  Email Address
-                </h3>
-                
-                <Form {...emailForm}>
-                  <form onSubmit={emailForm.handleSubmit(handleUpdateEmail)} className="space-y-4">
-                    <FormField
-                      control={emailForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input {...field} type="email" placeholder="Your email" />
-                          </FormControl>
-                          <FormDescription>
-                            We'll send a verification email to confirm this change.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                  <Avatar className="w-24 h-24">
+                    <AvatarImage 
+                      src={avatarPreview || profile?.avatar_url || ""} 
+                      alt="Profile" 
                     />
-                    
-                    <Button 
-                      type="submit" 
-                      disabled={isSaving || !emailForm.formState.isDirty}
+                    <AvatarFallback className="text-lg">{userInitials}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <Input
+                      id="avatar-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarChange}
+                    />
+                    <Label
+                      htmlFor="avatar-upload"
+                      className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground ring-offset-background transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
                     >
-                      {isSaving ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Updating...
-                        </>
-                      ) : (
-                        "Update Email"
-                      )}
-                    </Button>
-                  </form>
-                </Form>
-              </div>
-              
-              <div className="border-t pt-6">
-                <h3 className="font-medium mb-4 flex items-center gap-2">
-                  <Lock className="h-4 w-4" />
-                  Password
-                </h3>
+                      Change Avatar
+                    </Label>
+                  </div>
+                </div>
                 
-                <Form {...passwordForm}>
-                  <form onSubmit={passwordForm.handleSubmit(handleUpdatePassword)} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={passwordForm.control}
-                        name="currentPassword"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Current Password</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="password" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <div></div>
-                      
-                      <FormField
-                        control={passwordForm.control}
-                        name="newPassword"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>New Password</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="password" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={passwordForm.control}
-                        name="confirmPassword"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Confirm New Password</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="password" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    
-                    <div className="py-2">
-                      <Button 
-                        type="submit" 
-                        disabled={isSaving || !passwordForm.formState.isDirty}
-                      >
-                        {isSaving ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Updating...
-                          </>
-                        ) : (
-                          "Update Password"
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </div>
-              
-              <div className="border-t pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <h3 className="font-medium text-base">Two-Factor Authentication</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Add an extra layer of security to your account
+                <div className="flex-1 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="full-name">Full Name</Label>
+                    <Input 
+                      id="full-name" 
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      value={email}
+                      disabled
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Your email address is associated with your account and cannot be changed
                     </p>
                   </div>
-                  <Switch id="two-factor" />
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Account Role</Label>
+                    <Input id="role" value="Free User" disabled />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Your account permissions and access level
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="border-t pt-6">
+                <h3 className="font-medium mb-4">Account Security</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="current-password">Current Password</Label>
+                      <Input id="current-password" type="password" />
+                    </div>
+                    
+                    <div></div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password">New Password</Label>
+                      <Input id="new-password" type="password" />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">Confirm New Password</Label>
+                      <Input id="confirm-password" type="password" />
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Switch id="two-factor" />
+                    <Label htmlFor="two-factor">Enable two-factor authentication</Label>
+                  </div>
                 </div>
               </div>
             </CardContent>
+            <CardFooter className="border-t px-6 py-4">
+              <Button onClick={handleSaveProfile} disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            </CardFooter>
           </Card>
         </TabsContent>
         
@@ -482,7 +252,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="border rounded-lg p-6">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-medium text-lg">Current Plan</h3>
                     <div className="flex items-center mt-1">
@@ -490,7 +260,7 @@ export default function SettingsPage() {
                       <span className="text-sm text-muted-foreground ml-2">1 video per day</span>
                     </div>
                   </div>
-                  <Button className="bg-smartvid-600 hover:bg-smartvid-700 w-full md:w-auto">
+                  <Button className="bg-smartvid-600 hover:bg-smartvid-700">
                     Upgrade Plan
                   </Button>
                 </div>
@@ -510,7 +280,7 @@ export default function SettingsPage() {
               <div>
                 <h3 className="font-medium mb-4">Payment Methods</h3>
                 <div className="border rounded-lg mb-4">
-                  <div className="p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                  <div className="p-4 flex justify-between items-center">
                     <div className="flex items-center">
                       <CreditCard className="h-5 w-5 mr-2 text-muted-foreground" />
                       <div>
@@ -518,7 +288,7 @@ export default function SettingsPage() {
                         <p className="text-sm text-muted-foreground">Add a payment method to upgrade</p>
                       </div>
                     </div>
-                    <Button variant="outline" className="w-full md:w-auto">Add Method</Button>
+                    <Button variant="outline">Add Method</Button>
                   </div>
                 </div>
               </div>
@@ -530,6 +300,12 @@ export default function SettingsPage() {
                 </div>
               </div>
             </CardContent>
+            <CardFooter className="border-t px-6 py-4">
+              <Button onClick={handleSaveBilling}>
+                <Save className="mr-2 h-4 w-4" />
+                Save Billing Preferences
+              </Button>
+            </CardFooter>
           </Card>
         </TabsContent>
         
@@ -639,7 +415,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="border rounded-lg p-6">
-                <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-medium text-lg">API Access</h3>
                     <p className="text-sm text-muted-foreground mt-1">
@@ -649,12 +425,12 @@ export default function SettingsPage() {
                   <Badge variant="outline">Upgrade to Access</Badge>
                 </div>
                 
-                <div className="mt-6 flex flex-col items-center text-center">
-                  <ShieldAlert className="h-12 w-12 mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">
+                <div className="mt-6 text-center">
+                  <ShieldAlert className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <p className="mt-2 text-muted-foreground">
                     You'll need to upgrade to a Business plan to access the API
                   </p>
-                  <Button className="mt-4 bg-smartvid-600 hover:bg-smartvid-700 w-full md:w-auto">
+                  <Button className="mt-4 bg-smartvid-600 hover:bg-smartvid-700">
                     Upgrade to Business
                   </Button>
                 </div>
@@ -665,7 +441,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Our API documentation provides information about endpoints, authentication, and example code.
                 </p>
-                <Button variant="outline" className="w-full md:w-auto">View API Documentation</Button>
+                <Button variant="outline">View API Documentation</Button>
               </div>
             </CardContent>
           </Card>

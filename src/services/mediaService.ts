@@ -135,11 +135,6 @@ export const mediaService = {
     // Log the URL for debugging
     console.log("Validating video URL:", url);
     
-    // Handle relative URLs by returning them as is
-    if (url.startsWith('/')) {
-      return url;
-    }
-    
     // Make sure the URL is properly formatted
     try {
       const validatedUrl = new URL(url).toString();

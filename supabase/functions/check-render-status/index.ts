@@ -76,7 +76,7 @@ serve(async (req) => {
             // Find the project with this render ID
             const { data: projects, error: findError } = await supabase
               .from("video_projects")
-              .select("id, title")
+              .select("id")
               .eq("render_id", renderId)
               .limit(1);
               
@@ -84,35 +84,25 @@ serve(async (req) => {
             
             if (projects && projects.length > 0) {
               const projectId = projects[0].id;
-              const title = projects[0].title;
               
-              // Create a timestamp for the metadata
-              const timestamp = new Date().toISOString();
-              
-              // Update the project status, URL, and metadata
+              // Update the project status and URL
               const { error: updateError } = await supabase
                 .from("video_projects")
                 .update({
                   status: "completed",
                   video_url: result.url,
-                  thumbnail_url: result.url, // Ideally, generate a real thumbnail
-                  duration: Math.floor(Math.random() * 30) + 15, // Just a sample duration (15-45 sec)
-                  updated_at: timestamp
+                  thumbnail_url: result.url // Could be improved to generate an actual thumbnail
                 })
                 .eq("id", projectId);
                 
               if (updateError) throw updateError;
               
-              console.log(`Updated project ${projectId} status to completed with video URL: ${result.url}`);
-            } else {
-              console.warn(`No project found with render ID: ${renderId}`);
+              console.log(`Updated project ${projectId} status to completed`);
             }
           } catch (dbError) {
             console.error("Database update error:", dbError);
             // We still continue to return the render status even if DB update fails
           }
-        } else {
-          console.warn("Unable to update database: missing Supabase credentials");
         }
       }
 
