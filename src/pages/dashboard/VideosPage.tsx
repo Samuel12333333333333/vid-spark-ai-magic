@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import { RecentProjects } from "@/components/dashboard/RecentProjects";
 import { VideoProject, videoService } from "@/services/videoService";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function VideosPage() {
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -17,6 +18,7 @@ export default function VideosPage() {
   const [videos, setVideos] = useState<VideoProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const fetchVideos = async () => {
@@ -60,6 +62,17 @@ export default function VideosPage() {
         return filteredVideos;
     }
   };
+  
+  const handleDeleteVideo = async (id: string) => {
+    try {
+      await videoService.deleteProject(id);
+      setVideos(videos.filter(video => video.id !== id));
+      return Promise.resolve();
+    } catch (error) {
+      console.error("Error deleting video:", error);
+      return Promise.reject(error);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -89,7 +102,7 @@ export default function VideosPage() {
         
         <div className="flex gap-2">
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className={isMobile ? "w-full" : "w-[160px]"}>
               <SlidersHorizontal className="mr-2 h-4 w-4" />
               <SelectValue placeholder="Filter" />
             </SelectTrigger>
@@ -101,29 +114,31 @@ export default function VideosPage() {
             </SelectContent>
           </Select>
           
-          <div className="border rounded-md flex">
-            <Button
-              variant={view === "grid" ? "default" : "ghost"}
-              size="icon"
-              className={view === "grid" ? "bg-muted" : ""}
-              onClick={() => setView("grid")}
-            >
-              <Grid2X2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={view === "list" ? "default" : "ghost"}
-              size="icon"
-              className={view === "list" ? "bg-muted" : ""}
-              onClick={() => setView("list")}
-            >
-              <Rows3 className="h-4 w-4" />
-            </Button>
-          </div>
+          {!isMobile && (
+            <div className="border rounded-md flex">
+              <Button
+                variant={view === "grid" ? "default" : "ghost"}
+                size="icon"
+                className={view === "grid" ? "bg-muted" : ""}
+                onClick={() => setView("grid")}
+              >
+                <Grid2X2 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={view === "list" ? "default" : "ghost"}
+                size="icon"
+                className={view === "list" ? "bg-muted" : ""}
+                onClick={() => setView("list")}
+              >
+                <Rows3 className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="w-full md:w-auto overflow-x-auto">
           <TabsTrigger value="all">All Videos</TabsTrigger>
           <TabsTrigger value="recent">Recent</TabsTrigger>
           <TabsTrigger value="shared">Shared</TabsTrigger>
@@ -136,7 +151,7 @@ export default function VideosPage() {
               <Loader2 className="h-8 w-8 animate-spin text-smartvid-600" />
             </div>
           ) : getVideosForTab("all").length > 0 ? (
-            <RecentProjects projects={getVideosForTab("all")} />
+            <RecentProjects projects={getVideosForTab("all")} onDelete={handleDeleteVideo} />
           ) : (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">No videos found matching your criteria</p>
@@ -153,7 +168,7 @@ export default function VideosPage() {
               <Loader2 className="h-8 w-8 animate-spin text-smartvid-600" />
             </div>
           ) : getVideosForTab("recent").length > 0 ? (
-            <RecentProjects projects={getVideosForTab("recent")} />
+            <RecentProjects projects={getVideosForTab("recent")} onDelete={handleDeleteVideo} />
           ) : (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">No recent videos found</p>
