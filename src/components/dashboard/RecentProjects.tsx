@@ -16,11 +16,29 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
       {projects.map((project) => (
         <Card key={project.id} className="overflow-hidden">
           <div className="relative">
-            <img
-              src={project.thumbnail_url || "/placeholder.svg"}
-              alt={project.title}
-              className="w-full aspect-video object-cover"
-            />
+            {project.video_url && project.status === "completed" ? (
+              <div className="w-full aspect-video bg-black overflow-hidden">
+                <video 
+                  className="w-full h-full object-cover" 
+                  poster={project.thumbnail_url || "/placeholder.svg"}
+                  muted
+                >
+                  <source src={project.video_url} type="video/mp4" />
+                  Your browser does not support video playback.
+                </video>
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                  <div className="rounded-full bg-black/60 p-3">
+                    <Play className="h-8 w-8 text-white" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <img
+                src={project.thumbnail_url || "/placeholder.svg"}
+                alt={project.title}
+                className="w-full aspect-video object-cover"
+              />
+            )}
             {project.status === "processing" && (
               <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                 <div className="text-white text-sm font-medium px-3 py-1 bg-smartvid-600 rounded-full">

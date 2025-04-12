@@ -113,6 +113,11 @@ export const mediaService = {
         throw new Error("Invalid response from render status service");
       }
       
+      // Log the video URL for debugging
+      if (data.url) {
+        console.log("Received video URL:", data.url);
+      }
+      
       return {
         status: data.status,
         url: data.url
@@ -120,6 +125,23 @@ export const mediaService = {
     } catch (error) {
       console.error('Error checking render status:', error);
       throw error;
+    }
+  },
+  
+  // Helper method to validate video URLs
+  validateVideoUrl(url: string | undefined): string | undefined {
+    if (!url) return undefined;
+    
+    // Log the URL for debugging
+    console.log("Validating video URL:", url);
+    
+    // Make sure the URL is properly formatted
+    try {
+      const validatedUrl = new URL(url).toString();
+      return validatedUrl;
+    } catch (e) {
+      console.error("Invalid video URL:", url, e);
+      return undefined;
     }
   }
 };

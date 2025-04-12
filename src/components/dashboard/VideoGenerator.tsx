@@ -715,12 +715,20 @@ export function VideoGenerator() {
             <CardContent>
               <div className="space-y-6">
                 <div className="aspect-video rounded-lg overflow-hidden border bg-muted">
-                  {generatedVideoUrl && (
-                    <img 
-                      src={generatedVideoUrl} 
-                      alt="Generated video preview"
+                  {generatedVideoUrl ? (
+                    <video 
                       className="w-full h-full object-cover"
-                    />
+                      controls
+                      autoPlay
+                      muted
+                    >
+                      <source src={generatedVideoUrl} type="video/mp4" />
+                      Your browser does not support video playback.
+                    </video>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-muted">
+                      <p className="text-muted-foreground">Video not available</p>
+                    </div>
                   )}
                 </div>
                 
@@ -741,7 +749,7 @@ export function VideoGenerator() {
                     <span className="text-muted-foreground">Resolution:</span>
                     <span>1080p HD</span>
                     <span className="text-muted-foreground">Duration:</span>
-                    <span>00:45</span>
+                    <span>{Math.round(scenes.reduce((acc, scene) => acc + scene.duration, 0))} seconds</span>
                     <span className="text-muted-foreground">Created:</span>
                     <span>{new Date().toLocaleDateString()}</span>
                   </div>

@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { mediaService } from "./mediaService";
 
 export interface VideoProject {
   id: string;
@@ -32,7 +33,13 @@ export const videoService = {
         throw error;
       }
       
-      return (data || []) as VideoProject[];
+      // Validate video URLs for each project
+      const processedData = (data || []).map(project => ({
+        ...project,
+        video_url: mediaService.validateVideoUrl(project.video_url)
+      }));
+      
+      return processedData as VideoProject[];
     } catch (error) {
       console.error('Error in getProjects:', error);
       throw error;
@@ -52,7 +59,13 @@ export const videoService = {
         throw error;
       }
       
-      return (data || []) as VideoProject[];
+      // Validate video URLs for each project
+      const processedData = (data || []).map(project => ({
+        ...project,
+        video_url: mediaService.validateVideoUrl(project.video_url)
+      }));
+      
+      return processedData as VideoProject[];
     } catch (error) {
       console.error('Error in getRecentProjects:', error);
       throw error;
@@ -70,6 +83,11 @@ export const videoService = {
       if (error) {
         console.error(`Error fetching video project with id ${id}:`, error);
         return null;
+      }
+      
+      if (data) {
+        // Validate video URL
+        data.video_url = mediaService.validateVideoUrl(data.video_url);
       }
       
       return data as VideoProject;
@@ -101,6 +119,11 @@ export const videoService = {
   
   async updateProject(id: string, updates: Partial<VideoProject>): Promise<void> {
     try {
+      // If there's a video_url, validate it
+      if (updates.video_url) {
+        updates.video_url = mediaService.validateVideoUrl(updates.video_url);
+      }
+      
       const { error } = await supabase
         .from('video_projects')
         .update(updates)
