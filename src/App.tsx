@@ -5,7 +5,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import LandingPage from "@/pages/LandingPage";
 import AuthPage from "@/pages/AuthPage";
 import NotFound from "@/pages/NotFound";
-import DashboardLayout from "@/layouts/DashboardLayout";
+import { DashboardLayout } from "@/layouts/DashboardLayout";
 import DashboardHome from "@/pages/dashboard/DashboardHome";
 import GeneratorPage from "@/pages/dashboard/GeneratorPage";
 import VideosPage from "@/pages/dashboard/VideosPage";
