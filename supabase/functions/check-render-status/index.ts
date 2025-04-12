@@ -76,7 +76,7 @@ serve(async (req) => {
             // Find the project with this render ID
             const { data: projects, error: findError } = await supabase
               .from("video_projects")
-              .select("id, title, prompt")
+              .select("id, title")
               .eq("render_id", renderId)
               .limit(1);
               
@@ -89,34 +89,21 @@ serve(async (req) => {
               // Create a timestamp for the metadata
               const timestamp = new Date().toISOString();
               
-              // Generate a thumbnail URL - for now we'll use the video URL
-              // In a production app, you would generate a proper thumbnail
-              const thumbnailUrl = result.url;
-              
-              // Estimate video duration (in seconds) - in production, you would calculate this properly
-              // For now we'll use a random value between 15-45 seconds
-              const estimatedDuration = Math.floor(Math.random() * 30) + 15;
-              
-              console.log(`Updating project ${projectId} with video URL: ${result.url}`);
-              
               // Update the project status, URL, and metadata
               const { error: updateError } = await supabase
                 .from("video_projects")
                 .update({
                   status: "completed",
                   video_url: result.url,
-                  thumbnail_url: thumbnailUrl,
-                  duration: estimatedDuration,
+                  thumbnail_url: result.url, // Ideally, generate a real thumbnail
+                  duration: Math.floor(Math.random() * 30) + 15, // Just a sample duration (15-45 sec)
                   updated_at: timestamp
                 })
                 .eq("id", projectId);
                 
-              if (updateError) {
-                console.error("Error updating video project:", updateError);
-                throw updateError;
-              }
+              if (updateError) throw updateError;
               
-              console.log(`Successfully updated project ${projectId} with video URL`);
+              console.log(`Updated project ${projectId} status to completed with video URL: ${result.url}`);
             } else {
               console.warn(`No project found with render ID: ${renderId}`);
             }

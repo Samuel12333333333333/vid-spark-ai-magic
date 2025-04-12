@@ -1,13 +1,13 @@
 
 import { Card, CardContent } from "@/components/ui/card";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Play, FileEdit, Trash2 } from "lucide-react";
 import { VideoProject } from "@/services/videoService";
 import { formatDistanceToNow } from "date-fns";
-import { Eye, Trash2, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface RecentProjectsProps {
   projects: VideoProject[];
@@ -15,123 +15,156 @@ interface RecentProjectsProps {
 }
 
 export function RecentProjects({ projects, onDelete }: RecentProjectsProps) {
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!onDelete) return;
-    
-    try {
-      setDeletingId(id);
-      await onDelete(id);
-      toast.success("Video deleted successfully");
-    } catch (error) {
-      console.error("Error deleting video:", error);
-      toast.error("Failed to delete video");
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const getBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'completed': 
-        return 'default';
-      case 'processing': 
-        return 'secondary';
-      case 'pending': 
-        return 'outline';
-      case 'failed': 
-        return 'destructive';
-      default: 
-        return 'outline';
+  const [playingVideo, setPlayingVideo] = useState<string | null>(null);
+  const isMobile = useIsMobile();
+  
+  const handlePlayVideo = (id: string, event: React.MouseEvent) => {
+    const video = document.getElementById(`video-${id}`) as HTMLVideoElement;
+    if (video) {
+      event.stopPropagation();
+      event.preventDefault();
+      
+      if (video.paused) {
+        // Pause any other playing videos
+        document.querySelectorAll('video').forEach(v => {
+          if (v.id !== `video-${id}` && !v.paused) {
+            v.pause();
+          }
+        });
+        
+        video.play();
+        setPlayingVideo(id);
+      } else {
+        video.pause();
+        setPlayingVideo(null);
+      }
     }
   };
   
-  if (projects.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground mb-4">No videos found</p>
-        <Button asChild>
-          <Link to="/dashboard/generator">Create Your First Video</Link>
-        </Button>
-      </div>
-    );
-  }
+  const handleDeleteProject = async (id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    event.preventDefault();
+    
+    if (!onDelete) return;
+    
+    const confirmed = window.confirm("Are you sure you want to delete this video?");
+    if (confirmed) {
+      try {
+        await onDelete(id);
+        toast.success("Video deleted successfully");
+      } catch (error) {
+        console.error("Error deleting video:", error);
+        toast.error("Failed to delete video");
+      }
+    }
+  };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {projects.map((project) => (
-        <Link 
-          key={project.id} 
-          to={`/dashboard/videos/${project.id}`} 
-          className="block group"
-        >
-          <Card className="h-full overflow-hidden transition-all hover:shadow-md">
-            <div className="relative aspect-video bg-muted overflow-hidden">
-              {project.status === 'completed' && project.video_url ? (
-                <video 
-                  className="w-full h-full object-cover"
-                  src={project.video_url}
-                  poster={project.thumbnail_url}
-                  muted
-                  preload="metadata"
-                />
-              ) : project.status === 'processing' ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                  <Loader2 className="h-12 w-12 animate-spin text-white" />
-                </div>
-              ) : project.status === 'failed' ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                  <p className="text-white font-medium">Generation Failed</p>
+        <Card key={project.id} className="overflow-hidden group hover:shadow-md transition-shadow">
+          <Link to={`/dashboard/videos/${project.id}`} className="block">
+            <div className="relative">
+              {project.video_url && project.status === "completed" ? (
+                <div className="w-full aspect-video bg-black overflow-hidden">
+                  <video 
+                    id={`video-${project.id}`}
+                    className="w-full h-full object-cover" 
+                    poster={project.thumbnail_url || "/placeholder.svg"}
+                    muted={isMobile}
+                    playsInline
+                    onClick={(e) => handlePlayVideo(project.id, e)}
+                  >
+                    <source src={project.video_url} type="video/mp4" />
+                    Your browser does not support video playback.
+                  </video>
+                  <div 
+                    className={`absolute inset-0 flex items-center justify-center ${playingVideo === project.id ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+                    onClick={(e) => handlePlayVideo(project.id, e)}
+                  >
+                    <div className="rounded-full bg-black/60 p-3">
+                      <Play className="h-8 w-8 text-white" />
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                  <p className="text-white font-medium">Processing...</p>
+                <div className="w-full aspect-video bg-gray-100 flex items-center justify-center">
+                  <img
+                    src={project.thumbnail_url || "/placeholder.svg"}
+                    alt={project.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = "/placeholder.svg";
+                    }}
+                  />
                 </div>
               )}
-              
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4">
-                <Button variant="outline" size="sm" className="text-white border-white/30 bg-white/10 backdrop-blur-sm hover:bg-white/20">
-                  <Eye className="mr-2 h-3 w-3" />
-                  View
+              {project.status === "processing" && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <div className="text-white text-sm font-medium px-3 py-1 bg-smartvid-600 rounded-full">
+                    Processing...
+                  </div>
+                </div>
+              )}
+              {project.status === "failed" && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <div className="text-white text-sm font-medium px-3 py-1 bg-red-600 rounded-full">
+                    Failed
+                  </div>
+                </div>
+              )}
+              {project.status === "completed" && (
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white"
+                  asChild
+                >
+                  <Link to={`/dashboard/videos/${project.id}`}>
+                    <Play className="h-4 w-4" />
+                  </Link>
                 </Button>
-                
-                {onDelete && (
-                  <Button 
-                    variant="destructive" 
-                    size="icon" 
-                    className="h-8 w-8"
-                    onClick={(e) => handleDelete(e, project.id)}
-                    disabled={deletingId === project.id}
-                  >
-                    {deletingId === project.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                  </Button>
-                )}
-              </div>
+              )}
             </div>
-            
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="font-medium line-clamp-1">{project.title}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
+            <CardContent className="p-3">
+              <div className="flex justify-between items-start">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-sm line-clamp-1">{project.title}</h3>
+                  <p className="text-xs text-muted-foreground">
                     {formatDistanceToNow(new Date(project.created_at), { addSuffix: true })}
                   </p>
                 </div>
-                <Badge variant={getBadgeVariant(project.status)}>
-                  {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                </Badge>
+                <div className="flex gap-1 ml-2">
+                  {project.status === "completed" && (
+                    <>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-8 w-8"
+                        asChild
+                      >
+                        <Link to={`/dashboard/videos/${project.id}`}>
+                          <FileEdit className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                      {onDelete && (
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-8 w-8 text-destructive"
+                          onClick={(e) => handleDeleteProject(project.id, e)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </CardContent>
-          </Card>
-        </Link>
+          </Link>
+        </Card>
       ))}
     </div>
   );

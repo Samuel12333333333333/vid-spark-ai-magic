@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
 
 type AuthMode = "login" | "register";
@@ -22,6 +22,7 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
   const [error, setError] = useState("");
   
   const navigate = useNavigate();
+  const { toast: uiToast } = useToast();
 
   useEffect(() => {
     // Check if user is already logged in
@@ -33,6 +34,19 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
     };
     
     checkSession();
+    
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_, session) => {
+        if (session) {
+          navigate("/dashboard");
+        }
+      }
+    );
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -54,31 +68,34 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
     
     try {
       if (mode === "login") {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         
-        if (signInError) throw signInError;
-        
-        // If login is successful, navigate to dashboard
-        navigate("/dashboard");
+        if (error) throw error;
       } else {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email,
           password,
         });
         
-        if (signUpError) throw signUpError;
+        if (error) throw error;
         else {
-          toast.success("Account created successfully! Please check your email to verify your account.");
+          uiToast({
+            title: "Registration successful!",
+            description: "Please check your email to verify your account.",
+          });
+          
+          toast.success("Account created successfully!");
           setMode("login");
           setPassword("");
           setConfirmPassword("");
         }
       }
+      
+      // No need to navigate here, the onAuthStateChange listener will handle it
     } catch (err) {
-      console.error("Authentication error:", err);
       setError(err instanceof Error ? err.message : "Authentication failed");
     } finally {
       setIsLoading(false);
@@ -134,7 +151,7 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
                     <Label htmlFor="password">Password</Label>
                     <Link
                       to="/forgot-password"
-                      className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-500 dark:hover:text-blue-400"
+                      className="text-sm text-smartvid-600 hover:text-smartvid-700 dark:text-smartvid-500 dark:hover:text-smartvid-400"
                     >
                       Forgot password?
                     </Link>
@@ -151,7 +168,7 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
               <CardFooter>
                 <Button
                   type="submit"
-                  className="w-full"
+                  className="w-full bg-smartvid-600 hover:bg-smartvid-700"
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -219,7 +236,7 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
               <CardFooter>
                 <Button
                   type="submit"
-                  className="w-full"
+                  className="w-full bg-smartvid-600 hover:bg-smartvid-700"
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -242,14 +259,14 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
           By continuing, you agree to our{" "}
           <Link
             to="/terms"
-            className="text-blue-600 hover:text-blue-700 dark:text-blue-500 dark:hover:text-blue-400"
+            className="text-smartvid-600 hover:text-smartvid-700 dark:text-smartvid-500 dark:hover:text-smartvid-400"
           >
             Terms of Service
           </Link>{" "}
           and{" "}
           <Link
             to="/privacy"
-            className="text-blue-600 hover:text-blue-700 dark:text-blue-500 dark:hover:text-blue-400"
+            className="text-smartvid-600 hover:text-smartvid-700 dark:text-smartvid-500 dark:hover:text-smartvid-400"
           >
             Privacy Policy
           </Link>

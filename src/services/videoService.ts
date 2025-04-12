@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { mediaService } from "./mediaService";
 
@@ -35,8 +36,7 @@ export const videoService = {
       // Validate video URLs for each project
       const processedData = (data || []).map(project => ({
         ...project,
-        video_url: mediaService.validateVideoUrl(project.video_url),
-        thumbnail_url: project.thumbnail_url || project.video_url || '/placeholder.svg'
+        video_url: mediaService.validateVideoUrl(project.video_url)
       }));
       
       return processedData as VideoProject[];
@@ -59,11 +59,10 @@ export const videoService = {
         throw error;
       }
       
-      // Validate video URLs for each project and ensure thumbnail URLs
+      // Validate video URLs for each project
       const processedData = (data || []).map(project => ({
         ...project,
-        video_url: mediaService.validateVideoUrl(project.video_url),
-        thumbnail_url: project.thumbnail_url || project.video_url || '/placeholder.svg'
+        video_url: mediaService.validateVideoUrl(project.video_url)
       }));
       
       return processedData as VideoProject[];
@@ -89,8 +88,7 @@ export const videoService = {
       if (data) {
         // Validate video URL
         data.video_url = mediaService.validateVideoUrl(data.video_url);
-        // Ensure thumbnail URL, fallback to video URL if available
-        data.thumbnail_url = data.thumbnail_url || data.video_url || '/placeholder.svg';
+        data.thumbnail_url = data.thumbnail_url || '/placeholder.svg';
       }
       
       return data as VideoProject;
@@ -170,8 +168,13 @@ export const videoService = {
           const result = await mediaService.checkRenderStatus(renderId);
           
           if (result.status === "done" && result.url) {
-            // The database update now happens in the edge function
-            // We only need to update the project status locally
+            // Update project with completed video
+            await this.updateProject(projectId, {
+              status: "completed",
+              video_url: result.url,
+              thumbnail_url: result.url // In a production app, generate a proper thumbnail
+            });
+            
             console.log(`Video render completed for project ${projectId}`);
             return true;
           } else if (result.status === "failed") {

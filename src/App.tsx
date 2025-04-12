@@ -5,7 +5,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import LandingPage from "@/pages/LandingPage";
 import AuthPage from "@/pages/AuthPage";
 import NotFound from "@/pages/NotFound";
-import { DashboardLayout } from "@/layouts/DashboardLayout";
+import DashboardLayout from "@/layouts/DashboardLayout";
 import DashboardHome from "@/pages/dashboard/DashboardHome";
 import GeneratorPage from "@/pages/dashboard/GeneratorPage";
 import VideosPage from "@/pages/dashboard/VideosPage";
@@ -37,7 +37,7 @@ function App() {
             </Route>
             
             <Route path="/404" element={<NotFound />} />
-            <Route path="*" element={<NotFound />} />
+            <Route path="*" element={<Navigate to="/404" replace />} />
           </Routes>
           
           <Toaster richColors position="top-right" />
