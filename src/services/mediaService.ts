@@ -120,7 +120,7 @@ export const mediaService = {
       
       return {
         status: data.status,
-        url: data.url
+        url: this.validateVideoUrl(data.url)
       };
     } catch (error) {
       console.error('Error checking render status:', error);
@@ -143,6 +143,12 @@ export const mediaService = {
     // Make sure the URL is properly formatted
     try {
       const validatedUrl = new URL(url).toString();
+      
+      // Check if URL ends with common video extensions
+      const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
+      const isVideoFile = videoExtensions.some(ext => validatedUrl.toLowerCase().endsWith(ext));
+      
+      // If it's not a video file but has a valid URL, try to use it anyway
       return validatedUrl;
     } catch (e) {
       console.error("Invalid video URL:", url, e);

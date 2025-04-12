@@ -121,6 +121,21 @@ export default function VideoDetailPage() {
     );
   }
 
+  const getBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'completed': 
+        return 'default';
+      case 'processing': 
+        return 'secondary';
+      case 'pending': 
+        return 'outline';
+      case 'failed': 
+        return 'destructive';
+      default: 
+        return 'outline';
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -167,7 +182,16 @@ export default function VideoDetailPage() {
             </div>
           ) : (
             <div className="w-full aspect-video flex items-center justify-center bg-gray-900">
-              <p className="text-white">No video available</p>
+              {video.status === 'processing' ? (
+                <div className="text-center">
+                  <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-white/70" />
+                  <p className="text-white">Video is being processed...</p>
+                </div>
+              ) : video.status === 'failed' ? (
+                <p className="text-white">Video generation failed</p>
+              ) : (
+                <p className="text-white">No video available</p>
+              )}
             </div>
           )}
         </div>
@@ -177,11 +201,7 @@ export default function VideoDetailPage() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold">{video.title}</h1>
-                <Badge variant={
-                  video.status === "completed" ? "default" : 
-                  video.status === "processing" ? "secondary" : 
-                  "destructive"
-                }>
+                <Badge variant={getBadgeVariant(video.status)}>
                   {video.status.charAt(0).toUpperCase() + video.status.slice(1)}
                 </Badge>
               </div>
