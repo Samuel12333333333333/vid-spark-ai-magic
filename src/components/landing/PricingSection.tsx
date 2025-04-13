@@ -1,9 +1,24 @@
 
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export function PricingSection() {
+  const { session } = useAuth();
+  const [isLoading, setIsLoading] = useState<string | null>(null);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+
   const pricingPlans = [
     {
       name: "Free",
@@ -19,6 +34,7 @@ export function PricingSection() {
       ],
       cta: "Get Started",
       popular: false,
+      priceId: null, // Free plan doesn't need a price ID
     },
     {
       name: "Pro",
@@ -37,6 +53,7 @@ export function PricingSection() {
       ],
       cta: "Upgrade to Pro",
       popular: true,
+      priceId: "price_1QrJcFQOvLVQwvg3UENHGtzD", // Replace with your actual price ID
     },
     {
       name: "Business",
@@ -57,8 +74,45 @@ export function PricingSection() {
       ],
       cta: "Contact Sales",
       popular: false,
+      priceId: "price_1QrJcYQOvLVQwvg3JKcXpVzW", // Replace with your actual price ID
     },
   ];
+
+  const handleSubscription = async (plan) => {
+    if (!session) {
+      setShowLoginDialog(true);
+      return;
+    }
+
+    if (!plan.priceId) {
+      // For free plan, just redirect to dashboard
+      window.location.href = "/dashboard";
+      return;
+    }
+
+    try {
+      setIsLoading(plan.name);
+      
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: {
+          priceId: plan.priceId,
+          plan: plan.name.toLowerCase(),
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      toast.error("Failed to start checkout process. Please try again.");
+    } finally {
+      setIsLoading(null);
+    }
+  };
 
   return (
     <section id="pricing" className="py-12 md:py-24 lg:py-32 bg-smartvid-50 dark:bg-gray-900">
@@ -114,14 +168,42 @@ export function PricingSection() {
                     ? "bg-smartvid-600 hover:bg-smartvid-700"
                     : "bg-gray-900 hover:bg-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700"
                 }
-                asChild
+                onClick={() => handleSubscription(plan)}
+                disabled={isLoading !== null}
               >
-                <Link to={plan.name === "Free" ? "/register" : "/contact"}>{plan.cta}</Link>
+                {isLoading === plan.name ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  plan.cta
+                )}
               </Button>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Login Dialog */}
+      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign in to continue</DialogTitle>
+            <DialogDescription>
+              You need to be signed in to subscribe to a plan.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-4 mt-4">
+            <Button variant="outline" onClick={() => setShowLoginDialog(false)}>
+              Cancel
+            </Button>
+            <Button asChild>
+              <Link to="/login">Sign In</Link>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
