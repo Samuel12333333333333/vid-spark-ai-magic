@@ -14,6 +14,7 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Check subscription function called");
     // Create Supabase client
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") || "",
@@ -33,6 +34,8 @@ serve(async (req) => {
       throw new Error("User not authenticated");
     }
 
+    console.log("Checking subscription for user:", user.id);
+
     // Get the user's subscription
     const { data: subscription, error: subscriptionError } = await supabaseClient
       .from("subscriptions")
@@ -42,8 +45,11 @@ serve(async (req) => {
       .maybeSingle();
 
     if (subscriptionError) {
+      console.error("Error fetching subscription:", subscriptionError);
       throw new Error(`Error fetching subscription: ${subscriptionError.message}`);
     }
+
+    console.log("Subscription check result:", subscription ? "Active" : "No active subscription");
 
     return new Response(JSON.stringify({ 
       hasActiveSubscription: !!subscription,

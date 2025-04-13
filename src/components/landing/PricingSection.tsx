@@ -1,3 +1,4 @@
+
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -52,7 +53,7 @@ export function PricingSection() {
       ],
       cta: "Upgrade to Pro",
       popular: true,
-      priceId: "prod_S7P3tgksdhcfMa", // Updated with your Pro product ID
+      priceId: "price_1RDLTHQOvLVQwvg3Ov3c2vwC", // Using a price ID, not product ID
     },
     {
       name: "Business",
@@ -71,9 +72,9 @@ export function PricingSection() {
         "Team collaboration",
         "API access",
       ],
-      cta: "Contact Sales",
+      cta: "Upgrade to Business",
       popular: false,
-      priceId: "prod_S7P4tJCjHgpkeE", // Updated with your Business product ID
+      priceId: "price_1RDLTRQOvLVQwvg37k3aLu6j", // Using a price ID, not product ID
     },
   ];
 
@@ -100,10 +101,19 @@ export function PricingSection() {
       });
 
       if (error) {
+        console.error("Checkout error:", error);
+        toast.error("Failed to start checkout process. Please try again.");
         throw error;
       }
 
+      if (!data || !data.url) {
+        console.error("No checkout URL returned");
+        toast.error("Failed to create checkout session. Please try again.");
+        return;
+      }
+
       // Redirect to Stripe Checkout
+      console.log("Redirecting to checkout:", data.url);
       window.location.href = data.url;
     } catch (error) {
       console.error("Error creating checkout session:", error);

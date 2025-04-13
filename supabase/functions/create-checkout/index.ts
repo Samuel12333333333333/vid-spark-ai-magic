@@ -15,6 +15,7 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Create checkout function called");
     const { priceId, plan } = await req.json();
     
     if (!priceId) {
@@ -45,6 +46,8 @@ serve(async (req) => {
       throw new Error("User not authenticated");
     }
 
+    console.log("Creating checkout for user:", user.id);
+
     // Check if this user already has a Stripe customer ID
     let customerId;
     const { data: customers } = await stripe.customers.list({
@@ -54,6 +57,7 @@ serve(async (req) => {
 
     if (customers && customers.length > 0) {
       customerId = customers[0].id;
+      console.log("Found existing customer:", customerId);
     } else {
       // Create a new customer if one doesn't exist
       const customer = await stripe.customers.create({
@@ -63,6 +67,7 @@ serve(async (req) => {
         },
       });
       customerId = customer.id;
+      console.log("Created new customer:", customerId);
     }
 
     // Create checkout session
@@ -71,7 +76,7 @@ serve(async (req) => {
       payment_method_types: ["card"],
       line_items: [
         {
-          price: priceId,
+          price: priceId, // This should be a price ID, not a product ID
           quantity: 1,
         },
       ],
@@ -84,6 +89,8 @@ serve(async (req) => {
       },
     });
 
+    console.log("Checkout session created:", session.id);
+    
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

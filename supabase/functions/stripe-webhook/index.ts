@@ -11,6 +11,7 @@ serve(async (req) => {
   const signature = req.headers.get("stripe-signature");
   
   if (!signature) {
+    console.error("No signature provided");
     return new Response(JSON.stringify({ error: "No signature provided" }), {
       status: 400,
     });
@@ -18,15 +19,18 @@ serve(async (req) => {
 
   // Get request body as text for the verification
   const body = await req.text();
+  console.log("Webhook received, verifying signature");
   
   let event;
   try {
     // Use webhook secret to verify the event
+    const endpointSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") || "";
     event = stripe.webhooks.constructEvent(
       body,
       signature,
-      Deno.env.get("STRIPE_WEBHOOK_SECRET") || "",
+      endpointSecret,
     );
+    console.log("Webhook signature verified, event type:", event.type);
   } catch (err) {
     console.error(`Webhook signature verification failed:`, err.message);
     return new Response(JSON.stringify({ error: `Webhook Error: ${err.message}` }), {
@@ -50,6 +54,7 @@ serve(async (req) => {
     switch (event.type) {
       case "checkout.session.completed":
         const session = event.data.object;
+        console.log("Checkout session completed:", session.id);
         
         // Create a subscription record in your database
         if (session.metadata?.userId) {
@@ -62,6 +67,8 @@ serve(async (req) => {
             current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days until we get the actual info
           };
           
+          console.log("Inserting subscription data:", subscriptionData);
+          
           // Insert the subscription data
           const { error } = await supabaseAdmin
             .from("subscriptions")
@@ -69,6 +76,8 @@ serve(async (req) => {
             
           if (error) {
             console.error("Error inserting subscription:", error);
+          } else {
+            console.log("Subscription created successfully");
           }
         }
         break;
@@ -76,6 +85,7 @@ serve(async (req) => {
       case "customer.subscription.updated":
       case "customer.subscription.created":
         const subscription = event.data.object;
+        console.log("Subscription updated/created:", subscription.id);
         
         // Find the user by Stripe customer ID
         const { data: customers } = await supabaseAdmin
@@ -86,6 +96,7 @@ serve(async (req) => {
           
         if (customers && customers.length > 0) {
           const userId = customers[0].user_id;
+          console.log("Found user for subscription:", userId);
           
           // Update subscription status and end date
           const { error } = await supabaseAdmin
@@ -99,12 +110,15 @@ serve(async (req) => {
             
           if (error) {
             console.error("Error updating subscription:", error);
+          } else {
+            console.log("Subscription updated successfully");
           }
         }
         break;
         
       case "customer.subscription.deleted":
         const canceledSubscription = event.data.object;
+        console.log("Subscription canceled:", canceledSubscription.id);
         
         // Mark the subscription as inactive
         const { error } = await supabaseAdmin
@@ -114,8 +128,13 @@ serve(async (req) => {
           
         if (error) {
           console.error("Error canceling subscription:", error);
+        } else {
+          console.log("Subscription canceled successfully");
         }
         break;
+      
+      default:
+        console.log(`Unhandled event type: ${event.type}`);
     }
 
     return new Response(JSON.stringify({ received: true }), {
