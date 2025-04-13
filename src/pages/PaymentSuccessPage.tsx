@@ -5,6 +5,7 @@ import { useSubscription } from "@/contexts/SubscriptionContext";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
@@ -13,6 +14,7 @@ export default function PaymentSuccessPage() {
   const { refreshSubscription } = useSubscription();
   const { session } = useAuth();
   const [isVerifying, setIsVerifying] = useState(true);
+  const [verificationCount, setVerificationCount] = useState(0);
 
   useEffect(() => {
     // If there's no user session, redirect to login
@@ -21,23 +23,34 @@ export default function PaymentSuccessPage() {
       return;
     }
 
+    if (!sessionId) {
+      toast.error("Invalid session. Please try again.");
+      navigate("/dashboard");
+      return;
+    }
+
     // Verify the payment was successful and update subscription status
     const verifyPayment = async () => {
       try {
         setIsVerifying(true);
-        // Wait a moment to let Stripe webhook process
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        // Update subscription status
-        await refreshSubscription();
+        console.log("Verifying payment session:", sessionId);
+        
+        // Multiple refresh attempts to ensure webhook has processed
+        if (verificationCount < 5) {
+          await refreshSubscription();
+          // Schedule another check in 2 seconds
+          setTimeout(() => setVerificationCount(c => c + 1), 2000);
+        } else {
+          setIsVerifying(false);
+        }
       } catch (error) {
         console.error("Error verifying payment:", error);
-      } finally {
         setIsVerifying(false);
       }
     };
 
     verifyPayment();
-  }, [session, sessionId, navigate, refreshSubscription]);
+  }, [session, sessionId, navigate, refreshSubscription, verificationCount]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-smartvid-50 to-white dark:from-gray-900 dark:to-gray-950">
@@ -50,6 +63,11 @@ export default function PaymentSuccessPage() {
             <h1 className="text-2xl font-bold mb-2">Verifying your payment</h1>
             <p className="text-gray-500 dark:text-gray-400 mb-8">
               Please wait while we confirm your payment with Stripe...
+              {verificationCount > 0 && (
+                <span className="block mt-2 text-sm">
+                  This may take a few moments to process. Attempt {verificationCount}/5
+                </span>
+              )}
             </p>
           </>
         ) : (
@@ -77,4 +95,4 @@ export default function PaymentSuccessPage() {
       </div>
     </div>
   );
-};
+}

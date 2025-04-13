@@ -1,139 +1,105 @@
 
-import { Link, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
   Home,
-  Video,
+  Play,
+  LayoutTemplate,
   FileText,
-  PenTool,
+  BrainCircuit,
   Palette,
   Settings,
-  Zap,
-  LogOut,
   Menu,
   X,
+  Crown,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState } from "react";
-
-interface SidebarItemProps {
-  icon: React.ElementType;
-  title: string;
-  to: string;
-  active: boolean;
-}
-
-const SidebarItem = ({ icon: Icon, title, to, active }: SidebarItemProps) => {
-  return (
-    <Link to={to}>
-      <div
-        className={cn(
-          "flex items-center space-x-3 rounded-lg px-3 py-2 transition-all hover:bg-sidebar-accent",
-          active && "bg-sidebar-accent font-medium text-smartvid-600"
-        )}
-      >
-        <Icon size={20} />
-        <span>{title}</span>
-      </div>
-    </Link>
-  );
-};
+import { useSubscription } from "@/contexts/SubscriptionContext";
+import { Button } from "@/components/ui/button";
 
 export function DashboardSidebar() {
-  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const { hasActiveSubscription, isPro, isBusiness } = useSubscription();
 
-  const toggleSidebar = () => {
-    setIsOpen(!isOpen);
-  };
-
-  const sidebarItems = [
-    { icon: Home, title: "Home", to: "/dashboard" },
-    { icon: Video, title: "My Videos", to: "/dashboard/videos" },
-    { icon: FileText, title: "Templates", to: "/dashboard/templates" },
-    { icon: PenTool, title: "Scripts", to: "/dashboard/scripts" },
-    { icon: Palette, title: "Brand Kit", to: "/dashboard/brand" },
-    { icon: Settings, title: "Settings", to: "/dashboard/settings" },
+  const links = [
+    { href: "/dashboard", label: "Dashboard", icon: Home },
+    { href: "/dashboard/videos", label: "My Videos", icon: Play },
+    { href: "/dashboard/templates", label: "Templates", icon: LayoutTemplate },
+    { href: "/dashboard/scripts", label: "Scripts", icon: FileText },
+    { href: "/dashboard/generator", label: "AI Generator", icon: BrainCircuit },
+    { href: "/dashboard/brand", label: "Brand Kit", icon: Palette },
+    { href: "/dashboard/settings", label: "Settings", icon: Settings },
   ];
-
-  const pathSegments = location.pathname.split("/");
-  const currentPath = pathSegments.slice(0, 3).join("/");
 
   return (
     <>
       {/* Mobile menu button */}
-      <div className="fixed top-4 left-4 z-50 md:hidden">
-        <Button variant="outline" size="icon" onClick={toggleSidebar}>
-          <Menu className="h-5 w-5" />
-        </Button>
-      </div>
+      <button
+        className="fixed bottom-5 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-smartvid-600 text-white shadow-lg md:hidden"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {isOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
 
-      {/* Sidebar for mobile (with overlay) */}
+      {/* Sidebar for both mobile and desktop */}
       <div
         className={cn(
-          "fixed inset-0 z-40 md:hidden bg-black/50 transition-opacity duration-200",
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-        onClick={toggleSidebar}
-      />
-
-      {/* Sidebar content */}
-      <aside
-        className={cn(
-          "fixed top-0 left-0 z-50 h-full w-64 flex-shrink-0 bg-sidebar flex flex-col border-r border-sidebar-border transition-transform duration-200 ease-in-out md:translate-x-0",
-          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+          "fixed inset-y-0 left-0 z-40 w-64 transform bg-white transition-transform duration-300 ease-in-out dark:bg-gray-950 md:translate-x-0",
+          isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex justify-between items-center p-4 border-b border-sidebar-border">
-          <Link to="/dashboard" className="flex items-center space-x-2">
-            <span className="text-xl font-bold text-smartvid-600">SmartVid</span>
-          </Link>
-          <div className="flex space-x-1">
-            <ThemeToggle />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleSidebar}
-              className="md:hidden"
+        <div className="flex h-16 items-center border-b px-6">
+          <h1 className="text-xl font-bold text-smartvid-600">SmartVid</h1>
+        </div>
+        <div className="space-y-1 p-2">
+          {links.map((link) => (
+            <NavLink
+              key={link.href}
+              to={link.href}
+              onClick={() => setIsOpen(false)}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-smartvid-100 text-smartvid-600 dark:bg-gray-800 dark:text-smartvid-400"
+                    : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                )
+              }
+              end={link.href === "/dashboard"}
             >
-              <X className="h-5 w-5" />
-            </Button>
+              <link.icon className="mr-2 h-4 w-4" />
+              {link.label}
+            </NavLink>
+          ))}
+        </div>
+
+        {/* Subscription status */}
+        <div className="absolute bottom-0 left-0 right-0 p-4">
+          <div className="mb-2 rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900">
+            <p className="mb-2 text-sm font-medium">
+              {hasActiveSubscription ? (
+                <>
+                  <span className="flex items-center text-smart-600">
+                    <Crown className="mr-1 h-4 w-4 text-amber-500" />
+                    {isPro ? "Pro Plan" : isBusiness ? "Business Plan" : "Premium Plan"}
+                  </span>
+                </>
+              ) : (
+                "Free Plan"
+              )}
+            </p>
+            <NavLink to="/dashboard/upgrade" onClick={() => setIsOpen(false)}>
+              <Button 
+                className="w-full bg-smartvid-600 hover:bg-smartvid-700"
+                variant="default"
+                size="sm"
+              >
+                {hasActiveSubscription ? "Manage Plan" : "Upgrade Now"}
+              </Button>
+            </NavLink>
           </div>
         </div>
-
-        <div className="flex-1 overflow-y-auto p-4">
-          <nav className="space-y-1">
-            {sidebarItems.map((item) => (
-              <SidebarItem
-                key={item.to}
-                icon={item.icon}
-                title={item.title}
-                to={item.to}
-                active={
-                  currentPath === item.to ||
-                  (item.to === "/dashboard" && location.pathname === "/dashboard")
-                }
-              />
-            ))}
-          </nav>
-        </div>
-
-        <div className="p-4 border-t border-sidebar-border">
-          <Link to="/dashboard/upgrade">
-            <Button variant="default" className="w-full mb-2 bg-smartvid-600 hover:bg-smartvid-700">
-              <Zap className="mr-2 h-4 w-4" />
-              Upgrade Plan
-            </Button>
-          </Link>
-          <Button variant="outline" className="w-full" asChild>
-            <Link to="/logout">
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign Out
-            </Link>
-          </Button>
-        </div>
-      </aside>
+      </div>
     </>
   );
 }

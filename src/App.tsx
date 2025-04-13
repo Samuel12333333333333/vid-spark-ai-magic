@@ -25,6 +25,7 @@ import ScriptsPage from "./pages/dashboard/ScriptsPage";
 import GeneratorPage from "./pages/dashboard/GeneratorPage";
 import BrandKitPage from "./pages/dashboard/BrandKitPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
+import UpgradePage from "./pages/dashboard/UpgradePage";
 
 // Protected Route component
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
@@ -76,6 +77,7 @@ const App = () => {
                     <Route path="generator" element={<GeneratorPage />} />
                     <Route path="brand" element={<BrandKitPage />} />
                     <Route path="settings" element={<SettingsPage />} />
+                    <Route path="upgrade" element={<UpgradePage />} />
                   </Route>
                   
                   {/* 404 Route */}

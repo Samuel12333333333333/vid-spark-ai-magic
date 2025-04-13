@@ -15,15 +15,8 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Create checkout function called");
-    const { priceId, plan } = await req.json();
+    console.log("Customer portal function called");
     
-    console.log("Received checkout request with:", { priceId, plan });
-    
-    if (!priceId) {
-      throw new Error("Price ID is required");
-    }
-
     // Initialize Stripe with the secret key
     const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeSecretKey) {
@@ -60,59 +53,50 @@ serve(async (req) => {
       throw new Error("User not authenticated");
     }
 
-    console.log("Creating checkout for user:", user.id);
+    console.log("Creating customer portal for user:", user.id);
 
-    // Check if this user already has a Stripe customer ID
-    let customerId;
-    const { data: customers } = await stripe.customers.list({
-      email: user.email,
-      limit: 1,
-    });
+    // Get the customer ID from the subscriptions table
+    const { data: subscription } = await supabaseClient
+      .from("subscriptions")
+      .select("stripe_customer_id")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .maybeSingle();
 
-    if (customers && customers.length > 0) {
-      customerId = customers[0].id;
-      console.log("Found existing customer:", customerId);
-    } else {
-      // Create a new customer if one doesn't exist
-      const customer = await stripe.customers.create({
+    if (!subscription || !subscription.stripe_customer_id) {
+      // Try to find customer directly in Stripe
+      const { data: customers } = await stripe.customers.list({
         email: user.email,
-        metadata: {
-          userId: user.id,
-        },
+        limit: 1,
       });
-      customerId = customer.id;
-      console.log("Created new customer:", customerId);
+
+      if (!customers || customers.length === 0) {
+        throw new Error("No active subscription found");
+      }
+      
+      var customerId = customers[0].id;
+    } else {
+      var customerId = subscription.stripe_customer_id;
     }
+
+    console.log("Found customer ID:", customerId);
 
     const origin = req.headers.get("origin") || "https://vid-spark-ai-magic.lovable.app";
     
-    // Create checkout session
-    const session = await stripe.checkout.sessions.create({
+    // Create customer portal session
+    const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      mode: "subscription",
-      success_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/dashboard/upgrade`,
-      metadata: {
-        userId: user.id,
-        plan: plan,
-      },
+      return_url: `${origin}/dashboard/upgrade`,
     });
 
-    console.log("Checkout session created:", session.id);
+    console.log("Customer portal session created:", portalSession.id);
     
-    return new Response(JSON.stringify({ url: session.url }), {
+    return new Response(JSON.stringify({ url: portalSession.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
-    console.error("Error creating checkout session:", error);
+    console.error("Error creating customer portal session:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
