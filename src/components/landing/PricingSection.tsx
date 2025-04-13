@@ -1,4 +1,3 @@
-
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -53,7 +52,7 @@ export function PricingSection() {
       ],
       cta: "Upgrade to Pro",
       popular: true,
-      priceId: "price_1QrJcFQOvLVQwvg3UENHGtzD", // Replace with your actual price ID
+      priceId: "prod_S7P3tgksdhcfMa", // Updated with your Pro product ID
     },
     {
       name: "Business",
@@ -74,7 +73,7 @@ export function PricingSection() {
       ],
       cta: "Contact Sales",
       popular: false,
-      priceId: "price_1QrJcYQOvLVQwvg3JKcXpVzW", // Replace with your actual price ID
+      priceId: "prod_S7P4tJCjHgpkeE", // Updated with your Business product ID
     },
   ];
 
