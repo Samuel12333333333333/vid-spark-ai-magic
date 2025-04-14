@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export interface VideoClip {
@@ -82,20 +83,67 @@ export const mediaService = {
       // Use the scenes' descriptions to generate a coherent narration script
       const sceneDescriptions = scenes.map(scene => scene.description || scene.scene).join(". ");
       
-      // Mock implementation - in production, this would call to an LLM API or another service
       console.log("Generating narration script for scenes:", sceneDescriptions);
       
-      return sceneDescriptions;
+      const { data, error } = await supabase.functions.invoke('generate-scenes', {
+        body: { prompt: `Create a short, emotional narration for these scenes: ${sceneDescriptions}`, type: "narration" }
+      });
+      
+      if (error) {
+        console.error('Error generating narration script:', error);
+        throw error;
+      }
+      
+      if (!data || !data.narration) {
+        console.warn('No narration returned from generate-scenes function');
+        return sceneDescriptions;
+      }
+      
+      console.log("Generated narration script:", data.narration);
+      return data.narration;
     } catch (error) {
       console.error('Error generating script for scenes:', error);
-      return ""; // Return empty string on error
+      // Use scene descriptions as fallback
+      return scenes.map(scene => scene.description || scene.scene).join(". ");
     }
   },
 
   async generateAudio(script: string, voiceId: string, userId: string, projectId: string, scenes?: any[]): Promise<{audioBase64: string, narrationScript: string}> {
     try {
+      console.log(`Generating audio with voice ${voiceId} for project ${projectId}`);
+      console.log(`Script provided: "${script || "No script provided - will generate from scenes"}"`);
+      
+      let finalScript = script;
+      
+      // If no script is provided but scenes are available, generate a script
+      if ((!finalScript || finalScript.trim() === "") && scenes && scenes.length > 0) {
+        try {
+          console.log("No script provided, generating from scenes...");
+          finalScript = await this.generateScriptForScenes(scenes);
+          console.log(`Generated script from scenes: "${finalScript}"`);
+        } catch (scriptError) {
+          console.error("Error generating script from scenes:", scriptError);
+          // Create a simple fallback script
+          finalScript = "Experience the beauty and wonder of this moment.";
+        }
+      }
+      
+      // Ensure we have a valid script
+      if (!finalScript || finalScript.trim() === "") {
+        finalScript = "Experience the beauty and wonder of this moment.";
+        console.log("Using fallback script:", finalScript);
+      }
+      
+      console.log(`Calling generate-audio function with script: "${finalScript}" and voiceId: ${voiceId}`);
+      
       const { data, error } = await supabase.functions.invoke('generate-audio', {
-        body: { script, voiceId, userId, projectId, scenes }
+        body: { 
+          script: finalScript, 
+          voiceId, 
+          userId, 
+          projectId,
+          scenes: scenes || []
+        }
       });
       
       if (error) {
@@ -103,9 +151,16 @@ export const mediaService = {
         throw error;
       }
       
+      if (!data || !data.audioBase64) {
+        console.error('No audio data returned from generate-audio function');
+        throw new Error('Failed to generate audio content');
+      }
+      
+      console.log("Audio generation successful, returning data");
+      
       return {
         audioBase64: data.audioBase64,
-        narrationScript: data.narrationScript || script
+        narrationScript: data.narrationScript || finalScript
       };
     } catch (error) {
       console.error('Error in generateAudio:', error);
@@ -115,14 +170,32 @@ export const mediaService = {
 
   async renderVideo(scenes: any[], userId: string, projectId: string, audioBase64?: string, includeCaptions: boolean = true, narrationScript?: string): Promise<string> {
     try {
+      console.log(`Rendering video for project ${projectId} with ${scenes.length} scenes`);
+      console.log(`Audio provided: ${!!audioBase64}, Include captions: ${includeCaptions}`);
+      console.log(`Narration script: "${narrationScript || 'Not provided'}"`);
+      
       const { data, error } = await supabase.functions.invoke('render-video', {
-        body: { scenes, userId, projectId, audioBase64, includeCaptions, narrationScript }
+        body: { 
+          scenes, 
+          userId, 
+          projectId, 
+          audioBase64, 
+          includeCaptions, 
+          narrationScript 
+        }
       });
       
       if (error) {
         console.error('Error rendering video:', error);
         throw error;
       }
+      
+      if (!data || !data.renderId) {
+        console.error('No render ID returned from render-video function');
+        throw new Error('Failed to start video rendering process');
+      }
+      
+      console.log("Render started with ID:", data.renderId);
       
       return data.renderId;
     } catch (error) {
@@ -133,6 +206,8 @@ export const mediaService = {
   
   async checkRenderStatus(renderId: string): Promise<RenderStatus> {
     try {
+      console.log(`Checking render status for ID: ${renderId}`);
+      
       const { data, error } = await supabase.functions.invoke('check-render-status', {
         body: { renderId }
       });
@@ -141,6 +216,8 @@ export const mediaService = {
         console.error('Error checking render status:', error);
         throw error;
       }
+      
+      console.log(`Render status: ${data.status}, URL: ${data.url || 'not ready'}`);
       
       return {
         status: data.status,

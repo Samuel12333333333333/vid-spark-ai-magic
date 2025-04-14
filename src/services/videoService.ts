@@ -102,6 +102,14 @@ export const videoService = {
   
   async createProject(project: Omit<VideoProject, 'id' | 'created_at' | 'updated_at'>): Promise<VideoProject | null> {
     try {
+      console.log("Creating video project with data:", {
+        title: project.title,
+        style: project.style,
+        has_audio: project.has_audio,
+        has_captions: project.has_captions,
+        narration_script: project.narration_script?.substring(0, 20) + "..." || null
+      });
+      
       // Ensure default values for new columns
       const projectWithDefaults = {
         ...project,
@@ -121,6 +129,7 @@ export const videoService = {
         throw error;
       }
       
+      console.log("Video project created successfully with ID:", data.id);
       return data as VideoProject;
     } catch (error) {
       console.error('Error in createProject:', error);
@@ -130,6 +139,13 @@ export const videoService = {
   
   async updateProject(id: string, updates: Partial<VideoProject>): Promise<void> {
     try {
+      console.log(`Updating video project ${id} with data:`, {
+        status: updates.status,
+        has_audio: updates.has_audio,
+        has_captions: updates.has_captions,
+        narration_script: updates.narration_script?.substring(0, 20) + "..." || null
+      });
+      
       // If there's a video_url, validate it
       if (updates.video_url) {
         updates.video_url = mediaService.validateVideoUrl(updates.video_url);
@@ -144,6 +160,8 @@ export const videoService = {
         console.error(`Error updating video project with id ${id}:`, error);
         throw error;
       }
+      
+      console.log(`Video project ${id} updated successfully`);
     } catch (error) {
       console.error('Error in updateProject:', error);
       throw error;

@@ -174,6 +174,7 @@ export type Database = {
           has_captions: boolean | null
           id: string
           media_source: string | null
+          narration_script: string | null
           prompt: string
           render_id: string | null
           status: string
@@ -193,6 +194,7 @@ export type Database = {
           has_captions?: boolean | null
           id?: string
           media_source?: string | null
+          narration_script?: string | null
           prompt: string
           render_id?: string | null
           status?: string
@@ -212,6 +214,7 @@ export type Database = {
           has_captions?: boolean | null
           id?: string
           media_source?: string | null
+          narration_script?: string | null
           prompt?: string
           render_id?: string | null
           status?: string
