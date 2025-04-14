@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { mediaService } from "./mediaService";
 
@@ -19,6 +20,7 @@ export interface VideoProject {
   render_id?: string;
   has_audio?: boolean;
   has_captions?: boolean;
+  narration_script?: string;
 }
 
 export const videoService = {
@@ -104,7 +106,8 @@ export const videoService = {
       const projectWithDefaults = {
         ...project,
         has_audio: project.has_audio ?? false,
-        has_captions: project.has_captions ?? true
+        has_captions: project.has_captions ?? true,
+        narration_script: project.narration_script ?? null
       };
 
       const { data, error } = await supabase

@@ -44,7 +44,7 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-    const { scenes, userId, projectId, audioBase64, includeCaptions } = await req.json();
+    const { scenes, userId, projectId, audioBase64, includeCaptions, narrationScript } = await req.json();
     
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
       return new Response(
@@ -62,6 +62,22 @@ serve(async (req) => {
 
     console.log(`Rendering video for project ${projectId} with ${scenes.length} scenes`);
     console.log(`Audio provided: ${!!audioBase64}, Include captions: ${!!includeCaptions}`);
+    
+    if (narrationScript) {
+      console.log(`Narration script: "${narrationScript}"`);
+      
+      // Update the project with the narration script
+      const { error: updateNarrationError } = await supabase
+        .from("video_projects")
+        .update({
+          narration_script: narrationScript
+        })
+        .eq("id", projectId);
+        
+      if (updateNarrationError) {
+        console.error("Error updating project narration script:", updateNarrationError);
+      }
+    }
 
     // Calculate total duration for reference
     const totalDuration = scenes.reduce((sum, scene) => sum + scene.duration, 0);
@@ -111,29 +127,32 @@ serve(async (req) => {
 
     // Add captions/subtitles track if requested
     if (includeCaptions) {
-      const captionsTrack = {
-        clips: validScenes.map((scene, index) => {
-          // Calculate start position based on previous scenes
-          const startPosition = validScenes
-            .slice(0, index)
-            .reduce((sum, s) => sum + s.duration, 0);
-          
-          return {
-            asset: {
-              type: "title",
-              text: scene.scene,
-              style: "minimal",
-              size: "medium",
-              position: "bottom",
-              background: "#00000080" // Semi-transparent background for better readability
-            },
-            start: startPosition,
-            length: scene.duration
-          };
-        })
-      };
+      let captionText = narrationScript || "";
+      if (!captionText && scenes.length > 0) {
+        // If no narration script, use scene descriptions
+        captionText = scenes.map(scene => scene.scene).join(". ");
+      }
       
-      timeline.tracks.push(captionsTrack);
+      if (captionText) {
+        const captionsTrack = {
+          clips: [
+            {
+              asset: {
+                type: "title",
+                text: captionText,
+                style: "minimal",
+                size: "medium",
+                position: "bottom",
+                background: "#00000080" // Semi-transparent background for better readability
+              },
+              start: 0,
+              length: totalDuration
+            }
+          ]
+        };
+        
+        timeline.tracks.push(captionsTrack);
+      }
     } else {
       // Even without captions, still add scene titles at the beginning of each scene
       const titlesTrack = {
@@ -176,7 +195,8 @@ serve(async (req) => {
       // For now, we'll simulate having stored the audio with this approach
       timeline.soundtrack = {
         src: "https://shotstack-assets.s3.ap-southeast-2.amazonaws.com/music/unminus/lit.mp3", // Placeholder - would be replaced with stored audio URL
-        effect: "fadeOut"
+        effect: "fadeOut",
+        volume: 0.3 // Lower background music volume to 30% when voiceover is present
       };
       
       // Mark in the database that we have audio for this project
@@ -196,7 +216,8 @@ serve(async (req) => {
       console.log("Using default soundtrack");
       timeline.soundtrack = {
         src: "https://shotstack-assets.s3.ap-southeast-2.amazonaws.com/music/unminus/lit.mp3",
-        effect: "fadeOut"
+        effect: "fadeOut",
+        volume: 0.7 // Higher volume (70%) when no voiceover is present
       };
     }
 

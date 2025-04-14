@@ -17,6 +17,89 @@ const AVAILABLE_VOICES = [
   { id: "yoZ06aMxZJJ28mfd3POQ", name: "Josh - Warm and engaging" }
 ];
 
+// Function to generate narration script
+async function generateNarrationScript(scenes) {
+  try {
+    // Use the GEMINI_API_KEY for generating narration
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    
+    if (!GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY is not defined");
+      throw new Error("Gemini API key is missing");
+    }
+    
+    // Combine all scene descriptions into a single narrative
+    let fullDescription = '';
+    
+    if (Array.isArray(scenes)) {
+      scenes.forEach(scene => {
+        fullDescription += scene.description + " ";
+      });
+    } else if (typeof scenes === 'string') {
+      // If scenes is just a string description
+      fullDescription = scenes;
+    } else {
+      throw new Error("Invalid scenes format");
+    }
+    
+    // Create prompt for narration generation
+    const prompt = `
+    Generate a short, emotionally resonant voiceover script for this video scene:
+    
+    "${fullDescription}"
+    
+    Requirements:
+    1. The narration should match the tone, emotion, and pacing of the visual.
+    2. Keep it between 15-40 words — suitable for 5 to 15 seconds of speech.
+    3. Use natural, human tone — no robotic phrasing or generic commentary.
+    4. Enhance the mood/story rather than describing visuals literally.
+    5. Write in a warm, emotional, heartfelt, joyful, or nostalgic tone as appropriate.
+    
+    Provide ONLY the voiceover script with no extra formatting, labels, or quotes.
+    `;
+    
+    console.log("Generating narration script with prompt:", prompt);
+    
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: prompt }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 100
+        }
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Error from Gemini API:", errorText);
+      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    const narration = data.candidates[0].content.parts[0].text.trim();
+    
+    console.log("Generated narration script:", narration);
+    
+    return narration;
+  } catch (error) {
+    console.error("Error generating narration script:", error);
+    // Return a fallback narration
+    return "Journey with us through this moment of beauty and wonder.";
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === "OPTIONS") {
@@ -37,11 +120,25 @@ serve(async (req) => {
       );
     }
 
-    const { script, voiceId, userId, projectId } = await req.json();
+    const { scenes, script, voiceId, userId, projectId } = await req.json();
     
-    if (!script || script.trim() === "") {
+    // Generate or use provided script
+    let narrationScript;
+    if (script && script.trim() !== "") {
+      narrationScript = script;
+    } else if (scenes) {
+      // Generate narration based on scenes
+      narrationScript = await generateNarrationScript(scenes);
+    } else {
       return new Response(
-        JSON.stringify({ error: "Script is required and cannot be empty" }),
+        JSON.stringify({ error: "Either script or scenes are required" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
+    
+    if (!narrationScript || narrationScript.trim() === "") {
+      return new Response(
+        JSON.stringify({ error: "Failed to generate a narration script" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
@@ -50,9 +147,10 @@ serve(async (req) => {
     const selectedVoiceId = voiceId || "21m00Tcm4TlvDq8ikWAM";
     
     console.log(`Generating audio for project ${projectId} with voice ${selectedVoiceId}`);
+    console.log(`Narration script: "${narrationScript}"`);
 
     const ttsPayload = {
-      text: script,
+      text: narrationScript,
       model_id: "eleven_monolingual_v1",
       voice_settings: {
         stability: 0.5,
@@ -85,14 +183,12 @@ serve(async (req) => {
       String.fromCharCode(...new Uint8Array(audioBuffer))
     );
 
-    // Option to transcribe with Whisper API could be added here
-    // For now, we'll just return the audio
-
     return new Response(
       JSON.stringify({ 
         audioBase64: base64Audio,
         format: "mp3",
         voiceId: selectedVoiceId,
+        narrationScript: narrationScript,
         voiceName: AVAILABLE_VOICES.find(v => v.id === selectedVoiceId)?.name || "Unknown Voice"
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

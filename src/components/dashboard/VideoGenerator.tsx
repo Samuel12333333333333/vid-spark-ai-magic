@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,6 +51,10 @@ export function VideoGenerator() {
     elevenlabs: false
   });
 
+  const [narrationScript, setNarrationScript] = useState<string>("");
+  const [customNarration, setCustomNarration] = useState<boolean>(false);
+  const [generatedNarration, setGeneratedNarration] = useState<string>("");
+
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -66,7 +69,6 @@ export function VideoGenerator() {
     
     checkAuth();
     
-    // Load available voices
     setVoices(mediaService.getAvailableVoices());
   }, [navigate]);
 
@@ -173,30 +175,36 @@ export function VideoGenerator() {
       setSceneVideos(newSceneVideos);
       setGenerationProgress(45);
       
-      // Generate audio if voiceover is selected
       let audioContent: string | null = null;
+      let scriptContent: string | null = null;
+      
       if (voiceType !== "none") {
         try {
-          // Combine all scene descriptions into a single script
-          const fullScript = updatedScenes.map(scene => scene.scene).join(". ");
+          const scenesForNarration = updatedScenes.map(scene => ({
+            id: scene.id,
+            scene: scene.scene,
+            description: scene.description
+          }));
           
-          audioContent = await mediaService.generateAudio(
-            fullScript,
+          const { audioBase64: generatedAudio, narrationScript: generatedScript } = await mediaService.generateAudio(
+            "", // Empty script to trigger auto-generation
             voiceType,
             user?.id || "",
-            "temp-project-id" // Will be replaced with actual project ID
+            projectId || "temp-project-id",
+            scenesForNarration
           );
           
+          audioContent = generatedAudio;
+          scriptContent = generatedScript;
+          setGeneratedNarration(generatedScript);
           setAudioBase64(audioContent);
           setGenerationProgress(60);
         } catch (error) {
           console.error("Error generating audio:", error);
           setApiErrors(prev => ({ ...prev, elevenlabs: true }));
-          // Continue without audio if it fails
           toast.error("Failed to generate voiceover. Video will be created without narration.");
         }
       } else {
-        // Skip audio generation
         setGenerationProgress(60);
       }
       
@@ -218,6 +226,7 @@ export function VideoGenerator() {
         voice_type: voiceType,
         has_audio: voiceType !== "none",
         has_captions: enableCaptions,
+        narration_script: scriptContent || narrationScript || "",
         user_id: user?.id || "",
         status: 'processing' as 'pending' | 'processing' | 'completed' | 'failed'
       };
@@ -242,7 +251,8 @@ export function VideoGenerator() {
           user?.id || "", 
           newProject.id,
           audioContent || undefined,
-          enableCaptions
+          enableCaptions,
+          scriptContent || narrationScript || undefined
         );
         
         if (!renderIdResponse) {
@@ -621,6 +631,41 @@ export function VideoGenerator() {
                         <p className="text-muted-foreground">High-quality, lifelike AI narration for your video</p>
                       </div>
                     </div>
+                    
+                    <div className="mt-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="custom-narration" className="text-sm">Use custom narration script</Label>
+                        <Switch
+                          id="custom-narration"
+                          checked={customNarration}
+                          onCheckedChange={setCustomNarration}
+                        />
+                      </div>
+                      
+                      {customNarration && (
+                        <div className="space-y-2">
+                          <Label htmlFor="narration-script">Narration Script (15-40 words recommended)</Label>
+                          <Textarea
+                            id="narration-script"
+                            placeholder="Enter a natural, emotional narration script that enhances the mood of your video..."
+                            value={narrationScript}
+                            onChange={(e) => setNarrationScript(e.target.value)}
+                            className="min-h-24"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            For best results, write in a warm, natural tone that complements the visual story.
+                          </p>
+                        </div>
+                      )}
+                      
+                      {!customNarration && (
+                        <div className="px-4 py-3 bg-muted/50 rounded-lg">
+                          <p className="text-sm">
+                            AI will automatically generate an emotionally resonant narration script based on your video content.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -643,7 +688,11 @@ export function VideoGenerator() {
                     <Subtitles className="h-5 w-5 text-muted-foreground" />
                     <div className="text-sm">
                       <p className="font-medium">Automatic captions</p>
-                      <p className="text-muted-foreground">Scene titles will be displayed as captions in your video</p>
+                      <p className="text-muted-foreground">
+                        {voiceType !== "none" 
+                          ? "Voiceover narration will be displayed as captions in your video" 
+                          : "Scene titles will be displayed as captions in your video"}
+                      </p>
                     </div>
                   </div>
                 )}

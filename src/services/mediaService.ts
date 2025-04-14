@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface VideoClip {
@@ -78,10 +77,46 @@ export const mediaService = {
     }
   },
 
-  async renderVideo(scenes: any[], userId: string, projectId: string, audioBase64?: string, includeCaptions: boolean = false): Promise<string> {
+  async generateScriptForScenes(scenes: any[]): Promise<string> {
+    try {
+      // Use the scenes' descriptions to generate a coherent narration script
+      const sceneDescriptions = scenes.map(scene => scene.description || scene.scene).join(". ");
+      
+      // Mock implementation - in production, this would call to an LLM API or another service
+      console.log("Generating narration script for scenes:", sceneDescriptions);
+      
+      return sceneDescriptions;
+    } catch (error) {
+      console.error('Error generating script for scenes:', error);
+      return ""; // Return empty string on error
+    }
+  },
+
+  async generateAudio(script: string, voiceId: string, userId: string, projectId: string, scenes?: any[]): Promise<{audioBase64: string, narrationScript: string}> {
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-audio', {
+        body: { script, voiceId, userId, projectId, scenes }
+      });
+      
+      if (error) {
+        console.error('Error generating audio:', error);
+        throw error;
+      }
+      
+      return {
+        audioBase64: data.audioBase64,
+        narrationScript: data.narrationScript || script
+      };
+    } catch (error) {
+      console.error('Error in generateAudio:', error);
+      throw error;
+    }
+  },
+
+  async renderVideo(scenes: any[], userId: string, projectId: string, audioBase64?: string, includeCaptions: boolean = true, narrationScript?: string): Promise<string> {
     try {
       const { data, error } = await supabase.functions.invoke('render-video', {
-        body: { scenes, userId, projectId, audioBase64, includeCaptions }
+        body: { scenes, userId, projectId, audioBase64, includeCaptions, narrationScript }
       });
       
       if (error) {
@@ -113,24 +148,6 @@ export const mediaService = {
       };
     } catch (error) {
       console.error('Error in checkRenderStatus:', error);
-      throw error;
-    }
-  },
-
-  async generateAudio(script: string, voiceId: string, userId: string, projectId: string): Promise<string> {
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-audio', {
-        body: { script, voiceId, userId, projectId }
-      });
-      
-      if (error) {
-        console.error('Error generating audio:', error);
-        throw error;
-      }
-      
-      return data.audioBase64;
-    } catch (error) {
-      console.error('Error in generateAudio:', error);
       throw error;
     }
   },
