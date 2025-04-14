@@ -18,6 +18,8 @@ export interface VideoProject {
   updated_at: string;
   user_id: string;
   render_id?: string;
+  has_audio?: boolean;
+  has_captions?: boolean;
 }
 
 export const videoService = {

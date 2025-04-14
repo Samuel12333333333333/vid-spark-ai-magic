@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,13 +7,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
-import { Loader2, Video, Sparkles, Download, Share2, AlertTriangle } from "lucide-react";
+import { Loader2, Video, Sparkles, Download, Share2, AlertTriangle, Volume2, FileAudio, Subtitles } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { aiService, SceneBreakdown } from "@/services/aiService";
-import { mediaService, VideoClip } from "@/services/mediaService";
+import { mediaService, VideoClip, VoiceOption } from "@/services/mediaService";
 import { videoService, VideoProject } from "@/services/videoService";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -25,23 +28,28 @@ export function VideoGenerator() {
   const [videoStyle, setVideoStyle] = useState("ad");
   const [mediaSource, setMediaSource] = useState("stock");
   const [brandColors, setBrandColors] = useState("#0ea5e9");
-  const [voiceType, setVoiceType] = useState("male");
+  const [voiceType, setVoiceType] = useState("none");
+  const [enableCaptions, setEnableCaptions] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
   const [scenes, setScenes] = useState<SceneBreakdown[]>([]);
   const [sceneVideos, setSceneVideos] = useState<Map<string, VideoClip>>(new Map());
+  const [audioBase64, setAudioBase64] = useState<string | null>(null);
   const [renderId, setRenderId] = useState<string | null>(null);
   const [renderCheckInterval, setRenderCheckInterval] = useState<number | null>(null);
+  const [voices, setVoices] = useState<VoiceOption[]>([]);
   const [apiErrors, setApiErrors] = useState<{
     gemini: boolean;
     pexels: boolean;
     shotstack: boolean;
+    elevenlabs: boolean;
   }>({
     gemini: false,
     pexels: false,
-    shotstack: false
+    shotstack: false,
+    elevenlabs: false
   });
 
   const navigate = useNavigate();
@@ -57,6 +65,9 @@ export function VideoGenerator() {
     };
     
     checkAuth();
+    
+    // Load available voices
+    setVoices(mediaService.getAvailableVoices());
   }, [navigate]);
 
   useEffect(() => {
@@ -79,13 +90,6 @@ export function VideoGenerator() {
     { value: "stock", label: "Use Stock Videos" },
     { value: "upload", label: "Upload My Own" },
     { value: "mixed", label: "Mixed Sources" },
-  ];
-
-  const voiceOptions = [
-    { value: "male", label: "Male Voice" },
-    { value: "female", label: "Female Voice" },
-    { value: "neutral", label: "Gender Neutral" },
-    { value: "none", label: "No Voiceover" },
   ];
 
   const handleNextStep = () => {
@@ -112,7 +116,8 @@ export function VideoGenerator() {
       setApiErrors({
         gemini: false,
         pexels: false,
-        shotstack: false
+        shotstack: false,
+        elevenlabs: false
       });
       
       let generatedScenes: SceneBreakdown[];
@@ -129,7 +134,7 @@ export function VideoGenerator() {
       }
       
       setScenes(generatedScenes);
-      setGenerationProgress(30);
+      setGenerationProgress(25);
       
       const updatedScenes = [...generatedScenes];
       const newSceneVideos = new Map<string, VideoClip>();
@@ -166,7 +171,34 @@ export function VideoGenerator() {
       }
       
       setSceneVideos(newSceneVideos);
-      setGenerationProgress(60);
+      setGenerationProgress(45);
+      
+      // Generate audio if voiceover is selected
+      let audioContent: string | null = null;
+      if (voiceType !== "none") {
+        try {
+          // Combine all scene descriptions into a single script
+          const fullScript = updatedScenes.map(scene => scene.scene).join(". ");
+          
+          audioContent = await mediaService.generateAudio(
+            fullScript,
+            voiceType,
+            user?.id || "",
+            "temp-project-id" // Will be replaced with actual project ID
+          );
+          
+          setAudioBase64(audioContent);
+          setGenerationProgress(60);
+        } catch (error) {
+          console.error("Error generating audio:", error);
+          setApiErrors(prev => ({ ...prev, elevenlabs: true }));
+          // Continue without audio if it fails
+          toast.error("Failed to generate voiceover. Video will be created without narration.");
+        }
+      } else {
+        // Skip audio generation
+        setGenerationProgress(60);
+      }
       
       const scenesForRendering = updatedScenes.map(scene => ({
         ...scene,
@@ -184,6 +216,8 @@ export function VideoGenerator() {
         media_source: mediaSource,
         brand_colors: brandColors,
         voice_type: voiceType,
+        has_audio: voiceType !== "none",
+        has_captions: enableCaptions,
         user_id: user?.id || "",
         status: 'processing' as 'pending' | 'processing' | 'completed' | 'failed'
       };
@@ -206,7 +240,9 @@ export function VideoGenerator() {
         renderIdResponse = await mediaService.renderVideo(
           scenesForRendering, 
           user?.id || "", 
-          newProject.id
+          newProject.id,
+          audioContent || undefined,
+          enableCaptions
         );
         
         if (!renderIdResponse) {
@@ -330,7 +366,7 @@ export function VideoGenerator() {
         <p className="text-muted-foreground">Follow the steps below to generate your video</p>
       </div>
 
-      <Alert className="mb-6" variant={apiErrors.gemini || apiErrors.pexels || apiErrors.shotstack ? "destructive" : "default"}>
+      <Alert className="mb-6" variant={apiErrors.gemini || apiErrors.pexels || apiErrors.shotstack || apiErrors.elevenlabs ? "destructive" : "default"}>
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle>API Keys Required</AlertTitle>
         <AlertDescription>
@@ -345,6 +381,9 @@ export function VideoGenerator() {
             <li className={apiErrors.shotstack ? "text-destructive font-semibold" : ""}>
               SHOTSTACK_API_KEY - For video rendering {apiErrors.shotstack && "(Error detected)"}
             </li>
+            <li className={apiErrors.elevenlabs ? "text-destructive font-semibold" : ""}>
+              ELEVEN_LABS_API_KEY - For voiceover generation {apiErrors.elevenlabs && "(Error detected)"}
+            </li>
           </ul>
         </AlertDescription>
       </Alert>
@@ -355,7 +394,7 @@ export function VideoGenerator() {
           <TabsTrigger value="style" disabled={!textPrompt || isGenerating}>Style</TabsTrigger>
           <TabsTrigger value="media" disabled={!textPrompt || isGenerating}>Media</TabsTrigger>
           <TabsTrigger value="branding" disabled={!textPrompt || isGenerating}>Branding</TabsTrigger>
-          <TabsTrigger value="voiceover" disabled={!textPrompt || isGenerating}>Voiceover</TabsTrigger>
+          <TabsTrigger value="voiceover" disabled={!textPrompt || isGenerating}>Voice & Captions</TabsTrigger>
           <TabsTrigger value="generate" disabled={!textPrompt || isGenerating}>Generate</TabsTrigger>
           <TabsTrigger value="preview" disabled={!generatedVideoUrl}>Preview</TabsTrigger>
         </TabsList>
@@ -541,54 +580,74 @@ export function VideoGenerator() {
         <TabsContent value="voiceover">
           <Card>
             <CardHeader>
-              <CardTitle>Step 5: AI Voiceover (Optional)</CardTitle>
+              <CardTitle>Step 5: Voiceover & Captions</CardTitle>
               <CardDescription>
-                Add a professional voiceover to your video
+                Add a professional voiceover and captions to your video
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <RadioGroup 
-                value={voiceType} 
-                onValueChange={setVoiceType}
-                className="grid gap-4"
-              >
-                {voiceOptions.map((option) => (
-                  <div key={option.value} className="flex items-start space-x-2">
-                    <RadioGroupItem value={option.value} id={option.value} className="mt-1" />
-                    <div className="grid gap-1.5">
-                      <Label htmlFor={option.value}>{option.label}</Label>
-                      {option.value !== "none" && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <Button variant="outline" size="sm" className="h-8">
-                            Preview Voice
-                          </Button>
-                          <select 
-                            className="flex h-8 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <option value="natural">Natural</option>
-                            <option value="professional">Professional</option>
-                            <option value="friendly">Friendly</option>
-                            <option value="authoritative">Authoritative</option>
-                          </select>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </RadioGroup>
-
-              {voiceType !== "none" && (
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <Label>Voice Speed</Label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">Slow</span>
-                      <Input type="range" min="0.5" max="2" step="0.1" defaultValue="1" className="flex-1" />
-                      <span className="text-sm">Fast</span>
-                    </div>
+            <CardContent className="space-y-6">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <Label htmlFor="voice-select" className="text-base font-medium">AI Voiceover</Label>
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="enable-voice" className="text-sm">Enable</Label>
+                    <Switch 
+                      id="enable-voice" 
+                      checked={voiceType !== "none"}
+                      onCheckedChange={(checked) => setVoiceType(checked ? "21m00Tcm4TlvDq8ikWAM" : "none")}
+                    />
                   </div>
                 </div>
-              )}
+
+                {voiceType !== "none" && (
+                  <div className="space-y-4">
+                    <Select value={voiceType} onValueChange={setVoiceType}>
+                      <SelectTrigger id="voice-select" className="w-full">
+                        <SelectValue placeholder="Select a voice" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {voices.map((voice) => (
+                          <SelectItem key={voice.id} value={voice.id}>
+                            {voice.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <div className="px-4 py-3 bg-muted/50 rounded-lg flex items-center gap-3">
+                      <FileAudio className="h-5 w-5 text-muted-foreground" />
+                      <div className="text-sm">
+                        <p className="font-medium">ElevenLabs AI voices</p>
+                        <p className="text-muted-foreground">High-quality, lifelike AI narration for your video</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <Label htmlFor="enable-captions" className="text-base font-medium">Captions</Label>
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="enable-captions" className="text-sm">Enable</Label>
+                    <Switch 
+                      id="enable-captions" 
+                      checked={enableCaptions}
+                      onCheckedChange={setEnableCaptions}
+                    />
+                  </div>
+                </div>
+
+                {enableCaptions && (
+                  <div className="px-4 py-3 bg-muted/50 rounded-lg flex items-center gap-3">
+                    <Subtitles className="h-5 w-5 text-muted-foreground" />
+                    <div className="text-sm">
+                      <p className="font-medium">Automatic captions</p>
+                      <p className="text-muted-foreground">Scene titles will be displayed as captions in your video</p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </CardContent>
             <CardFooter className="flex justify-between">
               <Button variant="outline" onClick={handlePreviousStep}>
@@ -647,6 +706,46 @@ export function VideoGenerator() {
                   </div>
                 </div>
                 
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="border rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Voiceover:</span>
+                      <Button variant="ghost" size="sm" onClick={() => setCurrentStep("voiceover")}>
+                        Edit
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      {voiceType !== "none" ? (
+                        <>
+                          <Volume2 className="h-4 w-4" />
+                          <span>{voices.find(v => v.id === voiceType)?.name || "Unknown Voice"}</span>
+                        </>
+                      ) : (
+                        "No voiceover"
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="border rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Captions:</span>
+                      <Button variant="ghost" size="sm" onClick={() => setCurrentStep("voiceover")}>
+                        Edit
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      {enableCaptions ? (
+                        <>
+                          <Subtitles className="h-4 w-4" />
+                          <span>Enabled</span>
+                        </>
+                      ) : (
+                        "Disabled"
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="border rounded-lg p-4">
                   <div className="flex justify-between mb-2">
                     <span className="font-medium">Estimated Time:</span>
@@ -666,12 +765,14 @@ export function VideoGenerator() {
                     <div className="flex items-center justify-center py-4 space-x-2">
                       <Loader2 className="h-5 w-5 animate-spin text-smartvid-600" />
                       <span className="text-sm">
-                        {generationProgress < 30
+                        {generationProgress < 25
                           ? "Analyzing your prompt..."
-                          : generationProgress < 60
+                          : generationProgress < 45
                           ? "Finding the perfect clips..."
-                          : generationProgress < 90
-                          ? "Applying styles and transitions..."
+                          : generationProgress < 60
+                          ? "Generating voiceover..."
+                          : generationProgress < 80
+                          ? "Creating final video..."
                           : "Finalizing your video..."}
                       </span>
                     </div>
