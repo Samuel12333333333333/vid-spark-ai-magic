@@ -15,3 +15,15 @@ verify_jwt = false
 
 [functions.generate-audio]
 verify_jwt = true
+
+[functions.search-videos]
+verify_jwt = true
+
+[functions.generate-scenes]
+verify_jwt = true
+
+[functions.render-video]
+verify_jwt = true
+
+[functions.check-render-status]
+verify_jwt = true

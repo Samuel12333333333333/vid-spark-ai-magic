@@ -40,8 +40,23 @@ export const mediaService = {
   
   async searchVideos(keywords: string[]): Promise<VideoClip[]> {
     try {
+      if (!keywords || keywords.length === 0) {
+        console.warn("Empty keywords provided to searchVideos");
+        return [];
+      }
+      
+      // Filter out empty keywords
+      const filteredKeywords = keywords.filter(k => k && k.trim() !== "");
+      
+      if (filteredKeywords.length === 0) {
+        console.warn("All keywords were empty after filtering");
+        return [];
+      }
+      
+      console.log("Searching videos with keywords:", filteredKeywords);
+      
       const { data, error } = await supabase.functions.invoke('search-videos', {
-        body: { keywords: keywords.join(' ') }
+        body: { keywords: filteredKeywords }
       });
       
       if (error) {
@@ -49,10 +64,17 @@ export const mediaService = {
         throw error;
       }
       
-      return data.videos || [];
+      if (!data || !data.videos) {
+        console.warn('No videos returned from search-videos function');
+        return [];
+      }
+      
+      return data.videos;
     } catch (error) {
       console.error('Error in searchVideos:', error);
-      throw error;
+      // Return empty array instead of throwing to allow the process to continue
+      // with other scene videos if possible
+      return [];
     }
   },
 

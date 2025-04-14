@@ -3,34 +3,37 @@ import { VideoGenerator } from "@/components/dashboard/VideoGenerator";
 import { Helmet } from "react-helmet-async";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function GeneratorPage() {
   useEffect(() => {
-    // Set the ElevenLabs API key in Supabase environment
-    const setElevenLabsApiKey = async () => {
+    // Check if the API keys are set in Supabase environment
+    const checkApiKeys = async () => {
       try {
-        // This is just for demo purposes - in a real app, we'd have a proper admin setting for this
-        // The ElevenLabs API key would be set through the Supabase dashboard
-        const { data, error } = await supabase.functions.invoke('set-api-key', {
-          body: { 
-            key: 'ELEVEN_LABS_API_KEY',
-            value: 'sk_d4b72330b4e5bbb7ccf3d63848a3625a9147543bc94a42d5'
-          }
+        // Attempt a minimal call to the search-videos function to verify API key setup
+        const { data, error } = await supabase.functions.invoke('search-videos', {
+          body: { keywords: ["test"] }
         });
         
         if (error) {
-          console.error('Error setting ElevenLabs API key:', error);
+          console.error('Error testing Pexels API key:', error);
+          toast.error("Pexels API connection issue. Please check your API key in Supabase dashboard.");
         } else {
-          console.log('ElevenLabs API key set successfully');
+          console.log('Pexels API key test successful');
+          // Only show success toast for development/debugging
+          if (import.meta.env.DEV) {
+            toast.success("Pexels API connection successful");
+          }
         }
       } catch (error) {
-        console.error('Error in setElevenLabsApiKey:', error);
+        console.error('Error in checkApiKeys:', error);
       }
     };
     
-    // This is commented out because we don't have a set-api-key function
-    // In a real app, we'd have a proper admin interface for setting API keys
-    // setElevenLabsApiKey();
+    // This is useful for debugging API key issues
+    if (import.meta.env.DEV) {
+      checkApiKeys();
+    }
   }, []);
   
   return (
