@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { mediaService } from "./mediaService";
 
@@ -101,9 +100,16 @@ export const videoService = {
   
   async createProject(project: Omit<VideoProject, 'id' | 'created_at' | 'updated_at'>): Promise<VideoProject | null> {
     try {
+      // Ensure default values for new columns
+      const projectWithDefaults = {
+        ...project,
+        has_audio: project.has_audio ?? false,
+        has_captions: project.has_captions ?? true
+      };
+
       const { data, error } = await supabase
         .from('video_projects')
-        .insert(project)
+        .insert(projectWithDefaults)
         .select()
         .single();
         

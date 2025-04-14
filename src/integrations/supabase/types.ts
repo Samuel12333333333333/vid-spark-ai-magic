@@ -170,6 +170,8 @@ export type Database = {
           brand_colors: string | null
           created_at: string
           duration: number | null
+          has_audio: boolean | null
+          has_captions: boolean | null
           id: string
           media_source: string | null
           prompt: string
@@ -187,6 +189,8 @@ export type Database = {
           brand_colors?: string | null
           created_at?: string
           duration?: number | null
+          has_audio?: boolean | null
+          has_captions?: boolean | null
           id?: string
           media_source?: string | null
           prompt: string
@@ -204,6 +208,8 @@ export type Database = {
           brand_colors?: string | null
           created_at?: string
           duration?: number | null
+          has_audio?: boolean | null
+          has_captions?: boolean | null
           id?: string
           media_source?: string | null
           prompt?: string
