@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -54,19 +53,16 @@ export const profileService = {
   
   async uploadAvatar(userId: string, file: File): Promise<string | null> {
     try {
-      // First check if the avatars bucket exists
-      const { data: bucketExists, error: bucketError } = await supabase.storage
-        .from('avatars')
-        .list();
-        
-      if (bucketError && bucketError.message.includes('The resource was not found')) {
-        toast.error('Avatar storage not configured. Please create an "avatars" bucket in Supabase.');
-        throw new Error('Avatars bucket does not exist');
+      // First, check if the file size is within acceptable limits
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast.error("File size must be less than 5MB");
+        return null;
       }
-      
+
       // Generate a unique file path
       const fileExt = file.name.split('.').pop();
-      const filePath = `${userId}/${Date.now()}.${fileExt}`;
+      const fileName = `${userId}_${Date.now()}.${fileExt}`;
+      const filePath = `${userId}/${fileName}`;
       
       // Upload the file to Supabase Storage
       const { error: uploadError } = await supabase.storage
@@ -79,19 +75,21 @@ export const profileService = {
       if (uploadError) {
         console.error('Error uploading avatar:', uploadError);
         toast.error('Failed to upload avatar. Please try again.');
-        throw uploadError;
+        return null;
       }
       
       // Get the public URL
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
       
       // Update the user's profile with the new avatar URL
-      await this.updateProfile(userId, { avatar_url: data.publicUrl });
+      await this.updateProfile(userId, { avatar_url: publicUrl });
       
-      return data.publicUrl;
+      toast.success('Avatar uploaded successfully');
+      return publicUrl;
     } catch (error) {
-      console.error('Error in avatar upload process:', error);
-      throw error;
+      console.error('Unexpected error in avatar upload:', error);
+      toast.error('An unexpected error occurred. Please try again.');
+      return null;
     }
   }
 };
