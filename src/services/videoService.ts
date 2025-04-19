@@ -83,6 +83,12 @@ export const videoService = {
   
   async getProjectById(id: string): Promise<VideoProject | null> {
     try {
+      // Validate input
+      if (!id) {
+        console.error("Invalid project ID provided to getProjectById");
+        return null;
+      }
+      
       const { data, error } = await supabase
         .from('video_projects')
         .select('*')
@@ -111,6 +117,12 @@ export const videoService = {
   
   async createProject(project: Omit<VideoProject, 'id' | 'created_at' | 'updated_at'>): Promise<VideoProject | null> {
     try {
+      // Validate required fields
+      if (!project.title || !project.prompt || !project.user_id) {
+        console.error("Missing required fields for project creation");
+        throw new Error("Missing required fields for project creation");
+      }
+      
       console.log("Creating video project with data:", {
         title: project.title,
         style: project.style,
@@ -148,11 +160,21 @@ export const videoService = {
   
   async updateProject(id: string, updates: Partial<VideoProject>): Promise<void> {
     try {
+      // Validate project ID
+      if (!id) {
+        console.error("Missing project ID for update");
+        throw new Error("Missing project ID");
+      }
+      
       // Ensure boolean values are stored as booleans
       const sanitizedUpdates = {
         ...updates,
-        has_audio: updates.has_audio === true || updates.has_audio === false ? updates.has_audio : undefined,
-        has_captions: updates.has_captions === true || updates.has_captions === false ? updates.has_captions : undefined,
+        has_audio: updates.has_audio === true || updates.has_audio === false 
+          ? updates.has_audio 
+          : undefined,
+        has_captions: updates.has_captions === true || updates.has_captions === false 
+          ? updates.has_captions 
+          : undefined,
         narration_script: updates.narration_script || undefined
       };
 
@@ -160,7 +182,9 @@ export const videoService = {
         status: sanitizedUpdates.status,
         has_audio: sanitizedUpdates.has_audio,
         has_captions: sanitizedUpdates.has_captions,
-        narration_script: sanitizedUpdates.narration_script?.substring(0, 20) + "..." || "No change"
+        narration_script: sanitizedUpdates.narration_script 
+          ? (sanitizedUpdates.narration_script.substring(0, 20) + "...") 
+          : "No change"
       });
       
       // If there's a video_url, validate it
@@ -187,6 +211,12 @@ export const videoService = {
   
   async deleteProject(id: string): Promise<void> {
     try {
+      // Validate project ID
+      if (!id) {
+        console.error("Missing project ID for deletion");
+        throw new Error("Missing project ID");
+      }
+      
       const { error } = await supabase
         .from('video_projects')
         .delete()
@@ -196,6 +226,8 @@ export const videoService = {
         console.error(`Error deleting video project with id ${id}:`, error);
         throw error;
       }
+      
+      console.log(`Video project ${id} deleted successfully`);
     } catch (error) {
       console.error('Error in deleteProject:', error);
       throw error;

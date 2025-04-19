@@ -228,15 +228,31 @@ export const mediaService = {
     narrationScript?: string
   ): Promise<string> {
     try {
-      console.log(`Rendering video for project ${projectId} with ${scenes?.length || 0} scenes`);
-      console.log(`Audio provided: ${!!audioBase64 ? 'Yes, length: ' + audioBase64?.length : 'No'}`);
+      // Validate input parameters
+      if (!scenes || !Array.isArray(scenes)) {
+        console.error("Invalid scenes parameter: scenes must be an array");
+        throw new Error("Invalid scenes parameter");
+      }
+      
+      if (scenes.length === 0) {
+        console.error("Empty scenes array: at least one scene is required");
+        throw new Error("Empty scenes array");
+      }
+      
+      if (!userId) {
+        console.error("Missing userId parameter");
+        throw new Error("Missing userId parameter");
+      }
+      
+      if (!projectId) {
+        console.error("Missing projectId parameter");
+        throw new Error("Missing projectId parameter");
+      }
+      
+      console.log(`Rendering video for project ${projectId} with ${scenes.length} scenes`);
+      console.log(`Audio provided: ${!!audioBase64 ? 'Yes, length: ' + audioBase64.length : 'No'}`);
       console.log(`Include captions: ${includeCaptions}`);
       console.log(`Narration script: "${narrationScript || 'Not provided'}"`);
-      
-      // Make sure we have valid scenes
-      if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
-        throw new Error("No valid scenes provided for video rendering");
-      }
       
       // Check that scenes have video URLs
       const invalidScenes = scenes.filter(scene => !scene.videoUrl);
@@ -265,8 +281,9 @@ export const mediaService = {
       }
       
       // Sanitize narration script if provided
-      if (narrationScript) {
-        narrationScript = narrationScript
+      let finalNarrationScript = narrationScript;
+      if (finalNarrationScript) {
+        finalNarrationScript = finalNarrationScript
           .replace(/\.\.+/g, '.') // Replace multiple periods with a single one
           .replace(/\s+/g, ' ')   // Replace multiple spaces with a single one
           .trim();                // Trim whitespace
@@ -279,7 +296,7 @@ export const mediaService = {
         projectId, 
         audioBase64, 
         includeCaptions: !!includeCaptions, // Ensure boolean
-        narrationScript: narrationScript || "" // Ensure string 
+        narrationScript: finalNarrationScript || "" // Ensure string 
       };
       
       // Call the edge function with detailed logging
@@ -288,8 +305,8 @@ export const mediaService = {
         hasAudio: !!audioBase64,
         audioLength: audioBase64?.length || 0,
         includesCaptions: !!includeCaptions,
-        hasNarrationScript: !!narrationScript,
-        narrationScriptLength: narrationScript?.length || 0
+        hasNarrationScript: !!finalNarrationScript,
+        narrationScriptLength: finalNarrationScript?.length || 0
       });
       
       const { data, error } = await supabase.functions.invoke('render-video', {
@@ -346,7 +363,7 @@ export const mediaService = {
       };
     } catch (error) {
       console.error('Error in checkRenderStatus:', error);
-      throw error;
+      return { status: 'failed' };
     }
   },
 
@@ -359,5 +376,59 @@ export const mediaService = {
       { id: "pNInz6obpgDQGcFmaJgB", name: "Adam - Deep and authoritative" },
       { id: "yoZ06aMxZJJ28mfd3POQ", name: "Josh - Warm and engaging" }
     ];
+  },
+
+  // Add a method to safely split narrative text into chunks for captions
+  splitNarrationIntoChunks(narration: string, maxChunkLength: number = 60): string[] {
+    if (!narration || typeof narration !== 'string') {
+      console.warn("Invalid narration provided to splitNarrationIntoChunks");
+      return [""];
+    }
+    
+    // First split by sentences
+    const sentences = narration
+      .replace(/([.!?])\s*(?=[A-Z])/g, "$1|")
+      .split("|")
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+    
+    if (sentences.length === 0) {
+      return [""];
+    }
+    
+    // Then ensure no sentence is too long by splitting further if needed
+    const chunks: string[] = [];
+    
+    for (const sentence of sentences) {
+      if (sentence.length <= maxChunkLength) {
+        chunks.push(sentence);
+      } else {
+        // If a sentence is too long, split it into chunks
+        let remainingSentence = sentence;
+        while (remainingSentence.length > 0) {
+          // Find a good split point (ideally at a comma, space, or other natural break)
+          let splitPoint = maxChunkLength;
+          
+          if (remainingSentence.length > maxChunkLength) {
+            // Look for a good break point within the last 20 characters of the chunk
+            const searchArea = remainingSentence.substring(Math.max(0, maxChunkLength - 20), maxChunkLength);
+            const lastComma = searchArea.lastIndexOf(',');
+            const lastSpace = searchArea.lastIndexOf(' ');
+            
+            if (lastComma > -1) {
+              splitPoint = maxChunkLength - (searchArea.length - lastComma - 1);
+            } else if (lastSpace > -1) {
+              splitPoint = maxChunkLength - (searchArea.length - lastSpace - 1);
+            }
+          }
+          
+          // Add the chunk and continue with the remainder
+          chunks.push(remainingSentence.substring(0, splitPoint).trim());
+          remainingSentence = remainingSentence.substring(splitPoint).trim();
+        }
+      }
+    }
+    
+    return chunks.filter(chunk => chunk.length > 0);
   }
 };

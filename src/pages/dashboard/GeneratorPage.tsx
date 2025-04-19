@@ -20,44 +20,69 @@ export default function GeneratorPage() {
     shotstack: 'checking',
     elevenlabs: 'checking'
   });
+  
+  const [isCheckingApis, setIsCheckingApis] = useState(true);
 
   useEffect(() => {
     // Check if the API keys are set in Supabase environment
     const checkApiKeys = async () => {
       try {
-        // Check Pexels API
-        setApiStatus(prev => ({ ...prev, pexels: 'checking' }));
-        const pexelsResult = await supabase.functions.invoke('search-videos', {
-          body: { keywords: ["test"] }
-        });
+        setIsCheckingApis(true);
         
-        if (pexelsResult.error) {
-          console.error('Error testing Pexels API key:', pexelsResult.error);
-          setApiStatus(prev => ({ ...prev, pexels: 'error' }));
-          toast.error("Pexels API connection issue. Please check your API key.");
-        } else {
-          console.log('Pexels API key test successful');
-          setApiStatus(prev => ({ ...prev, pexels: 'ok' }));
-        }
-        
-        // Check Gemini API
-        setApiStatus(prev => ({ ...prev, gemini: 'checking' }));
-        const geminiResult = await supabase.functions.invoke('generate-scenes', {
-          body: { prompt: "Test scene", type: "scene" }
-        });
-        
-        if (geminiResult.error) {
-          console.error('Error testing Gemini API key:', geminiResult.error);
-          setApiStatus(prev => ({ ...prev, gemini: 'error' }));
-          toast.error("Gemini API connection issue. Please check your API key.");
-        } else {
-          console.log('Gemini API key test successful');
-          setApiStatus(prev => ({ ...prev, gemini: 'ok' }));
-        }
-        
-        // Check Shotstack API by testing a small render operation
-        setApiStatus(prev => ({ ...prev, shotstack: 'checking' }));
+        // Check Pexels API with proper error handling
         try {
+          setApiStatus(prev => ({ ...prev, pexels: 'checking' }));
+          const pexelsResult = await supabase.functions.invoke('search-videos', {
+            body: { keywords: ["test"] }
+          });
+          
+          if (pexelsResult.error) {
+            console.error('Error testing Pexels API key:', pexelsResult.error);
+            setApiStatus(prev => ({ ...prev, pexels: 'error' }));
+            toast.error("Pexels API connection issue. Please check your API key.");
+          } else if (!pexelsResult.data || !Array.isArray(pexelsResult.data.videos)) {
+            console.error('Invalid response from Pexels API test:', pexelsResult.data);
+            setApiStatus(prev => ({ ...prev, pexels: 'error' }));
+            toast.error("Pexels API returned invalid data");
+          } else {
+            console.log('Pexels API key test successful');
+            setApiStatus(prev => ({ ...prev, pexels: 'ok' }));
+          }
+        } catch (pexelsError) {
+          console.error('Exception testing Pexels API:', pexelsError);
+          setApiStatus(prev => ({ ...prev, pexels: 'error' }));
+          toast.error("Pexels API connection failed");
+        }
+        
+        // Check Gemini API with proper error handling
+        try {
+          setApiStatus(prev => ({ ...prev, gemini: 'checking' }));
+          const geminiResult = await supabase.functions.invoke('generate-scenes', {
+            body: { prompt: "Test scene", type: "scene" }
+          });
+          
+          if (geminiResult.error) {
+            console.error('Error testing Gemini API key:', geminiResult.error);
+            setApiStatus(prev => ({ ...prev, gemini: 'error' }));
+            toast.error("Gemini API connection issue. Please check your API key.");
+          } else if (!geminiResult.data) {
+            console.error('Invalid response from Gemini API test:', geminiResult);
+            setApiStatus(prev => ({ ...prev, gemini: 'error' }));
+            toast.error("Gemini API returned invalid data");
+          } else {
+            console.log('Gemini API key test successful');
+            setApiStatus(prev => ({ ...prev, gemini: 'ok' }));
+          }
+        } catch (geminiError) {
+          console.error('Exception testing Gemini API:', geminiError);
+          setApiStatus(prev => ({ ...prev, gemini: 'error' }));
+          toast.error("Gemini API connection failed");
+        }
+        
+        // Check Shotstack API with proper error handling
+        try {
+          setApiStatus(prev => ({ ...prev, shotstack: 'checking' }));
+          
           // Test Shotstack API with a minimal request that won't trigger a full render
           const shotstackTestResult = await supabase.functions.invoke('render-video', {
             body: { 
@@ -79,19 +104,24 @@ export default function GeneratorPage() {
             console.error('Error testing Shotstack API key:', shotstackTestResult.error);
             setApiStatus(prev => ({ ...prev, shotstack: 'error' }));
             toast.error("Shotstack API connection issue. Please check your API key.");
+          } else if (!shotstackTestResult.data || !shotstackTestResult.data.renderId) {
+            console.error('Invalid response from Shotstack API test:', shotstackTestResult);
+            setApiStatus(prev => ({ ...prev, shotstack: 'error' }));
+            toast.error("Shotstack API returned invalid data");
           } else {
             console.log('Shotstack API test successful');
             setApiStatus(prev => ({ ...prev, shotstack: 'ok' }));
           }
-        } catch (error) {
-          console.error('Error testing Shotstack API:', error);
+        } catch (shotstackError) {
+          console.error('Exception testing Shotstack API:', shotstackError);
           setApiStatus(prev => ({ ...prev, shotstack: 'error' }));
-          toast.error("Shotstack API connection issue. Please check your API key.");
+          toast.error("Shotstack API connection failed");
         }
         
-        // Check ElevenLabs API with detailed error handling
-        setApiStatus(prev => ({ ...prev, elevenlabs: 'checking' }));
+        // Check ElevenLabs API with proper error handling
         try {
+          setApiStatus(prev => ({ ...prev, elevenlabs: 'checking' }));
+          
           // Use a very short test script to minimize the chance of errors
           const elevenLabsResult = await supabase.functions.invoke('generate-audio', {
             body: { 
@@ -119,14 +149,16 @@ export default function GeneratorPage() {
             console.log('ElevenLabs API key test successful');
             setApiStatus(prev => ({ ...prev, elevenlabs: 'ok' }));
           }
-        } catch (error) {
-          console.error('Error testing ElevenLabs API:', error);
+        } catch (elevenLabsError) {
+          console.error('Exception testing ElevenLabs API:', elevenLabsError);
           setApiStatus(prev => ({ ...prev, elevenlabs: 'error' }));
-          toast.error("ElevenLabs API connection issue. Please check your API key.");
+          toast.error("ElevenLabs API connection failed");
         }
       } catch (error) {
         console.error('Error in checkApiKeys:', error);
         toast.error("Error checking API connections. See console for details.");
+      } finally {
+        setIsCheckingApis(false);
       }
     };
     
@@ -211,6 +243,20 @@ export default function GeneratorPage() {
             </CardTitle>
             <CardDescription>
               All API services are connected and working properly.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+      
+      {isCheckingApis && (
+        <Card className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+              <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full" />
+              Checking API Connections
+            </CardTitle>
+            <CardDescription>
+              Verifying connection to all required API services...
             </CardDescription>
           </CardHeader>
         </Card>
