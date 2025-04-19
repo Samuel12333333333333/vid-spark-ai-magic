@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -64,16 +63,16 @@ export default {
 					ring: 'hsl(var(--sidebar-ring))'
 				},
 				smartvid: {
-					50: '#f0f9ff',
-					100: '#e0f2fe',
-					200: '#bae6fd',
-					300: '#7dd3fc',
-					400: '#38bdf8',
-					500: '#0ea5e9',
-					600: '#0284c7',
-					700: '#0369a1',
-					800: '#075985',
-					900: '#0c4a6e',
+					50: '#F2FCE2',
+					100: '#E5DEFF',
+					200: '#D6BCFA',
+					300: '#FEC6A1',
+					400: '#9b87f5',
+					500: '#7E69AB',
+					600: '#1EAEDB',
+					700: '#33C3F0',
+					800: '#516AD0',
+					900: '#243949',
 					purple: '#8B5CF6',
 					indigo: '#6366F1'
 				}
