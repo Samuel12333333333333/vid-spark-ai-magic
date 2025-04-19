@@ -44,6 +44,12 @@ async function generateNarrationScript(scenes) {
     
     console.log("Using scenes content for narration:", scenesContent.substring(0, 100) + "...");
     
+    // Clean the scenes content for better narration
+    scenesContent = scenesContent
+      .replace(/\.\.+/g, '.') // Replace multiple periods with a single one
+      .replace(/\s+/g, ' ')   // Replace multiple spaces with a single one
+      .trim();               // Trim whitespace
+    
     // Create prompt for narration generation
     const prompt = `
     Generate a short, emotionally resonant voiceover script for this video topic:
@@ -111,6 +117,16 @@ async function generateNarrationScript(scenes) {
   }
 }
 
+// Sanitize script for better ElevenLabs processing
+function sanitizeScript(script) {
+  if (!script) return "Welcome to our video.";
+  
+  return script
+    .replace(/\.\.+/g, '.') // Replace multiple periods with a single one
+    .replace(/\s+/g, ' ')   // Replace multiple spaces with a single one
+    .trim();               // Trim whitespace
+}
+
 serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === "OPTIONS") {
@@ -146,11 +162,12 @@ serve(async (req) => {
     let narrationScript;
     if (script && script.trim() !== "") {
       console.log("Using provided script:", script);
-      narrationScript = script;
+      narrationScript = sanitizeScript(script);
     } else if (scenes) {
       // Generate narration based on scenes
       console.log("Generating narration from scenes");
       narrationScript = await generateNarrationScript(scenes);
+      narrationScript = sanitizeScript(narrationScript);
     } else {
       return new Response(
         JSON.stringify({ error: "Either script or scenes are required" }),
@@ -167,9 +184,9 @@ serve(async (req) => {
     }
 
     // Check if narration script is too long (ElevenLabs has character limits)
-    if (narrationScript.length > 2000) {
-      console.log("Narration script too long, truncating to 2000 characters");
-      narrationScript = narrationScript.substring(0, 2000) + "...";
+    if (narrationScript.length > 1000) {
+      console.log("Narration script too long, truncating to 1000 characters");
+      narrationScript = narrationScript.substring(0, 1000) + "...";
     }
 
     // Default to Rachel if no voice ID is provided
@@ -192,6 +209,7 @@ serve(async (req) => {
     try {
       console.log("Calling ElevenLabs API with voice ID:", selectedVoiceId);
       
+      // Make the API call with proper error handling
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}`, {
         method: "POST",
         headers: {
@@ -227,11 +245,18 @@ serve(async (req) => {
       
       console.log(`Received audio data with size: ${audioBuffer.byteLength} bytes`);
       
-      // Convert to base64 for storage
-      const base64Audio = btoa(
-        new Uint8Array(audioBuffer)
-          .reduce((data, byte) => data + String.fromCharCode(byte), '')
-      );
+      // Convert to base64 for storage - using a safer approach with chunks
+      let base64Audio = '';
+      const chunks = [];
+      const bytes = new Uint8Array(audioBuffer);
+      const chunkSize = 1024;
+      
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.slice(i, i + chunkSize);
+        chunks.push(String.fromCharCode.apply(null, chunk));
+      }
+      
+      base64Audio = btoa(chunks.join(''));
       
       console.log(`Audio data converted to base64 (length: ${base64Audio.length})`);
       console.log("Audio generation successful, returning data");
