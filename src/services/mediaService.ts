@@ -148,15 +148,41 @@ export const mediaService = {
       
       if (error) {
         console.error('Error generating audio:', error);
-        throw error;
+        
+        // Log detailed error information
+        if (error.message) {
+          console.error('Error message:', error.message);
+        }
+        
+        if (error.details) {
+          console.error('Error details:', error.details);
+        }
+        
+        if (error.stack) {
+          console.error('Error stack:', error.stack);
+        }
+        
+        throw new Error(`Failed to generate audio: ${error.message || error}`);
       }
       
-      if (!data || !data.audioBase64) {
+      if (!data) {
+        console.error('No data returned from generate-audio function');
+        throw new Error('No data received from audio generation service');
+      }
+      
+      if (!data.audioBase64) {
         console.error('No audio data returned from generate-audio function');
+        
+        // If we have an error message in the response, use it
+        if (data.error) {
+          throw new Error(`Audio generation failed: ${data.error}`);
+        }
+        
         throw new Error('Failed to generate audio content');
       }
       
-      console.log("Audio generation successful, returning data");
+      console.log("Audio generation successful - audioBase64 length:", data.audioBase64.length);
+      console.log("Narration script:", data.narrationScript || finalScript);
       
       return {
         audioBase64: data.audioBase64,
@@ -173,6 +199,11 @@ export const mediaService = {
       console.log(`Rendering video for project ${projectId} with ${scenes.length} scenes`);
       console.log(`Audio provided: ${!!audioBase64}, Include captions: ${includeCaptions}`);
       console.log(`Narration script: "${narrationScript || 'Not provided'}"`);
+      
+      if (audioBase64) {
+        // Log audio data length for debugging
+        console.log(`Audio base64 data length: ${audioBase64.length}`);
+      }
       
       const { data, error } = await supabase.functions.invoke('render-video', {
         body: { 

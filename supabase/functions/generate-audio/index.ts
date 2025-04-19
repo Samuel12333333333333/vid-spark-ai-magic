@@ -183,6 +183,10 @@ serve(async (req) => {
     // Call ElevenLabs API to generate audio
     try {
       console.log("Calling ElevenLabs API...");
+      
+      // Added debug output for request payload
+      console.log("Sending request to ElevenLabs with payload:", JSON.stringify(ttsPayload));
+      
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}`, {
         method: "POST",
         headers: {
@@ -194,19 +198,34 @@ serve(async (req) => {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("ElevenLabs API error response:", errorText);
-        throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
+        let errorDetails = "";
+        try {
+          const errorText = await response.text();
+          errorDetails = errorText.substring(0, 500);
+          console.error("ElevenLabs API error response:", errorDetails);
+        } catch (e) {
+          console.error("Could not read error response text");
+        }
+        
+        throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}. Details: ${errorDetails}`);
       }
 
       // Get audio data as ArrayBuffer
       const audioBuffer = await response.arrayBuffer();
+      
+      if (!audioBuffer || audioBuffer.byteLength === 0) {
+        console.error("Received empty audio data from ElevenLabs");
+        throw new Error("Received empty audio data from ElevenLabs");
+      }
+      
+      console.log(`Received audio data with size: ${audioBuffer.byteLength} bytes`);
       
       // Convert to base64 for storage
       const base64Audio = btoa(
         String.fromCharCode(...new Uint8Array(audioBuffer))
       );
       
+      console.log(`Audio data converted to base64 (length: ${base64Audio.length})`);
       console.log("Audio generation successful, returning data");
 
       return new Response(
@@ -221,12 +240,23 @@ serve(async (req) => {
       );
     } catch (audioError) {
       console.error("Error generating audio with ElevenLabs:", audioError);
-      throw audioError;
+      
+      // Improved error response
+      return new Response(
+        JSON.stringify({ 
+          error: "Failed to generate audio with ElevenLabs API", 
+          details: audioError.message 
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
     }
   } catch (error) {
     console.error("Error in generate-audio function:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: "Error generating audio", 
+        details: error.message 
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }

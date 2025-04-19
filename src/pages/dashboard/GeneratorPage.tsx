@@ -55,7 +55,7 @@ export default function GeneratorPage() {
           setApiStatus(prev => ({ ...prev, gemini: 'ok' }));
         }
         
-        // Check ElevenLabs API
+        // Check ElevenLabs API more carefully with proper error handling
         setApiStatus(prev => ({ ...prev, elevenlabs: 'checking' }));
         const elevenLabsResult = await supabase.functions.invoke('generate-audio', {
           body: { 
@@ -70,6 +70,10 @@ export default function GeneratorPage() {
           console.error('Error testing ElevenLabs API key:', elevenLabsResult.error);
           setApiStatus(prev => ({ ...prev, elevenlabs: 'error' }));
           toast.error("ElevenLabs API connection issue. Please check your API key.");
+        } else if (!elevenLabsResult.data || !elevenLabsResult.data.audioBase64) {
+          console.error('ElevenLabs API returned invalid data:', elevenLabsResult.data);
+          setApiStatus(prev => ({ ...prev, elevenlabs: 'error' }));
+          toast.error("ElevenLabs API returned invalid data. Check console for details.");
         } else {
           console.log('ElevenLabs API key test successful');
           setApiStatus(prev => ({ ...prev, elevenlabs: 'ok' }));
