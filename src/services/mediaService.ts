@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface VideoClip {
@@ -96,22 +95,32 @@ export const mediaService = {
       
       if (!data || !data.narration) {
         console.warn('No narration returned from generate-scenes function');
-        return sceneDescriptions;
+        return "Journey with us through this visual story.";
       }
       
       console.log("Generated narration script:", data.narration);
       return data.narration;
     } catch (error) {
       console.error('Error generating script for scenes:', error);
-      // Use scene descriptions as fallback
-      return scenes.map(scene => scene.description || scene.scene).join(". ");
+      // Use a short, generic fallback narration
+      return "Journey with us through this visual story.";
     }
   },
 
   async generateAudio(script: string, voiceId: string, userId: string, projectId: string, scenes?: any[]): Promise<{audioBase64: string, narrationScript: string}> {
     try {
       console.log(`Generating audio with voice ${voiceId} for project ${projectId}`);
-      console.log(`Script provided: "${script || "No script provided - will generate from scenes"}"`);
+      
+      // Log the important parameters
+      console.log({
+        scriptProvided: !!script && script.trim() !== "",
+        scriptLength: script?.length || 0,
+        voiceId,
+        userId,
+        projectId,
+        scenesProvided: !!scenes && scenes.length > 0,
+        scenesCount: scenes?.length || 0
+      });
       
       let finalScript = script;
       
@@ -124,13 +133,13 @@ export const mediaService = {
         } catch (scriptError) {
           console.error("Error generating script from scenes:", scriptError);
           // Create a simple fallback script
-          finalScript = "Experience the beauty and wonder of this moment.";
+          finalScript = "Journey with us through this moment of beauty and wonder.";
         }
       }
       
       // Ensure we have a valid script
       if (!finalScript || finalScript.trim() === "") {
-        finalScript = "Experience the beauty and wonder of this moment.";
+        finalScript = "Journey with us through this moment of beauty and wonder.";
         console.log("Using fallback script:", finalScript);
       }
       
@@ -140,35 +149,23 @@ export const mediaService = {
         finalScript = finalScript.substring(0, 2000);
       }
       
-      console.log(`Calling generate-audio function with script: "${finalScript.substring(0, 100)}${finalScript.length > 100 ? '...' : ''}" and voiceId: ${voiceId}`);
+      console.log(`Calling generate-audio function with script: "${finalScript}" and voiceId: ${voiceId}`);
       
+      // Explicitly provide either the script or scenes, not both - to avoid confusion
       const { data, error } = await supabase.functions.invoke('generate-audio', {
         body: { 
           script: finalScript, 
           voiceId, 
           userId, 
           projectId,
-          scenes: scenes || []
+          scenes: finalScript ? undefined : scenes // Only send scenes if no script
         }
       });
       
       if (error) {
         console.error('Error generating audio:', error);
-        
-        // Log detailed error information
-        if (error.message) {
-          console.error('Error message:', error.message);
-        }
-        
-        if (error.details) {
-          console.error('Error details:', error.details);
-        }
-        
-        if (error.stack) {
-          console.error('Error stack:', error.stack);
-        }
-        
-        throw new Error(`Failed to generate audio: ${error.message || error}`);
+        console.error('Error details:', error.message, error.stack);
+        throw new Error(`Failed to generate audio: ${error.message || 'Unknown error'}`);
       }
       
       if (!data) {
@@ -189,23 +186,12 @@ export const mediaService = {
       
       // Check that we actually received valid base64 data
       if (data.audioBase64.length < 100) {
-        console.error('Received suspicious audio data from generate-audio function, length too short:', data.audioBase64.length);
+        console.error('Received suspiciously short audio data from generate-audio function, length:', data.audioBase64.length);
         throw new Error('Received invalid audio data from service');
       }
       
-      // Try to validate the base64 string briefly
-      try {
-        const testBytes = atob(data.audioBase64.substring(0, 100));
-        if (testBytes.length < 10) {
-          throw new Error('Invalid base64 data');
-        }
-      } catch (e) {
-        console.error('Invalid base64 audio data received:', e);
-        throw new Error('Failed to decode audio data from service');
-      }
-      
       console.log("Audio generation successful - audioBase64 length:", data.audioBase64.length);
-      console.log("Narration script:", data.narrationScript || finalScript);
+      console.log("Narration script used:", data.narrationScript || finalScript);
       
       return {
         audioBase64: data.audioBase64,

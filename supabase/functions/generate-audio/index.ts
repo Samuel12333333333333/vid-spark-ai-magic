@@ -28,32 +28,33 @@ async function generateNarrationScript(scenes) {
       throw new Error("Gemini API key is missing");
     }
     
-    // Combine all scene descriptions into a single narrative
-    let fullDescription = '';
+    // Extract just the scene descriptions, not the full technical details
+    let scenesContent = "";
     
     if (Array.isArray(scenes)) {
-      scenes.forEach(scene => {
-        fullDescription += scene.description + " ";
-      });
+      scenesContent = scenes.map(scene => {
+        // Extract just the description part, not the technical details
+        return scene.description || scene.scene || "";
+      }).join(". ");
     } else if (typeof scenes === 'string') {
-      // If scenes is just a string description
-      fullDescription = scenes;
+      scenesContent = scenes;
     } else {
       throw new Error("Invalid scenes format");
     }
     
+    console.log("Using scenes content for narration:", scenesContent.substring(0, 100) + "...");
+    
     // Create prompt for narration generation
     const prompt = `
-    Generate a short, emotionally resonant voiceover script for this video scene:
+    Generate a short, emotionally resonant voiceover script for this video topic:
     
-    "${fullDescription}"
+    "${scenesContent}"
     
     Requirements:
-    1. The narration should match the tone, emotion, and pacing of the visual.
-    2. Keep it between 15-40 words — suitable for 5 to 15 seconds of speech.
-    3. Use natural, human tone — no robotic phrasing or generic commentary.
-    4. Enhance the mood/story rather than describing visuals literally.
-    5. Write in a warm, emotional, heartfelt, joyful, or nostalgic tone as appropriate.
+    1. The narration should be 30-60 words total.
+    2. Use natural, conversational language.
+    3. Focus on the emotional journey or key message.
+    4. Be inspirational and engaging.
     
     Provide ONLY the voiceover script with no extra formatting, labels, or quotes.
     `;
@@ -105,8 +106,8 @@ async function generateNarrationScript(scenes) {
     }
   } catch (error) {
     console.error("Error generating narration script:", error);
-    // Return a fallback narration
-    return "Journey with us through this moment of beauty and wonder.";
+    // Return a fallback narration that will work with ElevenLabs
+    return "Journey with us through this moment of beauty and wonder. Let's explore this together.";
   }
 }
 
@@ -175,7 +176,7 @@ serve(async (req) => {
     const selectedVoiceId = voiceId || "21m00Tcm4TlvDq8ikWAM";
     
     console.log(`Generating audio for project ${projectId} with voice ${selectedVoiceId}`);
-    console.log(`Narration script (truncated): "${narrationScript.substring(0, 100)}${narrationScript.length > 100 ? '...' : ''}"`);
+    console.log(`Final narration script: "${narrationScript}"`);
 
     // Use a more compatible model
     const ttsPayload = {
@@ -189,14 +190,7 @@ serve(async (req) => {
 
     // Call ElevenLabs API to generate audio
     try {
-      console.log("Calling ElevenLabs API...");
-      
-      // Added debug output for request payload
-      console.log("Sending request to ElevenLabs with payload:", JSON.stringify({
-        textLength: ttsPayload.text.length,
-        model: ttsPayload.model_id,
-        voiceId: selectedVoiceId
-      }));
+      console.log("Calling ElevenLabs API with voice ID:", selectedVoiceId);
       
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}`, {
         method: "POST",
@@ -211,11 +205,13 @@ serve(async (req) => {
       if (!response.ok) {
         let errorDetails = "";
         try {
-          const errorText = await response.text();
-          errorDetails = errorText.substring(0, 500);
+          const errorData = await response.json();
+          errorDetails = JSON.stringify(errorData);
           console.error("ElevenLabs API error response:", errorDetails);
         } catch (e) {
-          console.error("Could not read error response text");
+          const errorText = await response.text();
+          errorDetails = errorText.substring(0, 500);
+          console.error("ElevenLabs API error response (text):", errorDetails);
         }
         
         throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}. Details: ${errorDetails}`);
@@ -231,13 +227,11 @@ serve(async (req) => {
       
       console.log(`Received audio data with size: ${audioBuffer.byteLength} bytes`);
       
-      // Convert to base64 for storage - using a safer method
-      const uint8Array = new Uint8Array(audioBuffer);
-      let binaryString = '';
-      for (let i = 0; i < uint8Array.byteLength; i++) {
-        binaryString += String.fromCharCode(uint8Array[i]);
-      }
-      const base64Audio = btoa(binaryString);
+      // Convert to base64 for storage
+      const base64Audio = btoa(
+        new Uint8Array(audioBuffer)
+          .reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
       
       console.log(`Audio data converted to base64 (length: ${base64Audio.length})`);
       console.log("Audio generation successful, returning data");
