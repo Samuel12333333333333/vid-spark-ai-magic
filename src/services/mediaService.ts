@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface VideoClip {
@@ -134,83 +133,49 @@ export const mediaService = {
           console.log(`Generated script from scenes: "${finalScript}"`);
         } catch (scriptError) {
           console.error("Error generating script from scenes:", scriptError);
-          // Create a simple fallback script
-          finalScript = "Journey with us through this moment of beauty and wonder.";
-          console.log("Using fallback script due to error:", finalScript);
+          throw new Error("Failed to generate narration script");
         }
       }
       
       // Ensure we have a valid script
       if (!finalScript || finalScript.trim() === "") {
-        finalScript = "Journey with us through this moment of beauty and wonder.";
-        console.log("Using fallback script for empty input:", finalScript);
+        throw new Error("No valid script provided or generated");
       }
       
-      // Sanitize the script - clean up problematic characters
+      // Sanitize the script
       finalScript = finalScript
         .replace(/\.\.+/g, '.') // Replace multiple periods with a single one
         .replace(/\s+/g, ' ')   // Replace multiple spaces with a single one
         .trim();               // Trim whitespace
       
-      // Check if script is too long - ElevenLabs has character limits
-      if (finalScript.length > 1000) {
-        console.log(`Script too long (${finalScript.length} chars), truncating to 1000 characters`);
-        finalScript = finalScript.substring(0, 1000);
-      }
-      
       console.log(`Calling generate-audio function with script: "${finalScript}" and voiceId: ${voiceId}`);
       
-      try {
-        // Explicitly provide either the script or scenes, not both - to avoid confusion
-        const { data, error } = await supabase.functions.invoke('generate-audio', {
-          body: { 
-            script: finalScript, 
-            voiceId, 
-            userId, 
-            projectId,
-            scenes: finalScript ? undefined : scenes // Only send scenes if no script
-          }
-        });
-        
-        if (error) {
-          console.error('Error generating audio:', error);
-          console.error('Error details:', error.message, error.stack);
-          throw new Error(`Failed to generate audio: ${error.message || 'Unknown error'}`);
+      const { data, error } = await supabase.functions.invoke('generate-audio', {
+        body: { 
+          script: finalScript, 
+          voiceId, 
+          userId, 
+          projectId
         }
-        
-        if (!data) {
-          console.error('No data returned from generate-audio function');
-          throw new Error('No data received from audio generation service');
-        }
-        
-        if (!data.audioBase64) {
-          console.error('No audio data returned from generate-audio function');
-          
-          // If we have an error message in the response, use it
-          if (data.error) {
-            throw new Error(`Audio generation failed: ${data.error}`);
-          }
-          
-          throw new Error('Failed to generate audio content');
-        }
-        
-        // Check that we actually received valid base64 data
-        if (data.audioBase64.length < 100) {
-          console.error('Received suspiciously short audio data from generate-audio function, length:', data.audioBase64.length);
-          throw new Error('Received invalid audio data from service');
-        }
-        
-        console.log("Audio generation successful - audioBase64 length:", data.audioBase64.length);
-        console.log("Narration script used:", data.narrationScript || finalScript);
-        
-        return {
-          audioBase64: data.audioBase64,
-          narrationScript: data.narrationScript || finalScript
-        };
-      } catch (apiError) {
-        console.error('API error in generateAudio:', apiError);
-        throw apiError;
+      });
+      
+      if (error) {
+        console.error('Error generating audio:', error);
+        throw error;
       }
+      
+      if (!data || !data.audioBase64) {
+        console.error('No audio data returned from generate-audio function');
+        throw new Error('Failed to generate audio content');
+      }
+      
+      console.log("Audio generation successful - audioBase64 length:", data.audioBase64.length);
+      console.log("Narration script used:", data.narrationScript || finalScript);
+      
+      return {
+        audioBase64: data.audioBase64,
+        narrationScript: data.narrationScript || finalScript
+      };
     } catch (error) {
       console.error('Error in generateAudio:', error);
       throw error;
