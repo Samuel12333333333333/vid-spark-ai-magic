@@ -36,6 +36,14 @@ export default {
           dark: "#0891B2",
           foreground: "hsl(var(--secondary-foreground))"
         },
+        success: {
+          DEFAULT: "#10B981", // Success green
+          foreground: "hsl(var(--success-foreground))"
+        },
+        warning: {
+          DEFAULT: "#F59E0B", // Warning amber
+          foreground: "hsl(var(--warning-foreground))"
+        },
         destructive: {
           DEFAULT: "#EF4444", // Error red
           foreground: "hsl(var(--destructive-foreground))"
@@ -55,23 +63,6 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))"
-        },
-        success: "#10B981", // Success green
-        warning: "#F59E0B", // Warning amber
-        // Update smartvid colors to match new palette
-        smartvid: {
-          50: "#F9FAFB",  // Light mode background
-          100: "#F3F4F6",
-          200: "#E5E7EB",
-          300: "#D1D5DB",
-          400: "#4F46E5", // Primary brand color
-          500: "#06B6D4", // Accent color
-          600: "#4338CA",
-          700: "#0891B2",
-          800: "#1E293B", // Dark mode surface
-          900: "#0F172A", // Dark mode background
-          purple: "#4F46E5",
-          indigo: "#6366F1"
         }
       },
       borderRadius: {
