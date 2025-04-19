@@ -9,69 +9,69 @@ export default function TemplatesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  // Mock data for templates
+  // Updated mock data with real images
   const allTemplates = [
     {
       id: "t1",
       name: "Product Showcase",
       description: "Highlight your product features in a clean, professional format.",
-      thumbnail: "/placeholder.svg",
+      thumbnail: "https://images.unsplash.com/photo-1605810230434-7631ac76ec81",
       category: "Marketing",
     },
     {
       id: "t2",
       name: "Social Media Story",
       description: "Engaging vertical format optimized for Instagram and TikTok.",
-      thumbnail: "/placeholder.svg",
+      thumbnail: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158",
       category: "Social",
     },
     {
       id: "t3",
       name: "Educational Explainer",
       description: "Clear step-by-step format to explain complex concepts.",
-      thumbnail: "/placeholder.svg",
+      thumbnail: "https://images.unsplash.com/photo-1487058792275-0ad4aaf24ca7",
       category: "Education",
     },
     {
       id: "t4",
       name: "Company Overview",
       description: "Professional template to introduce your business and services.",
-      thumbnail: "/placeholder.svg",
+      thumbnail: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b",
       category: "Business",
     },
     {
       id: "t5",
       name: "Interview Style",
       description: "Format with text overlays perfect for interviews and testimonials.",
-      thumbnail: "/placeholder.svg",
+      thumbnail: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7",
       category: "Marketing",
     },
     {
       id: "t6",
       name: "Product Unboxing",
       description: "Showcase your product's unboxing experience with this template.",
-      thumbnail: "/placeholder.svg",
+      thumbnail: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6",
       category: "Marketing",
     },
     {
       id: "t7",
       name: "Motivational Quote",
       description: "Stylish template for sharing motivational quotes and tips.",
-      thumbnail: "/placeholder.svg",
+      thumbnail: "https://images.unsplash.com/photo-1531297484001-80022131f5a1",
       category: "Social",
     },
     {
       id: "t8",
       name: "Step-by-Step Tutorial",
       description: "Clear instruction format for tutorials and how-to videos.",
-      thumbnail: "/placeholder.svg",
+      thumbnail: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b",
       category: "Education",
     },
     {
       id: "t9",
       name: "News Update",
       description: "Professional format for delivering news and updates.",
-      thumbnail: "/placeholder.svg",
+      thumbnail: "https://images.unsplash.com/photo-1487058792275-0ad4aaf24ca7",
       category: "Business",
     },
   ];
