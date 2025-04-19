@@ -49,25 +49,18 @@ serve(async (req) => {
       scenesCount: requestData.scenes?.length || 0,
       userId: requestData.userId,
       projectId: requestData.projectId,
-      audioProvided: !!requestData.audioBase64 || "No audio provided",
-      captionsEnabled: !!requestData.includeCaptions || false
+      audioProvided: !!requestData.audioBase64 ? "Yes" : "No",
+      audioLength: requestData.audioBase64?.length || 0,
+      captionsEnabled: !!requestData.includeCaptions
     }));
     
     const { scenes, userId, projectId, audioBase64, includeCaptions, narrationScript } = requestData;
     
     // Validate required fields
-    if (!scenes || !Array.isArray(scenes)) {
+    if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
       console.error("No valid scenes provided");
       return new Response(
         JSON.stringify({ error: "Scenes array is required" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
-    }
-
-    if (scenes.length === 0) {
-      console.error("Empty scenes array provided");
-      return new Response(
-        JSON.stringify({ error: "At least one scene is required" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
@@ -95,19 +88,24 @@ serve(async (req) => {
       );
     }
     
-    console.log(`Audio provided: ${!!audioBase64 ? 'Yes' : 'No'}, Audio length: ${audioBase64 ? audioBase64.length : 0}`);
-    console.log(`Include captions: ${!!includeCaptions ? 'Yes' : 'No'}`);
+    // Log audio and captions status
+    const hasAudio = !!audioBase64 && audioBase64.length > 100;
+    console.log(`Audio provided: ${hasAudio ? 'Yes' : 'No'}, Audio length: ${audioBase64 ? audioBase64.length : 0}`);
+    console.log(`Include captions: ${includeCaptions ? 'Yes' : 'No'}`);
     
     // Store narration script in the database if provided
-    if (narrationScript) {
-      console.log(`Narration script provided with length: ${narrationScript.length}`);
+    let scriptToSave = narrationScript;
+    if (scriptToSave && typeof scriptToSave === 'string' && scriptToSave.trim() !== '') {
+      console.log(`Narration script provided with length: ${scriptToSave.length}`);
       
       try {
         // Update the project with the narration script
         const { error: updateNarrationError } = await supabase
           .from("video_projects")
           .update({
-            narration_script: narrationScript
+            narration_script: scriptToSave,
+            has_audio: hasAudio,
+            has_captions: includeCaptions
           })
           .eq("id", projectId);
           
@@ -121,7 +119,34 @@ serve(async (req) => {
         // Continue execution despite database error
       }
     } else {
-      console.log("No narration script provided");
+      console.log("No valid narration script provided");
+      // Try to get narration script from scene descriptions as fallback
+      try {
+        scriptToSave = scenes
+          .map(scene => scene.description || scene.scene || "")
+          .filter(text => text.trim() !== "")
+          .join(". ");
+        
+        if (scriptToSave) {
+          console.log(`Generated fallback narration from scenes: ${scriptToSave.substring(0, 100)}...`);
+          
+          // Update with the fallback script
+          const { error: updateFallbackError } = await supabase
+            .from("video_projects")
+            .update({
+              narration_script: scriptToSave,
+              has_audio: hasAudio,
+              has_captions: includeCaptions
+            })
+            .eq("id", projectId);
+            
+          if (updateFallbackError) {
+            console.error("Error updating fallback narration:", updateFallbackError);
+          }
+        }
+      } catch (fallbackError) {
+        console.error("Error generating fallback narration:", fallbackError);
+      }
     }
 
     // Calculate total duration for reference
@@ -165,7 +190,7 @@ serve(async (req) => {
 
     // Add audio track if audio is provided
     let audioUrl = null;
-    if (audioBase64 && audioBase64.length > 100) {
+    if (hasAudio) {
       try {
         console.log("Processing audio data for upload");
         const audioFileName = `audio-${projectId}-${Date.now()}.mp3`;
@@ -245,32 +270,61 @@ serve(async (req) => {
         console.log("Audio uploaded successfully, URL:", audioUrl);
         
         // Add audio track to tracks array
-        tracks.push({
-          clips: [{
-            asset: {
-              type: "audio",
-              src: audioUrl
-            },
-            start: 0,
-            length: totalDuration,
-            effect: "fadeOut"
-          }]
-        });
+        if (audioUrl) {
+          tracks.push({
+            clips: [{
+              asset: {
+                type: "audio",
+                src: audioUrl
+              },
+              start: 0,
+              length: totalDuration,
+              effect: "fadeOut"
+            }]
+          });
+          
+          // Save the audio URL to the project
+          try {
+            const { error: updateAudioError } = await supabase
+              .from("video_projects")
+              .update({
+                has_audio: true,
+                // Store the audio URL in narration_script if we don't have a script yet
+                ...((!scriptToSave || scriptToSave.trim() === '') ? { narration_script: `Audio URL: ${audioUrl}` } : {})
+              })
+              .eq("id", projectId);
+              
+            if (updateAudioError) {
+              console.error("Error updating project with audio URL:", updateAudioError);
+            } else {
+              console.log("Successfully updated project with audio information");
+            }
+          } catch (audioUpdateError) {
+            console.error("Error saving audio URL to project:", audioUpdateError);
+          }
+        }
       } catch (audioError) {
         console.error("Error processing audio:", audioError);
         // Continue without audio rather than failing the entire render
       }
-    } else if (audioBase64) {
-      console.warn("Audio data was provided but appears invalid or too short:", audioBase64?.length || 0);
     }
 
     // Add captions track if enabled
-    if (includeCaptions && narrationScript && narrationScript.length > 0) {
+    if (includeCaptions) {
       try {
         console.log("Adding captions from narration script");
         
+        // Use provided narration script or fall back to scene descriptions
+        let captionText = scriptToSave;
+        if (!captionText || captionText.trim() === '') {
+          captionText = scenes
+            .map(scene => scene.description || scene.scene || `Scene ${scenes.indexOf(scene) + 1}`)
+            .join(". ");
+          console.log("Using scene descriptions for captions:", captionText.substring(0, 100) + "...");
+        }
+        
         // Clean up narration text and split into sentences
-        const cleanScript = narrationScript
+        const cleanScript = captionText
           .replace(/\.{2,}/g, '.') // Replace multiple periods with a single one
           .replace(/\s+/g, ' ')    // Replace multiple spaces with a single one
           .trim();
@@ -305,50 +359,29 @@ serve(async (req) => {
             }))
           });
           
+          // Update project to indicate captions are included
+          try {
+            const { error: updateCaptionsError } = await supabase
+              .from("video_projects")
+              .update({
+                has_captions: true
+              })
+              .eq("id", projectId);
+              
+            if (updateCaptionsError) {
+              console.error("Error updating project with captions flag:", updateCaptionsError);
+            } else {
+              console.log("Successfully updated project with captions information");
+            }
+          } catch (captionsUpdateError) {
+            console.error("Error saving captions flag to project:", captionsUpdateError);
+          }
+          
           console.log("Caption track added successfully");
         }
       } catch (captionsError) {
         console.error("Error adding captions:", captionsError);
         // Continue without captions rather than failing the entire render
-      }
-    } else if (includeCaptions) {
-      console.log("Captions enabled but no valid narration script provided");
-      
-      // Try to use scene descriptions as captions if no narration available
-      try {
-        console.log("Using scene descriptions as fallback captions");
-        
-        const captionClips = scenes.map((scene, index) => {
-          const startPosition = scenes
-            .slice(0, index)
-            .reduce((sum, s) => {
-              const duration = typeof s.duration === 'number' ? s.duration : parseFloat(s.duration) || 5;
-              return sum + duration;
-            }, 0);
-          
-          const duration = typeof scene.duration === 'number' ? scene.duration : parseFloat(scene.duration) || 5;
-          
-          // Use scene title or description as caption
-          const captionText = scene.scene || scene.description || `Scene ${index + 1}`;
-          
-          return {
-            asset: {
-              type: "title",
-              text: captionText,
-              style: "minimal",
-              size: "medium",
-              position: "bottom",
-              background: "#00000080"
-            },
-            start: startPosition,
-            length: duration
-          };
-        });
-        
-        tracks.push({ clips: captionClips });
-        console.log("Scene-based caption track added as fallback");
-      } catch (fallbackCaptionsError) {
-        console.error("Error adding fallback captions:", fallbackCaptionsError);
       }
     }
 
@@ -368,7 +401,7 @@ serve(async (req) => {
     console.log("Sending request to Shotstack API");
     console.log("Payload preview:", JSON.stringify({
       trackCount: tracks.length,
-      hasCaptions: tracks.length > 1,
+      hasCaptions: tracks.length > (audioUrl ? 2 : 1),
       hasAudio: audioUrl !== null,
       videoClipCount: tracks[0].clips.length
     }));
@@ -413,7 +446,7 @@ serve(async (req) => {
           .update({
             render_id: renderId,
             status: "processing",
-            has_captions: !!includeCaptions,
+            has_captions: includeCaptions === true,
             has_audio: audioUrl !== null
           })
           .eq("id", projectId);

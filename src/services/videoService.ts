@@ -39,7 +39,10 @@ export const videoService = {
       // Validate video URLs for each project
       const processedData = (data || []).map(project => ({
         ...project,
-        video_url: mediaService.validateVideoUrl(project.video_url)
+        video_url: mediaService.validateVideoUrl(project.video_url),
+        // Ensure boolean fields are boolean
+        has_audio: project.has_audio === true,
+        has_captions: project.has_captions === true
       }));
       
       return processedData as VideoProject[];
@@ -65,7 +68,10 @@ export const videoService = {
       // Validate video URLs for each project
       const processedData = (data || []).map(project => ({
         ...project,
-        video_url: mediaService.validateVideoUrl(project.video_url)
+        video_url: mediaService.validateVideoUrl(project.video_url),
+        // Ensure boolean fields are boolean
+        has_audio: project.has_audio === true,
+        has_captions: project.has_captions === true
       }));
       
       return processedData as VideoProject[];
@@ -91,6 +97,9 @@ export const videoService = {
       if (data) {
         // Validate video URL
         data.video_url = mediaService.validateVideoUrl(data.video_url);
+        // Ensure boolean fields are boolean
+        data.has_audio = data.has_audio === true;
+        data.has_captions = data.has_captions === true;
       }
       
       return data as VideoProject;
@@ -105,17 +114,17 @@ export const videoService = {
       console.log("Creating video project with data:", {
         title: project.title,
         style: project.style,
-        has_audio: project.has_audio,
-        has_captions: project.has_captions,
-        narration_script: project.narration_script?.substring(0, 20) + "..." || null
+        has_audio: project.has_audio === true ? "Yes" : "No",
+        has_captions: project.has_captions === true ? "Yes" : "No",
+        narration_script: project.narration_script?.substring(0, 20) + "..." || "None provided"
       });
       
-      // Ensure default values for new columns
+      // Ensure default values for new columns and proper data types
       const projectWithDefaults = {
         ...project,
-        has_audio: project.has_audio ?? false,
-        has_captions: project.has_captions ?? true,
-        narration_script: project.narration_script ?? null
+        has_audio: project.has_audio === true,
+        has_captions: project.has_captions === true,
+        narration_script: project.narration_script || null
       };
 
       const { data, error } = await supabase
@@ -139,21 +148,29 @@ export const videoService = {
   
   async updateProject(id: string, updates: Partial<VideoProject>): Promise<void> {
     try {
+      // Ensure boolean values are stored as booleans
+      const sanitizedUpdates = {
+        ...updates,
+        has_audio: updates.has_audio === true || updates.has_audio === false ? updates.has_audio : undefined,
+        has_captions: updates.has_captions === true || updates.has_captions === false ? updates.has_captions : undefined,
+        narration_script: updates.narration_script || undefined
+      };
+
       console.log(`Updating video project ${id} with data:`, {
-        status: updates.status,
-        has_audio: updates.has_audio,
-        has_captions: updates.has_captions,
-        narration_script: updates.narration_script?.substring(0, 20) + "..." || null
+        status: sanitizedUpdates.status,
+        has_audio: sanitizedUpdates.has_audio,
+        has_captions: sanitizedUpdates.has_captions,
+        narration_script: sanitizedUpdates.narration_script?.substring(0, 20) + "..." || "No change"
       });
       
       // If there's a video_url, validate it
       if (updates.video_url) {
-        updates.video_url = mediaService.validateVideoUrl(updates.video_url);
+        sanitizedUpdates.video_url = mediaService.validateVideoUrl(updates.video_url);
       }
       
       const { error } = await supabase
         .from('video_projects')
-        .update(updates)
+        .update(sanitizedUpdates)
         .eq('id', id);
         
       if (error) {

@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export interface VideoClip {
@@ -39,8 +40,9 @@ export const mediaService = {
   
   async searchVideos(keywords: string[]): Promise<VideoClip[]> {
     try {
-      if (!keywords || keywords.length === 0) {
-        console.warn("Empty keywords provided to searchVideos");
+      // Ensure keywords is an array before proceeding
+      if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
+        console.warn("Empty or invalid keywords provided to searchVideos");
         return [];
       }
       
@@ -63,8 +65,8 @@ export const mediaService = {
         throw error;
       }
       
-      if (!data || !data.videos) {
-        console.warn('No videos returned from search-videos function');
+      if (!data || !Array.isArray(data.videos)) {
+        console.warn('No videos returned from search-videos function or invalid response format');
         return [];
       }
       
@@ -79,8 +81,22 @@ export const mediaService = {
 
   async generateScriptForScenes(scenes: any[]): Promise<string> {
     try {
+      // Validate scenes input
+      if (!Array.isArray(scenes) || scenes.length === 0) {
+        console.warn("Invalid or empty scenes provided to generateScriptForScenes");
+        return "Journey with us through this visual story.";
+      }
+      
       // Use the scenes' descriptions to generate a coherent narration script
-      const sceneDescriptions = scenes.map(scene => scene.description || scene.scene).join(". ");
+      const sceneDescriptions = scenes
+        .map(scene => (scene?.description || scene?.scene || ""))
+        .filter(desc => desc.trim() !== "")
+        .join(". ");
+      
+      if (!sceneDescriptions || sceneDescriptions.trim() === "") {
+        console.warn("No valid scene descriptions found");
+        return "Journey with us through this visual story.";
+      }
       
       console.log("Generating narration script for scenes:", sceneDescriptions);
       
@@ -119,14 +135,14 @@ export const mediaService = {
         voiceId,
         userId,
         projectId,
-        scenesProvided: !!scenes && scenes.length > 0,
-        scenesCount: scenes?.length || 0
+        scenesProvided: !!scenes && Array.isArray(scenes) && scenes.length > 0,
+        scenesCount: Array.isArray(scenes) ? scenes.length : 0
       });
       
       let finalScript = script;
       
       // If no script is provided but scenes are available, generate a script
-      if ((!finalScript || finalScript.trim() === "") && scenes && scenes.length > 0) {
+      if ((!finalScript || finalScript.trim() === "") && Array.isArray(scenes) && scenes.length > 0) {
         try {
           console.log("No script provided, generating from scenes...");
           finalScript = await this.generateScriptForScenes(scenes);
@@ -203,10 +219,18 @@ export const mediaService = {
     }
   },
 
-  async renderVideo(scenes: any[], userId: string, projectId: string, audioBase64?: string, includeCaptions: boolean = true, narrationScript?: string): Promise<string> {
+  async renderVideo(
+    scenes: any[], 
+    userId: string, 
+    projectId: string, 
+    audioBase64?: string, 
+    includeCaptions: boolean = true, 
+    narrationScript?: string
+  ): Promise<string> {
     try {
-      console.log(`Rendering video for project ${projectId} with ${scenes.length} scenes`);
-      console.log(`Audio provided: ${!!audioBase64}, Include captions: ${includeCaptions}`);
+      console.log(`Rendering video for project ${projectId} with ${scenes?.length || 0} scenes`);
+      console.log(`Audio provided: ${!!audioBase64 ? 'Yes, length: ' + audioBase64?.length : 'No'}`);
+      console.log(`Include captions: ${includeCaptions}`);
       console.log(`Narration script: "${narrationScript || 'Not provided'}"`);
       
       // Make sure we have valid scenes
@@ -229,8 +253,8 @@ export const mediaService = {
         console.log(`Proceeding with ${scenes.length} valid scenes after filtering`);
       }
       
+      // Validate audio data if provided
       if (audioBase64) {
-        // Validate audio data
         if (audioBase64.length < 100 || !audioBase64.match(/^[A-Za-z0-9+/=]+$/)) {
           console.error('Invalid audio data, will proceed without audio');
           audioBase64 = undefined;
@@ -248,14 +272,14 @@ export const mediaService = {
           .trim();                // Trim whitespace
       }
       
-      // Prepare the payload
+      // Prepare the payload - ensure all fields are properly defined
       const payload = { 
         scenes, 
         userId, 
         projectId, 
         audioBase64, 
-        includeCaptions, 
-        narrationScript 
+        includeCaptions: !!includeCaptions, // Ensure boolean
+        narrationScript: narrationScript || "" // Ensure string 
       };
       
       // Call the edge function with detailed logging
@@ -263,7 +287,7 @@ export const mediaService = {
         scenesCount: scenes.length,
         hasAudio: !!audioBase64,
         audioLength: audioBase64?.length || 0,
-        includesCaptions: includeCaptions,
+        includesCaptions: !!includeCaptions,
         hasNarrationScript: !!narrationScript,
         narrationScriptLength: narrationScript?.length || 0
       });
