@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
@@ -97,7 +98,11 @@ serve(async (req) => {
     }
 
     // Calculate total duration for reference
-    const totalDuration = scenes.reduce((sum, scene) => sum + scene.duration, 0);
+    const totalDuration = scenes.reduce((sum, scene) => {
+      const duration = typeof scene.duration === 'number' ? scene.duration : parseFloat(scene.duration) || 5;
+      return sum + duration;
+    }, 0);
+    
     console.log(`Total video duration: ${totalDuration} seconds`);
 
     // Validate video URLs in scenes
@@ -121,7 +126,13 @@ serve(async (req) => {
             // Calculate start position based on previous scenes
             const startPosition = validScenes
               .slice(0, index)
-              .reduce((sum, s) => sum + s.duration, 0);
+              .reduce((sum, s) => {
+                const duration = typeof s.duration === 'number' ? s.duration : parseFloat(s.duration) || 5;
+                return sum + duration;
+              }, 0);
+            
+            // Ensure duration is a number
+            const duration = typeof scene.duration === 'number' ? scene.duration : parseFloat(scene.duration) || 5;
             
             return {
               asset: {
@@ -129,7 +140,7 @@ serve(async (req) => {
                 src: scene.videoUrl
               },
               start: startPosition,
-              length: scene.duration,
+              length: duration,
               effect: index % 2 === 0 ? "zoomIn" : "slideUp", // Alternate effects for visual interest
               transition: {
                 in: index === 0 ? "fade" : "fade",
@@ -145,30 +156,49 @@ serve(async (req) => {
     // Add captions/subtitles track if explicitly requested
     if (includeCaptions) {
       console.log("Adding captions to video");
-      let captionText = narrationScript || "";
-      if (!captionText && scenes.length > 0) {
-        // If no narration script, use scene descriptions
-        captionText = scenes.map(scene => scene.scene || scene.description).join(". ");
+      let captionTexts = [];
+      
+      // If we have narration script, split it into sentences
+      if (narrationScript) {
+        // Split narration into sentences and assign to scenes
+        captionTexts = narrationScript.split(/[.!?]+\s*/).filter(text => text.trim() !== '');
+        console.log(`Split narration script into ${captionTexts.length} caption segments`);
+      } else {
+        // Use scene descriptions if no narration script
+        captionTexts = scenes.map(scene => scene.scene || scene.description || '').filter(text => text.trim() !== '');
+        console.log(`Using ${captionTexts.length} scene descriptions as captions`);
       }
       
-      if (captionText) {
+      if (captionTexts.length > 0) {
+        // Add a separate track for captions
         timeline.tracks.push({
           clips: validScenes.map((scene, index) => {
+            // Calculate start position based on previous scenes
             const startPosition = validScenes
               .slice(0, index)
-              .reduce((sum, s) => sum + s.duration, 0);
+              .reduce((sum, s) => {
+                const duration = typeof s.duration === 'number' ? s.duration : parseFloat(s.duration) || 5;
+                return sum + duration;
+              }, 0);
+            
+            // Ensure duration is a number
+            const duration = typeof scene.duration === 'number' ? scene.duration : parseFloat(scene.duration) || 5;
+            
+            // Get caption text for this scene (fallback to empty string if no text available)
+            const captionText = index < captionTexts.length ? captionTexts[index] : 
+                             (scene.scene || scene.description || '');
             
             return {
               asset: {
                 type: "title",
-                text: scene.scene || scene.description,
+                text: captionText,
                 style: "minimal",
                 size: "medium",
                 position: "bottom",
                 background: "#00000080" // Semi-transparent background for better readability
               },
               start: startPosition,
-              length: scene.duration
+              length: duration
             };
           })
         });
@@ -204,12 +234,21 @@ serve(async (req) => {
         });
         
         if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error(`Error uploading audio: ${uploadResponse.status} ${uploadResponse.statusText}`);
+          console.error(`Response body: ${errorText}`);
           throw new Error(`Error uploading audio: ${uploadResponse.status} ${uploadResponse.statusText}`);
         }
         
         const uploadResult = await uploadResponse.json();
-        const audioUrl = uploadResult.data.url;
+        console.log("Upload result:", JSON.stringify(uploadResult));
         
+        if (!uploadResult.data || !uploadResult.data.url) {
+          console.error("Invalid response from Shotstack asset upload:", uploadResult);
+          throw new Error("Invalid response from audio upload");
+        }
+        
+        const audioUrl = uploadResult.data.url;
         console.log("Audio uploaded successfully, URL:", audioUrl);
         
         // Use the uploaded audio URL in the soundtrack (voiceover only, no background music)
@@ -220,7 +259,8 @@ serve(async (req) => {
         };
       } catch (audioUploadError) {
         console.error("Error uploading audio:", audioUploadError);
-        throw audioUploadError;
+        // Continue without audio rather than failing the entire render
+        console.log("Continuing video render without audio due to upload error");
       }
     }
 
@@ -237,10 +277,15 @@ serve(async (req) => {
     };
 
     console.log("Sending request to Shotstack API");
+    console.log("Payload preview:", JSON.stringify({
+      clipCount: timeline.tracks[0].clips.length,
+      hasCaptions: timeline.tracks.length > 1,
+      hasSoundtrack: !!timeline.soundtrack
+    }));
 
     try {
       // Call Shotstack API to render the video
-      const response = await fetch("https://api.shotstack.io/stage/render", {
+      const response = await fetch("https://api.shotstack.io/v1/render", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -256,6 +301,13 @@ serve(async (req) => {
       }
 
       const data = await response.json();
+      console.log("Shotstack API response:", JSON.stringify(data));
+      
+      if (!data.response || !data.response.id) {
+        console.error("Invalid response from Shotstack API:", data);
+        throw new Error("Invalid response from Shotstack API");
+      }
+      
       const renderId = data.response.id;
       console.log("Shotstack render ID:", renderId);
 

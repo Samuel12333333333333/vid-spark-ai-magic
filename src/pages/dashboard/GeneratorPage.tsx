@@ -55,6 +55,42 @@ export default function GeneratorPage() {
           setApiStatus(prev => ({ ...prev, gemini: 'ok' }));
         }
         
+        // Check Shotstack API by testing a small render operation
+        setApiStatus(prev => ({ ...prev, shotstack: 'checking' }));
+        try {
+          // Create a minimal render test to verify Shotstack API key
+          const testScenes = [{
+            id: "test-scene",
+            scene: "Test Scene",
+            description: "A test scene for API validation",
+            keywords: ["test"],
+            duration: 2,
+            videoUrl: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" // Sample video
+          }];
+          
+          const shotstackResult = await supabase.functions.invoke('render-video', {
+            body: { 
+              scenes: testScenes,
+              userId: "test-user",
+              projectId: "test-project-" + Date.now(),
+              includeCaptions: true
+            }
+          });
+          
+          if (shotstackResult.error) {
+            console.error('Error testing Shotstack API key:', shotstackResult.error);
+            setApiStatus(prev => ({ ...prev, shotstack: 'error' }));
+            toast.error("Shotstack API connection issue. Please check your API key.");
+          } else {
+            console.log('Shotstack API test successful');
+            setApiStatus(prev => ({ ...prev, shotstack: 'ok' }));
+          }
+        } catch (error) {
+          console.error('Error testing Shotstack API:', error);
+          setApiStatus(prev => ({ ...prev, shotstack: 'error' }));
+          toast.error("Shotstack API connection issue. Please check your API key.");
+        }
+        
         // Check ElevenLabs API more carefully with proper error handling
         setApiStatus(prev => ({ ...prev, elevenlabs: 'checking' }));
         const elevenLabsResult = await supabase.functions.invoke('generate-audio', {
@@ -78,10 +114,6 @@ export default function GeneratorPage() {
           console.log('ElevenLabs API key test successful');
           setApiStatus(prev => ({ ...prev, elevenlabs: 'ok' }));
         }
-        
-        // Shotstack is harder to test without actually rendering
-        // We'll mark it as OK for now and it will be tested during actual use
-        setApiStatus(prev => ({ ...prev, shotstack: 'ok' }));
       } catch (error) {
         console.error('Error in checkApiKeys:', error);
         toast.error("Error checking API connections. See console for details.");
