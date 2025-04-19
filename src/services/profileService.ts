@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export interface UserProfile {
   id: string;
@@ -47,26 +48,49 @@ export const profileService = {
   },
   
   async uploadAvatar(userId: string, file: File): Promise<string | null> {
-    // Generate a unique file path
-    const fileExt = file.name.split('.').pop();
-    const filePath = `${userId}/${Date.now()}.${fileExt}`;
-    
-    // Upload the file to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(filePath, file);
+    try {
+      // Check if bucket exists, if not show a friendly error
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
       
-    if (uploadError) {
-      console.error('Error uploading avatar:', uploadError);
-      throw uploadError;
+      if (bucketsError) {
+        console.error('Error checking storage buckets:', bucketsError);
+        toast.error('Storage service unavailable');
+        throw bucketsError;
+      }
+      
+      const avatarBucketExists = buckets.some(bucket => bucket.name === 'avatars');
+      
+      if (!avatarBucketExists) {
+        console.error('Avatars bucket does not exist');
+        toast.error('Avatar storage not configured. Please contact support.');
+        throw new Error('Avatar storage not configured');
+      }
+      
+      // Generate a unique file path
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${userId}/${Date.now()}.${fileExt}`;
+      
+      // Upload the file to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+        
+      if (uploadError) {
+        console.error('Error uploading avatar:', uploadError);
+        toast.error('Failed to upload avatar. Please try again.');
+        throw uploadError;
+      }
+      
+      // Get the public URL
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      
+      // Update the user's profile with the new avatar URL
+      await this.updateProfile(userId, { avatar_url: data.publicUrl });
+      
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error in avatar upload process:', error);
+      throw error;
     }
-    
-    // Get the public URL
-    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-    
-    // Update the user's profile with the new avatar URL
-    await this.updateProfile(userId, { avatar_url: data.publicUrl });
-    
-    return data.publicUrl;
   }
 };

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +8,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Save, CreditCard, Bell, ShieldAlert, Loader2, User } from "lucide-react";
+import { Save, CreditCard, Bell, ShieldAlert, Loader2, User, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { profileService, UserProfile } from "@/services/profileService";
-import { authService } from "@/services/authService";
+import { authService, PasswordValidationResult } from "@/services/authService";
 import { useForm } from "react-hook-form";
 import {
   Form,
@@ -21,6 +22,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface PasswordFormValues {
   currentPassword: string;
@@ -37,6 +39,8 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [passwordValidation, setPasswordValidation] = useState<PasswordValidationResult>({ isValid: true, errors: [] });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   
   useEffect(() => {
     const fetchProfile = async () => {
@@ -49,6 +53,7 @@ export default function SettingsPage() {
         if (profileData) {
           setProfile(profileData);
           setFullName(profileData.username || "");
+          setAvatarPreview(profileData.avatar_url);
         }
         
         setEmail(user.email || "");
@@ -63,9 +68,32 @@ export default function SettingsPage() {
     fetchProfile();
   }, [user]);
 
+  const handleProfileUpdate = async () => {
+    if (!user) return;
+    
+    try {
+      setIsSavingProfile(true);
+      await profileService.updateProfile(user.id, { username: fullName });
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast.error("Failed to update profile");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   const handlePasswordUpdate = async (data: PasswordFormValues) => {
     if (data.newPassword !== data.confirmPassword) {
       toast.error("New passwords do not match");
+      return;
+    }
+
+    // Validate the new password
+    const validation = authService.validatePassword(data.newPassword);
+    setPasswordValidation(validation);
+    
+    if (!validation.isValid) {
       return;
     }
 
@@ -74,9 +102,15 @@ export default function SettingsPage() {
       await authService.updatePassword(data.newPassword);
       toast.success("Password updated successfully");
       form.reset();
+      setPasswordValidation({ isValid: true, errors: [] });
     } catch (error) {
       console.error("Error updating password:", error);
-      toast.error("Failed to update password");
+      
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("Failed to update password");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -93,6 +127,10 @@ export default function SettingsPage() {
       return;
     }
 
+    // Create a local preview
+    const fileUrl = URL.createObjectURL(file);
+    setAvatarPreview(fileUrl);
+
     try {
       setIsSaving(true);
       const publicUrl = await profileService.uploadAvatar(user.id, file);
@@ -102,7 +140,8 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error("Error uploading avatar:", error);
-      toast.error("Failed to upload avatar");
+      // Revert to previous avatar if available
+      setAvatarPreview(profile?.avatar_url || null);
     } finally {
       setIsSaving(false);
     }
@@ -146,7 +185,7 @@ export default function SettingsPage() {
                 <div className="flex flex-col items-center space-y-4">
                   <Avatar className="w-24 h-24 ring-2 ring-primary/10 transition-all duration-300 hover:ring-primary/30">
                     <AvatarImage 
-                      src={avatarPreview || profile?.avatar_url || ""} 
+                      src={avatarPreview || ""} 
                       alt="Profile"
                       className="object-cover"
                     />
@@ -166,8 +205,18 @@ export default function SettingsPage() {
                       htmlFor="avatar-upload"
                       className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground ring-offset-background transition-all duration-300 hover:bg-primary/90 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer disabled:pointer-events-none disabled:opacity-50"
                     >
-                      Change Avatar
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        "Change Avatar"
+                      )}
                     </Label>
+                    <p className="text-xs text-muted-foreground mt-1 text-center">
+                      {isSaving ? "This may take a moment..." : "JPG, PNG or GIF, max 5MB"}
+                    </p>
                   </div>
                 </div>
                 
@@ -195,11 +244,44 @@ export default function SettingsPage() {
                       Your email address is associated with your account and cannot be changed
                     </p>
                   </div>
+                  
+                  <Button 
+                    onClick={handleProfileUpdate} 
+                    disabled={isSavingProfile}
+                    className="mt-4 transition-all duration-300 hover:scale-105"
+                  >
+                    {isSavingProfile ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Save Profile
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
               
               <div className="border-t pt-6">
                 <h3 className="font-medium mb-4">Change Password</h3>
+                
+                {!passwordValidation.isValid && (
+                  <Alert variant="destructive" className="mb-4 animate-fade-in">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Password Requirements</AlertTitle>
+                    <AlertDescription>
+                      <ul className="list-disc list-inside mt-2 text-sm">
+                        {passwordValidation.errors.map((error, index) => (
+                          <li key={index}>{error}</li>
+                        ))}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(handlePasswordUpdate)} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -234,6 +316,13 @@ export default function SettingsPage() {
                                 type="password" 
                                 {...field}
                                 className="transition-all duration-300 focus:ring-primary/30"
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  // Only validate when actively typing
+                                  if (e.target.value) {
+                                    setPasswordValidation(authService.validatePassword(e.target.value));
+                                  }
+                                }}
                               />
                             </FormControl>
                             <FormMessage />
