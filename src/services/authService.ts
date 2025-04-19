@@ -38,21 +38,26 @@ export const authService = {
   },
 
   async updatePassword(newPassword: string): Promise<void> {
-    // Validate password before sending to Supabase
-    const validation = this.validatePassword(newPassword);
-    
-    if (!validation.isValid) {
-      const errorMessage = validation.errors.join('. ');
-      console.error('Password validation failed:', errorMessage);
-      throw new Error(errorMessage);
-    }
-    
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
+    try {
+      // Validate password before sending to Supabase
+      const validation = this.validatePassword(newPassword);
+      
+      if (!validation.isValid) {
+        const errorMessage = validation.errors.join('. ');
+        console.error('Password validation failed:', errorMessage);
+        throw new Error(errorMessage);
+      }
+      
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
 
-    if (error) {
-      console.error('Error updating password:', error);
+      if (error) {
+        console.error('Error updating password:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in updatePassword:', error);
       throw error;
     }
   },

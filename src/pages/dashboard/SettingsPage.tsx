@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,8 +72,11 @@ export default function SettingsPage() {
     
     try {
       setIsSavingProfile(true);
-      await profileService.updateProfile(user.id, { username: fullName });
-      toast.success("Profile updated successfully");
+      const updatedProfile = await profileService.updateProfile(user.id, { username: fullName });
+      if (updatedProfile) {
+        setProfile(updatedProfile);
+        toast.success("Profile updated successfully");
+      }
     } catch (error) {
       console.error("Error updating profile:", error);
       toast.error("Failed to update profile");
@@ -130,18 +132,21 @@ export default function SettingsPage() {
     // Create a local preview
     const fileUrl = URL.createObjectURL(file);
     setAvatarPreview(fileUrl);
+    setAvatarFile(file);
 
     try {
       setIsSaving(true);
       const publicUrl = await profileService.uploadAvatar(user.id, file);
       if (publicUrl) {
         setAvatarPreview(publicUrl);
+        setProfile(prev => prev ? {...prev, avatar_url: publicUrl} : null);
         toast.success("Avatar updated successfully");
       }
     } catch (error) {
       console.error("Error uploading avatar:", error);
       // Revert to previous avatar if available
       setAvatarPreview(profile?.avatar_url || null);
+      toast.error("Failed to upload avatar. Please check if the avatars bucket exists in Supabase.");
     } finally {
       setIsSaving(false);
     }

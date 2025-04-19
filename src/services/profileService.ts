@@ -32,38 +32,36 @@ export const profileService = {
   },
   
   async updateProfile(userId: string, updates: UpdateProfileData): Promise<UserProfile | null> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', userId)
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', userId)
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('Error updating user profile:', error);
+        throw error;
+      }
       
-    if (error) {
-      console.error('Error updating user profile:', error);
+      return data;
+    } catch (error) {
+      console.error('Error in updateProfile:', error);
       throw error;
     }
-    
-    return data;
   },
   
   async uploadAvatar(userId: string, file: File): Promise<string | null> {
     try {
-      // Check if bucket exists, if not show a friendly error
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-      
-      if (bucketsError) {
-        console.error('Error checking storage buckets:', bucketsError);
-        toast.error('Storage service unavailable');
-        throw bucketsError;
-      }
-      
-      const avatarBucketExists = buckets.some(bucket => bucket.name === 'avatars');
-      
-      if (!avatarBucketExists) {
-        console.error('Avatars bucket does not exist');
-        toast.error('Avatar storage not configured. Please contact support.');
-        throw new Error('Avatar storage not configured');
+      // First check if the avatars bucket exists
+      const { data: bucketExists, error: bucketError } = await supabase.storage
+        .from('avatars')
+        .list();
+        
+      if (bucketError && bucketError.message.includes('The resource was not found')) {
+        toast.error('Avatar storage not configured. Please create an "avatars" bucket in Supabase.');
+        throw new Error('Avatars bucket does not exist');
       }
       
       // Generate a unique file path
@@ -73,7 +71,10 @@ export const profileService = {
       // Upload the file to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
         
       if (uploadError) {
         console.error('Error uploading avatar:', uploadError);
