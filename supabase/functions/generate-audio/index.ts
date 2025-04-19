@@ -171,6 +171,7 @@ serve(async (req) => {
     console.log(`Generating audio for project ${projectId} with voice ${selectedVoiceId}`);
     console.log(`Narration script: "${narrationScript}"`);
 
+    // Use a more compatible model (eleven_monolingual_v1 is well-supported)
     const ttsPayload = {
       text: narrationScript,
       model_id: "eleven_monolingual_v1",
@@ -187,6 +188,7 @@ serve(async (req) => {
       // Added debug output for request payload
       console.log("Sending request to ElevenLabs with payload:", JSON.stringify(ttsPayload));
       
+      // Use consistent endpoint format
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}`, {
         method: "POST",
         headers: {
@@ -220,10 +222,13 @@ serve(async (req) => {
       
       console.log(`Received audio data with size: ${audioBuffer.byteLength} bytes`);
       
-      // Convert to base64 for storage
-      const base64Audio = btoa(
-        String.fromCharCode(...new Uint8Array(audioBuffer))
-      );
+      // Convert to base64 for storage - using a safer method
+      const uint8Array = new Uint8Array(audioBuffer);
+      let binaryString = '';
+      for (let i = 0; i < uint8Array.byteLength; i++) {
+        binaryString += String.fromCharCode(uint8Array[i]);
+      }
+      const base64Audio = btoa(binaryString);
       
       console.log(`Audio data converted to base64 (length: ${base64Audio.length})`);
       console.log("Audio generation successful, returning data");

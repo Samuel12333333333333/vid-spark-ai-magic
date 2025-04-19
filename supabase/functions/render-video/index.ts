@@ -272,8 +272,8 @@ serve(async (req) => {
 
     const shotstackPayload = {
       timeline,
-      output,
-      callback: null
+      output
+      // Removed callback: null line that was causing the API error
     };
 
     console.log("Sending request to Shotstack API");

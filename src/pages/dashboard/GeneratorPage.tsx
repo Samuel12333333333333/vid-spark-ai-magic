@@ -58,7 +58,7 @@ export default function GeneratorPage() {
         // Check Shotstack API by testing a small render operation
         setApiStatus(prev => ({ ...prev, shotstack: 'checking' }));
         try {
-          // Create a minimal render test to verify Shotstack API key
+          // Create a minimal render test to verify Shotstack API key - using a public test video URL
           const testScenes = [{
             id: "test-scene",
             scene: "Test Scene",
@@ -91,7 +91,7 @@ export default function GeneratorPage() {
           toast.error("Shotstack API connection issue. Please check your API key.");
         }
         
-        // Check ElevenLabs API more carefully with proper error handling
+        // Check ElevenLabs API with detailed error handling
         setApiStatus(prev => ({ ...prev, elevenlabs: 'checking' }));
         const elevenLabsResult = await supabase.functions.invoke('generate-audio', {
           body: { 
@@ -102,14 +102,19 @@ export default function GeneratorPage() {
           }
         });
         
+        // Proper validation of ElevenLabs API response
         if (elevenLabsResult.error) {
           console.error('Error testing ElevenLabs API key:', elevenLabsResult.error);
           setApiStatus(prev => ({ ...prev, elevenlabs: 'error' }));
           toast.error("ElevenLabs API connection issue. Please check your API key.");
-        } else if (!elevenLabsResult.data || !elevenLabsResult.data.audioBase64) {
-          console.error('ElevenLabs API returned invalid data:', elevenLabsResult.data);
+        } else if (!elevenLabsResult.data) {
+          console.error('No data returned from ElevenLabs API test');
           setApiStatus(prev => ({ ...prev, elevenlabs: 'error' }));
-          toast.error("ElevenLabs API returned invalid data. Check console for details.");
+          toast.error("ElevenLabs API returned invalid data");
+        } else if (!elevenLabsResult.data.audioBase64) {
+          console.error('ElevenLabs API did not return audio data');
+          setApiStatus(prev => ({ ...prev, elevenlabs: 'error' }));
+          toast.error("ElevenLabs API did not generate audio");
         } else {
           console.log('ElevenLabs API key test successful');
           setApiStatus(prev => ({ ...prev, elevenlabs: 'ok' }));

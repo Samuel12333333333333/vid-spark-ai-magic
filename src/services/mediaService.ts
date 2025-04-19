@@ -181,6 +181,23 @@ export const mediaService = {
         throw new Error('Failed to generate audio content');
       }
       
+      // Check that we actually received valid base64 data
+      if (data.audioBase64.length < 100) {
+        console.error('Received suspicious audio data from generate-audio function, length too short:', data.audioBase64.length);
+        throw new Error('Received invalid audio data from service');
+      }
+      
+      // Try to validate the base64 string briefly
+      try {
+        const testBytes = atob(data.audioBase64.substring(0, 100));
+        if (testBytes.length < 10) {
+          throw new Error('Invalid base64 data');
+        }
+      } catch (e) {
+        console.error('Invalid base64 audio data received:', e);
+        throw new Error('Failed to decode audio data from service');
+      }
+      
       console.log("Audio generation successful - audioBase64 length:", data.audioBase64.length);
       console.log("Narration script:", data.narrationScript || finalScript);
       
@@ -203,6 +220,12 @@ export const mediaService = {
       if (audioBase64) {
         // Log audio data length for debugging
         console.log(`Audio base64 data length: ${audioBase64.length}`);
+        
+        // Quick validation of audio data
+        if (audioBase64.length < 100) {
+          console.error('Audio data appears invalid (too short)');
+          throw new Error('Invalid audio data provided for video rendering');
+        }
       }
       
       const { data, error } = await supabase.functions.invoke('render-video', {
