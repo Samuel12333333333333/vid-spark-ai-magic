@@ -7,10 +7,26 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Save, CreditCard, Bell, ShieldAlert, Loader2 } from "lucide-react";
+import { Save, CreditCard, Bell, ShieldAlert, Loader2, User } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { profileService, UserProfile } from "@/services/profileService";
+import { authService } from "@/services/authService";
+import { useForm } from "react-hook-form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+
+interface PasswordFormValues {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -47,69 +63,59 @@ export default function SettingsPage() {
     fetchProfile();
   }, [user]);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) {
+  const handlePasswordUpdate = async (data: PasswordFormValues) => {
+    if (data.newPassword !== data.confirmPassword) {
+      toast.error("New passwords do not match");
       return;
     }
-    
-    const file = e.target.files[0];
-    setAvatarFile(file);
-    
-    // Preview the image
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setAvatarPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-  
-  const handleSaveProfile = async () => {
-    if (!user) return;
-    
+
     try {
       setIsSaving(true);
-      
-      // Update profile username
-      await profileService.updateProfile(user.id, { 
-        username: fullName
-      });
-      
-      // Upload avatar if selected
-      if (avatarFile) {
-        await profileService.uploadAvatar(user.id, avatarFile);
-      }
-      
-      // Refresh profile data
-      const updatedProfile = await profileService.getProfile(user.id);
-      if (updatedProfile) {
-        setProfile(updatedProfile);
-      }
-      
-      toast.success("Profile information saved");
+      await authService.updatePassword(data.newPassword);
+      toast.success("Password updated successfully");
+      form.reset();
     } catch (error) {
-      console.error("Error saving profile:", error);
-      toast.error("Failed to save profile information");
+      console.error("Error updating password:", error);
+      toast.error("Failed to update password");
     } finally {
       setIsSaving(false);
     }
   };
-  
-  const handleSaveBilling = () => {
-    toast.success("Billing information updated");
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || !user) {
+      return;
+    }
+    
+    const file = e.target.files[0];
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      toast.error("File size must be less than 5MB");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const publicUrl = await profileService.uploadAvatar(user.id, file);
+      if (publicUrl) {
+        setAvatarPreview(publicUrl);
+        toast.success("Avatar updated successfully");
+      }
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      toast.error("Failed to upload avatar");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const userInitials = fullName
-    ? fullName.split(" ").map((n) => n[0]).join("").toUpperCase()
-    : user?.email?.charAt(0).toUpperCase() || "U";
-  
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-smartvid-600" />
-      </div>
-    );
-  }
-  
+  const form = useForm<PasswordFormValues>({
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+  });
+
   return (
     <div className="space-y-8">
       <div>
@@ -127,7 +133,7 @@ export default function SettingsPage() {
           <TabsTrigger value="api">API</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="account" className="mt-6">
+        <TabsContent value="account" className="mt-6 space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Profile Information</CardTitle>
@@ -138,12 +144,15 @@ export default function SettingsPage() {
             <CardContent className="space-y-6">
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex flex-col items-center space-y-4">
-                  <Avatar className="w-24 h-24">
+                  <Avatar className="w-24 h-24 ring-2 ring-primary/10 transition-all duration-300 hover:ring-primary/30">
                     <AvatarImage 
                       src={avatarPreview || profile?.avatar_url || ""} 
-                      alt="Profile" 
+                      alt="Profile"
+                      className="object-cover"
                     />
-                    <AvatarFallback className="text-lg">{userInitials}</AvatarFallback>
+                    <AvatarFallback className="text-lg bg-primary/5">
+                      <User className="h-8 w-8 text-primary/40" />
+                    </AvatarFallback>
                   </Avatar>
                   <div>
                     <Input
@@ -155,7 +164,7 @@ export default function SettingsPage() {
                     />
                     <Label
                       htmlFor="avatar-upload"
-                      className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground ring-offset-background transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
+                      className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground ring-offset-background transition-all duration-300 hover:bg-primary/90 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer disabled:pointer-events-none disabled:opacity-50"
                     >
                       Change Avatar
                     </Label>
@@ -169,6 +178,7 @@ export default function SettingsPage() {
                       id="full-name" 
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
+                      className="transition-all duration-300 focus:ring-primary/30"
                     />
                   </div>
                   
@@ -179,272 +189,292 @@ export default function SettingsPage() {
                       type="email" 
                       value={email}
                       disabled
+                      className="bg-muted/5"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       Your email address is associated with your account and cannot be changed
                     </p>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Account Role</Label>
-                    <Input id="role" value="Free User" disabled />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Your account permissions and access level
-                    </p>
-                  </div>
                 </div>
               </div>
               
               <div className="border-t pt-6">
-                <h3 className="font-medium mb-4">Account Security</h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="current-password">Current Password</Label>
-                      <Input id="current-password" type="password" />
+                <h3 className="font-medium mb-4">Change Password</h3>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handlePasswordUpdate)} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="currentPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Current Password</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="password" 
+                                {...field}
+                                className="transition-all duration-300 focus:ring-primary/30"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <div></div>
+                      
+                      <FormField
+                        control={form.control}
+                        name="newPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>New Password</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="password" 
+                                {...field}
+                                className="transition-all duration-300 focus:ring-primary/30"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="confirmPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Confirm New Password</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="password" 
+                                {...field}
+                                className="transition-all duration-300 focus:ring-primary/30"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
                     
-                    <div></div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="new-password">New Password</Label>
-                      <Input id="new-password" type="password" />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-password">Confirm New Password</Label>
-                      <Input id="confirm-password" type="password" />
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Switch id="two-factor" />
-                    <Label htmlFor="two-factor">Enable two-factor authentication</Label>
-                  </div>
-                </div>
+                    <Button 
+                      type="submit" 
+                      disabled={isSaving}
+                      className="w-full md:w-auto transition-all duration-300 hover:scale-105"
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Updating Password...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          Update Password
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </Form>
               </div>
             </CardContent>
-            <CardFooter className="border-t px-6 py-4">
-              <Button onClick={handleSaveProfile} disabled={isSaving}>
-                {isSaving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Changes
-                  </>
-                )}
-              </Button>
-            </CardFooter>
           </Card>
-        </TabsContent>
-        
-        <TabsContent value="billing" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Billing & Subscription</CardTitle>
-              <CardDescription>
-                Manage your subscription plan and payment methods
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="border rounded-lg p-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium text-lg">Current Plan</h3>
-                    <div className="flex items-center mt-1">
-                      <Badge>Free</Badge>
-                      <span className="text-sm text-muted-foreground ml-2">1 video per day</span>
-                    </div>
-                  </div>
-                  <Button className="bg-smartvid-600 hover:bg-smartvid-700">
-                    Upgrade Plan
-                  </Button>
-                </div>
-                
-                <div className="mt-4 text-sm text-muted-foreground">
-                  <p>Your free plan includes:</p>
-                  <ul className="list-disc list-inside mt-2 space-y-1">
-                    <li>1 video per day (30 per month)</li>
-                    <li>720p video quality</li>
-                    <li>30-second maximum duration</li>
-                    <li>Basic templates</li>
-                    <li>SmartVid watermark</li>
-                  </ul>
-                </div>
-              </div>
-              
-              <div>
-                <h3 className="font-medium mb-4">Payment Methods</h3>
-                <div className="border rounded-lg mb-4">
-                  <div className="p-4 flex justify-between items-center">
-                    <div className="flex items-center">
-                      <CreditCard className="h-5 w-5 mr-2 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">No payment method</p>
-                        <p className="text-sm text-muted-foreground">Add a payment method to upgrade</p>
+          
+          <TabsContent value="billing" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Billing & Subscription</CardTitle>
+                <CardDescription>
+                  Manage your subscription plan and payment methods
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="border rounded-lg p-6">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-medium text-lg">Current Plan</h3>
+                      <div className="flex items-center mt-1">
+                        <Badge>Free</Badge>
+                        <span className="text-sm text-muted-foreground ml-2">1 video per day</span>
                       </div>
                     </div>
-                    <Button variant="outline">Add Method</Button>
+                    <Button className="bg-smartvid-600 hover:bg-smartvid-700">
+                      Upgrade Plan
+                    </Button>
                   </div>
-                </div>
-              </div>
-              
-              <div>
-                <h3 className="font-medium mb-4">Billing History</h3>
-                <div className="border rounded-lg p-6 text-center">
-                  <p className="text-muted-foreground">No billing history available</p>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="border-t px-6 py-4">
-              <Button onClick={handleSaveBilling}>
-                <Save className="mr-2 h-4 w-4" />
-                Save Billing Preferences
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="notifications" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
-              <CardDescription>
-                Manage when and how you receive notifications
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <h3 className="font-medium">Email Notifications</h3>
-                
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Video Generation</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receive emails when your videos finish generating
-                    </p>
+                  
+                  <div className="mt-4 text-sm text-muted-foreground">
+                    <p>Your free plan includes:</p>
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li>1 video per day (30 per month)</li>
+                      <li>720p video quality</li>
+                      <li>30-second maximum duration</li>
+                      <li>Basic templates</li>
+                      <li>SmartVid watermark</li>
+                    </ul>
                   </div>
-                  <Switch id="video-email" defaultChecked />
                 </div>
                 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Account Updates</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receive emails about account changes or security
-                    </p>
+                <div>
+                  <h3 className="font-medium mb-4">Payment Methods</h3>
+                  <div className="border rounded-lg mb-4">
+                    <div className="p-4 flex justify-between items-center">
+                      <div className="flex items-center">
+                        <CreditCard className="h-5 w-5 mr-2 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">No payment method</p>
+                          <p className="text-sm text-muted-foreground">Add a payment method to upgrade</p>
+                        </div>
+                      </div>
+                      <Button variant="outline">Add Method</Button>
+                    </div>
                   </div>
-                  <Switch id="account-email" defaultChecked />
                 </div>
                 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">New Features</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Get notified about new features and improvements
-                    </p>
+                <div>
+                  <h3 className="font-medium mb-4">Billing History</h3>
+                  <div className="border rounded-lg p-6 text-center">
+                    <p className="text-muted-foreground">No billing history available</p>
                   </div>
-                  <Switch id="features-email" defaultChecked />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="notifications" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Notification Preferences</CardTitle>
+                <CardDescription>
+                  Manage when and how you receive notifications
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <h3 className="font-medium">Email Notifications</h3>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-base">Video Generation</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Receive emails when your videos finish generating
+                      </p>
+                    </div>
+                    <Switch id="video-email" defaultChecked />
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-base">Account Updates</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Receive emails about account changes or security
+                      </p>
+                    </div>
+                    <Switch id="account-email" defaultChecked />
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-base">New Features</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Get notified about new features and improvements
+                      </p>
+                    </div>
+                    <Switch id="features-email" defaultChecked />
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-base">Marketing</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Receive tips, special offers, and promotional emails
+                      </p>
+                    </div>
+                    <Switch id="marketing-email" />
+                  </div>
                 </div>
                 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Marketing</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receive tips, special offers, and promotional emails
-                    </p>
+                <div className="border-t pt-6 space-y-4">
+                  <h3 className="font-medium">In-App Notifications</h3>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-base">Video Status</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Get notified when your videos are ready or if there's an error
+                      </p>
+                    </div>
+                    <Switch id="video-app" defaultChecked />
                   </div>
-                  <Switch id="marketing-email" />
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-base">Comments & Shares</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Get notified when someone comments on or shares your video
+                      </p>
+                    </div>
+                    <Switch id="social-app" defaultChecked />
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-base">Usage Limits</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Get notified when approaching daily or monthly video limits
+                      </p>
+                    </div>
+                    <Switch id="limits-app" defaultChecked />
+                  </div>
                 </div>
-              </div>
-              
-              <div className="border-t pt-6 space-y-4">
-                <h3 className="font-medium">In-App Notifications</h3>
-                
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Video Status</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Get notified when your videos are ready or if there's an error
-                    </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="api" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>API Settings</CardTitle>
+                <CardDescription>
+                  Manage API access and keys for developer integrations
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="border rounded-lg p-6">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-medium text-lg">API Access</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        API access is only available on Business plans
+                      </p>
+                    </div>
+                    <Badge variant="outline">Upgrade to Access</Badge>
                   </div>
-                  <Switch id="video-app" defaultChecked />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Comments & Shares</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Get notified when someone comments on or shares your video
+                  
+                  <div className="mt-6 text-center">
+                    <ShieldAlert className="h-12 w-12 mx-auto text-muted-foreground" />
+                    <p className="mt-2 text-muted-foreground">
+                      You'll need to upgrade to a Business plan to access the API
                     </p>
+                    <Button className="mt-4 bg-smartvid-600 hover:bg-smartvid-700">
+                      Upgrade to Business
+                    </Button>
                   </div>
-                  <Switch id="social-app" defaultChecked />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Usage Limits</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Get notified when approaching daily or monthly video limits
-                    </p>
-                  </div>
-                  <Switch id="limits-app" defaultChecked />
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="border-t px-6 py-4">
-              <Button>
-                <Bell className="mr-2 h-4 w-4" />
-                Save Notification Preferences
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="api" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>API Settings</CardTitle>
-              <CardDescription>
-                Manage API access and keys for developer integrations
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="border rounded-lg p-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium text-lg">API Access</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      API access is only available on Business plans
-                    </p>
-                  </div>
-                  <Badge variant="outline">Upgrade to Access</Badge>
                 </div>
                 
-                <div className="mt-6 text-center">
-                  <ShieldAlert className="h-12 w-12 mx-auto text-muted-foreground" />
-                  <p className="mt-2 text-muted-foreground">
-                    You'll need to upgrade to a Business plan to access the API
+                <div className="border-t pt-6">
+                  <h3 className="font-medium mb-4">API Documentation</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Our API documentation provides information about endpoints, authentication, and example code.
                   </p>
-                  <Button className="mt-4 bg-smartvid-600 hover:bg-smartvid-700">
-                    Upgrade to Business
-                  </Button>
+                  <Button variant="outline">View API Documentation</Button>
                 </div>
-              </div>
-              
-              <div className="border-t pt-6">
-                <h3 className="font-medium mb-4">API Documentation</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Our API documentation provides information about endpoints, authentication, and example code.
-                </p>
-                <Button variant="outline">View API Documentation</Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </TabsContent>
       </Tabs>
     </div>
