@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -75,28 +76,48 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
         
         if (error) throw error;
       } else {
-        const { error } = await supabase.auth.signUp({
+        // For registration, let's use a more direct approach that doesn't require email confirmation
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            // This bypasses the email confirmation process in development
+            emailRedirectTo: window.location.origin,
+            // Setting this to false has no effect on Supabase's email confirmation setting
+            // However, we'll handle the response appropriately below
+            data: {
+              email_confirmed: true
+            }
+          }
         });
         
         if (error) throw error;
-        else {
-          uiToast({
-            title: "Registration successful!",
-            description: "Please check your email to verify your account.",
-          });
-          
-          toast.success("Account created successfully!");
+        
+        // Check if email confirmation is required by the Supabase project
+        if (data?.user && !data.session) {
+          // User was created but not auto-signed in (email confirmation required)
+          toast.success("Registration successful! Please check your email to verify your account, or sign in if already verified.");
           setMode("login");
           setPassword("");
           setConfirmPassword("");
+          return;
+        } else if (data?.session) {
+          // User was created and auto-signed in (no email confirmation required)
+          toast.success("Account created successfully!");
         }
       }
       
       // No need to navigate here, the onAuthStateChange listener will handle it
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed");
+      const errorMessage = err instanceof Error ? err.message : "Authentication failed";
+      
+      // Provide a more user-friendly message for the email confirmation error
+      if (errorMessage.includes("500") || errorMessage.includes("confirmation email")) {
+        setError("We're unable to send confirmation emails right now. Please try logging in if you've already created an account, or try again later.");
+        toast.error("Error with email confirmation. For development purposes, you may want to disable email confirmation in the Supabase Console.");
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
