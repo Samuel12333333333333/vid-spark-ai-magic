@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
@@ -112,7 +111,7 @@ serve(async (req) => {
       );
     }
 
-    // Create Shotstack timeline from scenes
+    // Create Shotstack timeline without background music
     const timeline = {
       background: "#000000",
       tracks: [
@@ -153,55 +152,32 @@ serve(async (req) => {
       }
       
       if (captionText) {
-        const captionsTrack = {
-          clips: [
-            {
+        timeline.tracks.push({
+          clips: validScenes.map((scene, index) => {
+            const startPosition = validScenes
+              .slice(0, index)
+              .reduce((sum, s) => sum + s.duration, 0);
+            
+            return {
               asset: {
                 type: "title",
-                text: captionText,
+                text: scene.scene || scene.description,
                 style: "minimal",
                 size: "medium",
                 position: "bottom",
                 background: "#00000080" // Semi-transparent background for better readability
               },
-              start: 0,
-              length: totalDuration
-            }
-          ]
-        };
-        
-        timeline.tracks.push(captionsTrack);
+              start: startPosition,
+              length: scene.duration
+            };
+          })
+        });
       }
-    } else {
-      // Even without captions, still add scene titles at the beginning of each scene
-      console.log("Adding scene titles without full captions");
-      const titlesTrack = {
-        clips: validScenes.map((scene, index) => {
-          // Calculate start position based on previous scenes
-          const startPosition = validScenes
-            .slice(0, index)
-            .reduce((sum, s) => sum + s.duration, 0);
-          
-          return {
-            asset: {
-              type: "title",
-              text: scene.scene || scene.description,
-              style: "minimal",
-              size: "medium",
-              position: "bottom"
-            },
-            start: startPosition,
-            length: Math.min(3, scene.duration) // Show title for max 3 seconds or scene duration
-          };
-        })
-      };
-      
-      timeline.tracks.push(titlesTrack);
     }
 
-    // Handle audio - either use provided ElevenLabs audio or default soundtrack
+    // Handle voiceover audio without background music
     if (audioBase64) {
-      console.log("Using ElevenLabs generated audio for soundtrack");
+      console.log("Using ElevenLabs generated audio for voiceover");
       
       try {
         // Create a temporary storage object for the audio
@@ -236,7 +212,7 @@ serve(async (req) => {
         
         console.log("Audio uploaded successfully, URL:", audioUrl);
         
-        // Use the uploaded audio URL in the soundtrack
+        // Use the uploaded audio URL in the soundtrack (voiceover only, no background music)
         timeline.soundtrack = {
           src: audioUrl,
           effect: "fadeOut",
@@ -244,39 +220,8 @@ serve(async (req) => {
         };
       } catch (audioUploadError) {
         console.error("Error uploading audio:", audioUploadError);
-        // Fall back to default soundtrack with lower volume
-        timeline.soundtrack = {
-          src: "https://shotstack-assets.s3.ap-southeast-2.amazonaws.com/music/unminus/lit.mp3",
-          effect: "fadeOut",
-          volume: 0.3 // Lower background music volume as fallback
-        };
+        throw audioUploadError;
       }
-      
-      // Mark in the database that we have audio for this project
-      try {
-        const { error: updateAudioError } = await supabase
-          .from("video_projects")
-          .update({
-            has_audio: true
-          })
-          .eq("id", projectId);
-          
-        if (updateAudioError) {
-          console.error("Error updating project audio status:", updateAudioError);
-        } else {
-          console.log("Successfully marked project as having audio");
-        }
-      } catch (dbError) {
-        console.error("Error updating project audio status:", dbError);
-      }
-    } else {
-      // Use default soundtrack with higher volume when no voiceover
-      console.log("Using default soundtrack (no voiceover)");
-      timeline.soundtrack = {
-        src: "https://shotstack-assets.s3.ap-southeast-2.amazonaws.com/music/unminus/lit.mp3",
-        effect: "fadeOut",
-        volume: 0.7 // Higher volume (70%) when no voiceover is present
-      };
     }
 
     const output = {
@@ -288,7 +233,7 @@ serve(async (req) => {
     const shotstackPayload = {
       timeline,
       output,
-      callback: null // Optional webhook URL could be configured here
+      callback: null
     };
 
     console.log("Sending request to Shotstack API");
