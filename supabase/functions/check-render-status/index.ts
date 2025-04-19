@@ -38,8 +38,8 @@ serve(async (req) => {
     console.log("Checking render status for ID:", renderId);
 
     try {
-      // Call Shotstack API to check render status
-      const response = await fetch(`https://api.shotstack.io/stage/render/${renderId}`, {
+      // Call Shotstack API to check render status - Using the correct endpoint
+      const response = await fetch(`https://api.shotstack.io/v1/render/${renderId}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",

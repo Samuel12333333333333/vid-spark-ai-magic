@@ -165,19 +165,25 @@ serve(async (req) => {
       );
     }
 
+    // Check if narration script is too long (ElevenLabs has character limits)
+    if (narrationScript.length > 2000) {
+      console.log("Narration script too long, truncating to 2000 characters");
+      narrationScript = narrationScript.substring(0, 2000) + "...";
+    }
+
     // Default to Rachel if no voice ID is provided
     const selectedVoiceId = voiceId || "21m00Tcm4TlvDq8ikWAM";
     
     console.log(`Generating audio for project ${projectId} with voice ${selectedVoiceId}`);
-    console.log(`Narration script: "${narrationScript}"`);
+    console.log(`Narration script (truncated): "${narrationScript.substring(0, 100)}${narrationScript.length > 100 ? '...' : ''}"`);
 
-    // Use a more compatible model (eleven_monolingual_v1 is well-supported)
+    // Use a more compatible model
     const ttsPayload = {
       text: narrationScript,
       model_id: "eleven_monolingual_v1",
       voice_settings: {
         stability: 0.5,
-        similarity_boost: 0.5
+        similarity_boost: 0.75
       }
     };
 
@@ -186,9 +192,12 @@ serve(async (req) => {
       console.log("Calling ElevenLabs API...");
       
       // Added debug output for request payload
-      console.log("Sending request to ElevenLabs with payload:", JSON.stringify(ttsPayload));
+      console.log("Sending request to ElevenLabs with payload:", JSON.stringify({
+        textLength: ttsPayload.text.length,
+        model: ttsPayload.model_id,
+        voiceId: selectedVoiceId
+      }));
       
-      // Use consistent endpoint format
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}`, {
         method: "POST",
         headers: {

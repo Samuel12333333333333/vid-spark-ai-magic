@@ -134,7 +134,13 @@ export const mediaService = {
         console.log("Using fallback script:", finalScript);
       }
       
-      console.log(`Calling generate-audio function with script: "${finalScript}" and voiceId: ${voiceId}`);
+      // Check if script is too long - ElevenLabs has character limits
+      if (finalScript.length > 2000) {
+        console.log("Script too long, truncating to 2000 characters");
+        finalScript = finalScript.substring(0, 2000);
+      }
+      
+      console.log(`Calling generate-audio function with script: "${finalScript.substring(0, 100)}${finalScript.length > 100 ? '...' : ''}" and voiceId: ${voiceId}`);
       
       const { data, error } = await supabase.functions.invoke('generate-audio', {
         body: { 
@@ -269,6 +275,11 @@ export const mediaService = {
       if (error) {
         console.error('Error checking render status:', error);
         throw error;
+      }
+      
+      if (!data) {
+        console.error('No data returned from check-render-status function');
+        return { status: 'failed' };
       }
       
       console.log(`Render status: ${data.status}, URL: ${data.url || 'not ready'}`);

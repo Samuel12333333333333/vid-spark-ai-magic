@@ -213,19 +213,41 @@ serve(async (req) => {
         // Create a temporary storage object for the audio
         const audioFileName = `audio-${projectId}-${Date.now()}.mp3`;
         
-        // Convert base64 to Uint8Array
-        const binaryString = atob(audioBase64);
-        const len = binaryString.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
+        // Convert base64 to Uint8Array - Split processing into chunks to prevent memory issues
+        const chunkSize = 1024; // Process 1KB at a time
+        const chunks = [];
+        let offset = 0;
+        
+        while (offset < audioBase64.length) {
+          const chunk = audioBase64.slice(offset, offset + chunkSize);
+          const binaryChunk = atob(chunk);
+          const bytes = new Uint8Array(binaryChunk.length);
+          
+          for (let i = 0; i < binaryChunk.length; i++) {
+            bytes[i] = binaryChunk.charCodeAt(i);
+          }
+          
+          chunks.push(bytes);
+          offset += chunkSize;
         }
+        
+        // Combine chunks into single array
+        const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+        const audioBytes = new Uint8Array(totalLength);
+        let position = 0;
+        
+        for (const chunk of chunks) {
+          audioBytes.set(chunk, position);
+          position += chunk.length;
+        }
+        
+        console.log(`Prepared audio data with size: ${audioBytes.length} bytes`);
         
         // Upload audio file to Shotstack assets
         const formData = new FormData();
-        formData.append('file', new Blob([bytes], { type: 'audio/mpeg' }), audioFileName);
+        formData.append('file', new Blob([audioBytes], { type: 'audio/mpeg' }), audioFileName);
         
-        const uploadResponse = await fetch('https://api.shotstack.io/v1/assets/', {
+        const uploadResponse = await fetch('https://api.shotstack.io/v1/assets/media', {
           method: 'POST',
           headers: {
             'x-api-key': API_KEY
@@ -236,19 +258,19 @@ serve(async (req) => {
         if (!uploadResponse.ok) {
           const errorText = await uploadResponse.text();
           console.error(`Error uploading audio: ${uploadResponse.status} ${uploadResponse.statusText}`);
-          console.error(`Response body: ${errorText}`);
+          console.error(`Response body: ${errorText.substring(0, 500)}`);
           throw new Error(`Error uploading audio: ${uploadResponse.status} ${uploadResponse.statusText}`);
         }
         
         const uploadResult = await uploadResponse.json();
         console.log("Upload result:", JSON.stringify(uploadResult));
         
-        if (!uploadResult.data || !uploadResult.data.url) {
-          console.error("Invalid response from Shotstack asset upload:", uploadResult);
+        if (!uploadResult.success || !uploadResult.response || !uploadResult.response.url) {
+          console.error("Invalid response from Shotstack asset upload:", JSON.stringify(uploadResult).substring(0, 200));
           throw new Error("Invalid response from audio upload");
         }
         
-        const audioUrl = uploadResult.data.url;
+        const audioUrl = uploadResult.response.url;
         console.log("Audio uploaded successfully, URL:", audioUrl);
         
         // Use the uploaded audio URL in the soundtrack (voiceover only, no background music)
@@ -273,7 +295,7 @@ serve(async (req) => {
     const shotstackPayload = {
       timeline,
       output
-      // Removed callback: null line that was causing the API error
+      // Removed callback: null line that was causing issues
     };
 
     console.log("Sending request to Shotstack API");
@@ -284,7 +306,7 @@ serve(async (req) => {
     }));
 
     try {
-      // Call Shotstack API to render the video
+      // Call Shotstack API to render the video - Using /v1/render endpoint
       const response = await fetch("https://api.shotstack.io/v1/render", {
         method: "POST",
         headers: {
@@ -295,7 +317,12 @@ serve(async (req) => {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
+        let errorText = "";
+        try {
+          errorText = await response.text();
+        } catch (e) {
+          errorText = "Could not read error response";
+        }
         console.error("Shotstack API error response:", errorText);
         throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
       }
