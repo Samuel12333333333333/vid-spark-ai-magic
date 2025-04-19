@@ -142,11 +142,17 @@ export const mediaService = {
         throw new Error("No valid script provided or generated");
       }
       
-      // Sanitize the script
+      // Sanitize the script - important for ElevenLabs
       finalScript = finalScript
         .replace(/\.\.+/g, '.') // Replace multiple periods with a single one
         .replace(/\s+/g, ' ')   // Replace multiple spaces with a single one
         .trim();               // Trim whitespace
+      
+      // Enforce script length limit for ElevenLabs
+      if (finalScript.length > 5000) {
+        console.warn("Script exceeds ElevenLabs character limit, truncating");
+        finalScript = finalScript.substring(0, 4950) + "...";
+      }
       
       console.log(`Calling generate-audio function with script: "${finalScript}" and voiceId: ${voiceId}`);
       
@@ -164,9 +170,24 @@ export const mediaService = {
         throw error;
       }
       
-      if (!data || !data.audioBase64) {
+      if (!data) {
+        console.error('No data returned from generate-audio function');
+        throw new Error('Failed to generate audio content');
+      }
+      
+      if (!data.audioBase64) {
+        if (data.error) {
+          console.error('Audio generation error:', data.error);
+          throw new Error(`Audio generation failed: ${data.error}`);
+        }
         console.error('No audio data returned from generate-audio function');
         throw new Error('Failed to generate audio content');
+      }
+      
+      // Verify that audioBase64 data looks valid
+      if (data.audioBase64.length < 100 || !data.audioBase64.match(/^[A-Za-z0-9+/=]+$/)) {
+        console.error('Invalid audio data returned from generate-audio function');
+        throw new Error('Invalid audio data received');
       }
       
       console.log("Audio generation successful - audioBase64 length:", data.audioBase64.length);
@@ -188,26 +209,67 @@ export const mediaService = {
       console.log(`Audio provided: ${!!audioBase64}, Include captions: ${includeCaptions}`);
       console.log(`Narration script: "${narrationScript || 'Not provided'}"`);
       
-      if (audioBase64) {
-        // Log audio data length for debugging
-        console.log(`Audio base64 data length: ${audioBase64.length}`);
+      // Make sure we have valid scenes
+      if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
+        throw new Error("No valid scenes provided for video rendering");
+      }
+      
+      // Check that scenes have video URLs
+      const invalidScenes = scenes.filter(scene => !scene.videoUrl);
+      if (invalidScenes.length > 0) {
+        console.error(`Missing video URLs in ${invalidScenes.length} scenes`);
         
-        // Quick validation of audio data
-        if (audioBase64.length < 100) {
-          console.error('Audio data appears invalid (too short)');
-          throw new Error('Invalid audio data provided for video rendering');
+        // If more than half the scenes are invalid, fail
+        if (invalidScenes.length > scenes.length / 2) {
+          throw new Error(`Too many scenes (${invalidScenes.length} out of ${scenes.length}) are missing video URLs`);
+        }
+        
+        // Otherwise, filter them out
+        scenes = scenes.filter(scene => scene.videoUrl);
+        console.log(`Proceeding with ${scenes.length} valid scenes after filtering`);
+      }
+      
+      if (audioBase64) {
+        // Validate audio data
+        if (audioBase64.length < 100 || !audioBase64.match(/^[A-Za-z0-9+/=]+$/)) {
+          console.error('Invalid audio data, will proceed without audio');
+          audioBase64 = undefined;
+        } else {
+          // Log audio data length for debugging
+          console.log(`Audio base64 data length: ${audioBase64.length}`);
         }
       }
       
+      // Sanitize narration script if provided
+      if (narrationScript) {
+        narrationScript = narrationScript
+          .replace(/\.\.+/g, '.') // Replace multiple periods with a single one
+          .replace(/\s+/g, ' ')   // Replace multiple spaces with a single one
+          .trim();                // Trim whitespace
+      }
+      
+      // Prepare the payload
+      const payload = { 
+        scenes, 
+        userId, 
+        projectId, 
+        audioBase64, 
+        includeCaptions, 
+        narrationScript 
+      };
+      
+      // Call the edge function with detailed logging
+      console.log("Sending request to render-video function with payload structure:", {
+        scenesCount: scenes.length,
+        hasAudio: !!audioBase64,
+        audioLength: audioBase64?.length || 0,
+        includesCaptions: includeCaptions,
+        hasNarrationScript: !!narrationScript,
+        narrationScriptLength: narrationScript?.length || 0
+      });
+      
       const { data, error } = await supabase.functions.invoke('render-video', {
-        body: { 
-          scenes, 
-          userId, 
-          projectId, 
-          audioBase64, 
-          includeCaptions, 
-          narrationScript 
-        }
+        body: payload
       });
       
       if (error) {
@@ -231,6 +293,11 @@ export const mediaService = {
   
   async checkRenderStatus(renderId: string): Promise<RenderStatus> {
     try {
+      if (!renderId) {
+        console.error("Invalid render ID provided to checkRenderStatus");
+        return { status: 'failed' };
+      }
+      
       console.log(`Checking render status for ID: ${renderId}`);
       
       const { data, error } = await supabase.functions.invoke('check-render-status', {

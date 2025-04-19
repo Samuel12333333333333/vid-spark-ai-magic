@@ -1,4 +1,6 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,20 +45,29 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
     const requestData = await req.json();
-    console.log("Request received:", JSON.stringify({
+    console.log("Request received for render-video:", JSON.stringify({
       scenesCount: requestData.scenes?.length || 0,
       userId: requestData.userId,
       projectId: requestData.projectId,
-      audioProvided: !!requestData.audioBase64,
-      captionsEnabled: requestData.includeCaptions
+      audioProvided: !!requestData.audioBase64 || "No audio provided",
+      captionsEnabled: !!requestData.includeCaptions || false
     }));
     
     const { scenes, userId, projectId, audioBase64, includeCaptions, narrationScript } = requestData;
     
-    if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
+    // Validate required fields
+    if (!scenes || !Array.isArray(scenes)) {
       console.error("No valid scenes provided");
       return new Response(
         JSON.stringify({ error: "Scenes array is required" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
+
+    if (scenes.length === 0) {
+      console.error("Empty scenes array provided");
+      return new Response(
+        JSON.stringify({ error: "At least one scene is required" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
@@ -70,11 +81,26 @@ serve(async (req) => {
     }
 
     console.log(`Rendering video for project ${projectId} with ${scenes.length} scenes`);
-    console.log(`Audio provided: ${!!audioBase64}, Include captions: ${!!includeCaptions}`);
     
-    // Store narration script in the database
+    // Validate each scene has a videoUrl
+    const invalidScenes = scenes.filter(scene => !scene.videoUrl);
+    if (invalidScenes.length > 0) {
+      console.error(`Found ${invalidScenes.length} scenes missing video URLs`);
+      return new Response(
+        JSON.stringify({ 
+          error: "Some scenes are missing video URLs",
+          details: `${invalidScenes.length} out of ${scenes.length} scenes have no video URL`
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
+    
+    console.log(`Audio provided: ${!!audioBase64 ? 'Yes' : 'No'}, Audio length: ${audioBase64 ? audioBase64.length : 0}`);
+    console.log(`Include captions: ${!!includeCaptions ? 'Yes' : 'No'}`);
+    
+    // Store narration script in the database if provided
     if (narrationScript) {
-      console.log(`Narration script: "${narrationScript}"`);
+      console.log(`Narration script provided with length: ${narrationScript.length}`);
       
       try {
         // Update the project with the narration script
@@ -92,7 +118,10 @@ serve(async (req) => {
         }
       } catch (dbError) {
         console.error("Error updating narration script in database:", dbError);
+        // Continue execution despite database error
       }
+    } else {
+      console.log("No narration script provided");
     }
 
     // Calculate total duration for reference
@@ -135,29 +164,45 @@ serve(async (req) => {
     ];
 
     // Add audio track if audio is provided
-    if (audioBase64) {
+    let audioUrl = null;
+    if (audioBase64 && audioBase64.length > 100) {
       try {
+        console.log("Processing audio data for upload");
         const audioFileName = `audio-${projectId}-${Date.now()}.mp3`;
         
-        // Convert base64 to Uint8Array in chunks
+        // Some basic validation of the audio data
+        if (!audioBase64.match(/^[A-Za-z0-9+/=]+$/)) {
+          throw new Error("Invalid base64 data");
+        }
+        
+        // Convert base64 to Uint8Array in chunks to avoid memory issues
         const chunkSize = 1024;
         const chunks = [];
         let offset = 0;
         
-        while (offset < audioBase64.length) {
-          const chunk = audioBase64.slice(offset, offset + chunkSize);
-          const binaryChunk = atob(chunk);
-          const bytes = new Uint8Array(binaryChunk.length);
-          
-          for (let i = 0; i < binaryChunk.length; i++) {
-            bytes[i] = binaryChunk.charCodeAt(i);
+        try {
+          while (offset < audioBase64.length) {
+            const chunk = audioBase64.slice(offset, offset + chunkSize);
+            const binaryChunk = atob(chunk);
+            const bytes = new Uint8Array(binaryChunk.length);
+            
+            for (let i = 0; i < binaryChunk.length; i++) {
+              bytes[i] = binaryChunk.charCodeAt(i);
+            }
+            
+            chunks.push(bytes);
+            offset += chunkSize;
           }
-          
-          chunks.push(bytes);
-          offset += chunkSize;
+        } catch (base64Error) {
+          console.error("Error processing base64 data:", base64Error);
+          throw new Error("Failed to decode audio data");
         }
         
         const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+        if (totalLength === 0) {
+          throw new Error("Processed audio has zero length");
+        }
+        
         const audioBytes = new Uint8Array(totalLength);
         let position = 0;
         
@@ -172,6 +217,8 @@ serve(async (req) => {
         const formData = new FormData();
         formData.append('file', new Blob([audioBytes], { type: 'audio/mpeg' }), audioFileName);
         
+        console.log("Uploading audio to Shotstack");
+        
         const uploadResponse = await fetch('https://api.shotstack.io/v1/assets/media', {
           method: 'POST',
           headers: {
@@ -181,6 +228,8 @@ serve(async (req) => {
         });
         
         if (!uploadResponse.ok) {
+          let errorText = await uploadResponse.text();
+          console.error(`Error uploading audio: ${uploadResponse.status}`, errorText);
           throw new Error(`Error uploading audio: ${uploadResponse.status}`);
         }
         
@@ -188,10 +237,11 @@ serve(async (req) => {
         console.log("Audio upload result:", JSON.stringify(uploadResult));
         
         if (!uploadResult.success || !uploadResult.response || !uploadResult.response.url) {
+          console.error("Invalid response from audio upload:", uploadResult);
           throw new Error("Invalid response from audio upload");
         }
         
-        const audioUrl = uploadResult.response.url;
+        audioUrl = uploadResult.response.url;
         console.log("Audio uploaded successfully, URL:", audioUrl);
         
         // Add audio track to tracks array
@@ -208,40 +258,97 @@ serve(async (req) => {
         });
       } catch (audioError) {
         console.error("Error processing audio:", audioError);
+        // Continue without audio rather than failing the entire render
       }
+    } else if (audioBase64) {
+      console.warn("Audio data was provided but appears invalid or too short:", audioBase64?.length || 0);
     }
 
     // Add captions track if enabled
-    if (includeCaptions && narrationScript) {
+    if (includeCaptions && narrationScript && narrationScript.length > 0) {
       try {
+        console.log("Adding captions from narration script");
+        
+        // Clean up narration text and split into sentences
+        const cleanScript = narrationScript
+          .replace(/\.{2,}/g, '.') // Replace multiple periods with a single one
+          .replace(/\s+/g, ' ')    // Replace multiple spaces with a single one
+          .trim();
+        
         // Split narration into sentences and clean them up
-        const sentences = narrationScript
+        const sentences = cleanScript
           .split(/[.!?]+/)
           .map(s => s.trim())
           .filter(s => s.length > 0);
         
         console.log(`Generated ${sentences.length} caption segments`);
         
-        // Calculate approximate duration per caption
-        const durationPerCaption = totalDuration / sentences.length;
+        if (sentences.length === 0) {
+          console.warn("No valid sentences found in narration script");
+        } else {
+          // Calculate approximate duration per caption
+          const durationPerCaption = totalDuration / sentences.length;
+          
+          // Add captions track
+          tracks.push({
+            clips: sentences.map((text, index) => ({
+              asset: {
+                type: "title",
+                text: text,
+                style: "minimal",
+                size: "medium",
+                position: "bottom",
+                background: "#00000080"
+              },
+              start: index * durationPerCaption,
+              length: durationPerCaption
+            }))
+          });
+          
+          console.log("Caption track added successfully");
+        }
+      } catch (captionsError) {
+        console.error("Error adding captions:", captionsError);
+        // Continue without captions rather than failing the entire render
+      }
+    } else if (includeCaptions) {
+      console.log("Captions enabled but no valid narration script provided");
+      
+      // Try to use scene descriptions as captions if no narration available
+      try {
+        console.log("Using scene descriptions as fallback captions");
         
-        // Add captions track
-        tracks.push({
-          clips: sentences.map((text, index) => ({
+        const captionClips = scenes.map((scene, index) => {
+          const startPosition = scenes
+            .slice(0, index)
+            .reduce((sum, s) => {
+              const duration = typeof s.duration === 'number' ? s.duration : parseFloat(s.duration) || 5;
+              return sum + duration;
+            }, 0);
+          
+          const duration = typeof scene.duration === 'number' ? scene.duration : parseFloat(scene.duration) || 5;
+          
+          // Use scene title or description as caption
+          const captionText = scene.scene || scene.description || `Scene ${index + 1}`;
+          
+          return {
             asset: {
               type: "title",
-              text: text,
+              text: captionText,
               style: "minimal",
               size: "medium",
               position: "bottom",
               background: "#00000080"
             },
-            start: index * durationPerCaption,
-            length: durationPerCaption
-          }))
+            start: startPosition,
+            length: duration
+          };
         });
-      } catch (captionsError) {
-        console.error("Error adding captions:", captionsError);
+        
+        tracks.push({ clips: captionClips });
+        console.log("Scene-based caption track added as fallback");
+      } catch (fallbackCaptionsError) {
+        console.error("Error adding fallback captions:", fallbackCaptionsError);
       }
     }
 
@@ -261,8 +368,9 @@ serve(async (req) => {
     console.log("Sending request to Shotstack API");
     console.log("Payload preview:", JSON.stringify({
       trackCount: tracks.length,
-      hasCaptions: tracks.length > 2,
-      hasAudio: tracks.some(track => track.clips[0]?.asset?.type === "audio")
+      hasCaptions: tracks.length > 1,
+      hasAudio: audioUrl !== null,
+      videoClipCount: tracks[0].clips.length
     }));
 
     try {
@@ -305,7 +413,8 @@ serve(async (req) => {
           .update({
             render_id: renderId,
             status: "processing",
-            has_captions: !!includeCaptions
+            has_captions: !!includeCaptions,
+            has_audio: audioUrl !== null
           })
           .eq("id", projectId);
           
@@ -339,7 +448,10 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error in render-video function:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: "Failed to process video render request", 
+        details: error.message 
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
