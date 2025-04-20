@@ -31,7 +31,14 @@ export function useVideoLimits() {
       setIsLoading(true);
       
       const { data, error } = await supabase
-        .rpc<VideoUsageResponse, Record<string, never>>('get_video_usage');
+        .rpc('get_video_usage')
+        .then(response => {
+          // Type assertion to match the expected return
+          return {
+            data: response.data as VideoUsageResponse | null,
+            error: response.error
+          };
+        });
       
       if (error) {
         console.error("Usage error:", error);
@@ -44,7 +51,6 @@ export function useVideoLimits() {
       
       if (data) {
         setUsageCount(data.count);
-        
         setResetDate(data.reset_at ? new Date(data.reset_at) : getDefaultResetDate());
       } else {
         setUsageCount(0);
@@ -67,7 +73,14 @@ export function useVideoLimits() {
 
     try {
       const { data, error } = await supabase
-        .rpc<VideoUsageResponse, Record<string, never>>('increment_video_usage');
+        .rpc('increment_video_usage')
+        .then(response => {
+          // Type assertion to match the expected return
+          return {
+            data: response.data as VideoUsageResponse | null,
+            error: response.error
+          };
+        });
       
       if (error) {
         console.error("Error incrementing video usage:", error);
@@ -76,7 +89,6 @@ export function useVideoLimits() {
       
       if (data) {
         setUsageCount(data.count);
-        
         setResetDate(data.reset_at ? new Date(data.reset_at) : getDefaultResetDate());
       } else {
         setUsageCount(prev => prev + 1);
