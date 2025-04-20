@@ -9,12 +9,6 @@ export interface VideoUsage {
   reset_at: string;
 }
 
-// Define types for our RPC function responses
-interface VideoUsageResponse {
-  count: number;
-  reset_at: string;
-}
-
 export function useVideoLimits() {
   const [usage, setUsage] = useState<VideoUsage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,16 +28,16 @@ export function useVideoLimits() {
 
   const checkUsage = async () => {
     try {
-      // Use raw RPC call with proper type casting
+      // Use the correct approach for RPC calls without explicit type parameters
       const { data, error: usageError } = await supabase
-        .rpc<VideoUsageResponse, {}>('get_video_usage')
+        .rpc('get_video_usage')
         .single();
 
       if (usageError) {
         if (usageError.message.includes('No rows found')) {
           // Create initial usage record if none exists
           const { data: newUsage, error: createError } = await supabase
-            .rpc<VideoUsageResponse, {}>('initialize_video_usage');
+            .rpc('initialize_video_usage');
             
           if (createError) throw createError;
           
@@ -87,7 +81,7 @@ export function useVideoLimits() {
 
       // Increment usage using a stored procedure
       const { data, error } = await supabase
-        .rpc<VideoUsageResponse, {}>('increment_video_usage');
+        .rpc('increment_video_usage');
 
       if (error) throw error;
       
