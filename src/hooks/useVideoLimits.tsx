@@ -31,8 +31,8 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
 
-      // Use an object parameter without specifying a function name type
-      const { data, error } = await supabase.rpc<VideoUsageResponse>('get_video_usage', {});
+      // Use the correct generic type parameters - the function name is passed as string parameter
+      const { data, error } = await supabase.rpc<VideoUsageResponse, Record<string, never>>('get_video_usage', {});
 
       if (error) {
         console.error("Usage error:", error);
@@ -70,8 +70,8 @@ export function useVideoLimits() {
     }
 
     try {
-      // Use an object parameter without specifying a function name type
-      const { data, error } = await supabase.rpc<VideoUsageResponse>('increment_video_usage', {});
+      // Use the correct generic type parameters for the increment call
+      const { data, error } = await supabase.rpc<VideoUsageResponse, Record<string, never>>('increment_video_usage', {});
 
       if (error) {
         console.error("Error incrementing video usage:", error);
