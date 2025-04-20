@@ -31,8 +31,9 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
 
-      // Fix: swap the generic type parameters to their correct positions
-      const { data, error } = await supabase.rpc("get_video_usage", {}) as unknown as {
+      // Call the RPC function without type parameters and then use type assertion
+      const result = await supabase.rpc('get_video_usage')
+      const { data, error } = result as unknown as {
         data: VideoUsageResponse | null;
         error: any;
       };
@@ -73,8 +74,9 @@ export function useVideoLimits() {
     }
 
     try {
-      // Fix: swap the generic type parameters to their correct positions
-      const { data, error } = await supabase.rpc("increment_video_usage", {}) as unknown as {
+      // Call the RPC function without type parameters and then use type assertion
+      const result = await supabase.rpc('increment_video_usage')
+      const { data, error } = result as unknown as {
         data: VideoUsageResponse | null;
         error: any;
       };
