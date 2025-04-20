@@ -56,7 +56,8 @@ serve(async (req) => {
         }
       };
 
-      const renderResponse = await fetch("https://api.shotstack.io/v1/render/preview", {
+      // Updated to use the correct Shotstack API endpoint
+      const renderResponse = await fetch("https://api.shotstack.io/stage/render", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

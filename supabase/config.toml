@@ -22,6 +22,13 @@ port = 54323
 [functions.stripe-webhook]
 verify_jwt = false
 
+# Create two new functions for video usage tracking
+[functions.get_video_usage]
+verify_jwt = true
+
+[functions.increment_video_usage]
+verify_jwt = true
+
 # Ensure proper JWT verification for other functions
 [functions.generate-scenes]
 verify_jwt = true

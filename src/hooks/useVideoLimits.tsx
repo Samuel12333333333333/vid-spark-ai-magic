@@ -32,7 +32,7 @@ export function useVideoLimits() {
       setIsLoading(true);
 
       // We need to use type assertion without explicit type parameters
-      const { data, error } = await supabase.functions.invoke<VideoUsageResponse>("get_video_usage") as {
+      const { data, error } = await supabase.functions.invoke("get_video_usage") as {
         data: VideoUsageResponse | null;
         error: any;
       };
@@ -74,7 +74,7 @@ export function useVideoLimits() {
 
     try {
       // We need to use type assertion without explicit type parameters
-      const { data, error } = await supabase.functions.invoke<VideoUsageResponse>("increment_video_usage") as {
+      const { data, error } = await supabase.functions.invoke("increment_video_usage") as {
         data: VideoUsageResponse | null;
         error: any;
       };
