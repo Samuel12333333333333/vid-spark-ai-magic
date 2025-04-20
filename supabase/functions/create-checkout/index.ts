@@ -16,11 +16,21 @@ serve(async (req) => {
 
   try {
     console.log("Create checkout function called");
-    const { priceId, plan } = await req.json();
     
-    console.log("Received checkout request with:", { priceId, plan });
+    // Parse request body
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log("Received checkout request with:", requestBody);
+    } catch (error) {
+      console.error("Error parsing request body:", error.message);
+      throw new Error("Invalid request body");
+    }
+    
+    const { priceId, plan } = requestBody;
     
     if (!priceId) {
+      console.error("Missing priceId in request");
       throw new Error("Price ID is required");
     }
 
@@ -49,6 +59,7 @@ serve(async (req) => {
     // Get user from auth header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
+      console.error("Missing Authorization header");
       throw new Error("Missing Authorization header");
     }
 
@@ -64,53 +75,63 @@ serve(async (req) => {
 
     // Check if this user already has a Stripe customer ID
     let customerId;
-    const { data: customers } = await stripe.customers.list({
-      email: user.email,
-      limit: 1,
-    });
-
-    if (customers && customers.length > 0) {
-      customerId = customers[0].id;
-      console.log("Found existing customer:", customerId);
-    } else {
-      // Create a new customer if one doesn't exist
-      const customer = await stripe.customers.create({
+    try {
+      const { data: customers } = await stripe.customers.list({
         email: user.email,
-        metadata: {
-          userId: user.id,
-        },
+        limit: 1,
       });
-      customerId = customer.id;
-      console.log("Created new customer:", customerId);
+
+      if (customers && customers.length > 0) {
+        customerId = customers[0].id;
+        console.log("Found existing customer:", customerId);
+      } else {
+        // Create a new customer if one doesn't exist
+        const customer = await stripe.customers.create({
+          email: user.email,
+          metadata: {
+            userId: user.id,
+          },
+        });
+        customerId = customer.id;
+        console.log("Created new customer:", customerId);
+      }
+    } catch (stripeError) {
+      console.error("Stripe customer error:", stripeError);
+      throw new Error(`Stripe customer error: ${stripeError.message}`);
     }
 
     const origin = req.headers.get("origin") || "https://vid-spark-ai-magic.lovable.app";
     
     // Create checkout session
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
+    try {
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: "subscription",
+        success_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/dashboard/upgrade`,
+        metadata: {
+          userId: user.id,
+          plan: plan,
         },
-      ],
-      mode: "subscription",
-      success_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/dashboard/upgrade`,
-      metadata: {
-        userId: user.id,
-        plan: plan,
-      },
-    });
+      });
 
-    console.log("Checkout session created:", session.id);
-    
-    return new Response(JSON.stringify({ url: session.url }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+      console.log("Checkout session created:", session.id);
+      
+      return new Response(JSON.stringify({ url: session.url }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    } catch (checkoutError) {
+      console.error("Error creating checkout session:", checkoutError);
+      throw new Error(`Stripe checkout error: ${checkoutError.message}`);
+    }
   } catch (error) {
     console.error("Error creating checkout session:", error);
     return new Response(JSON.stringify({ error: error.message }), {
