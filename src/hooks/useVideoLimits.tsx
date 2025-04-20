@@ -30,8 +30,8 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
       
-      // Use proper typing with PostgrestSingleResponse
-      const { data, error } = await supabase.rpc('get_video_usage', {})
+      // Fix the type error by providing proper generic types to rpc
+      const { data, error } = await supabase.rpc<null, VideoUsageResponse>('get_video_usage', null)
         .then(response => {
           return response as unknown as { 
             data: VideoUsageResponse | null, 
@@ -71,8 +71,8 @@ export function useVideoLimits() {
     }
 
     try {
-      // Use proper typing with PostgrestSingleResponse
-      const { data, error } = await supabase.rpc('increment_video_usage', {})
+      // Fix the type error by providing proper generic types to rpc
+      const { data, error } = await supabase.rpc<null, VideoUsageResponse>('increment_video_usage', null)
         .then(response => {
           return response as unknown as { 
             data: VideoUsageResponse | null, 
