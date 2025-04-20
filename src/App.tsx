@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +8,7 @@ import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { HelmetProvider } from "react-helmet-async";
 
 // Layouts
+import MainLayout from "@/components/layout/MainLayout";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 
 // Public Pages
@@ -16,6 +16,7 @@ import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import PaymentSuccessPage from "./pages/PaymentSuccessPage";
+import ProductOverviewPage from "./pages/product/ProductOverviewPage";
 
 // Dashboard Pages
 import DashboardHome from "./pages/dashboard/DashboardHome";
@@ -58,6 +59,13 @@ const App = () => {
                 <Routes>
                   {/* Public Routes */}
                   <Route path="/" element={<LandingPage />} />
+                  
+                  {/* New marketing pages with MainLayout */}
+                  <Route element={<MainLayout />}>
+                    <Route path="/product" element={<ProductOverviewPage />} />
+                    {/* Other marketing pages will be added here */}
+                  </Route>
+                  
                   <Route path="/login" element={<AuthPage />} />
                   <Route path="/register" element={<AuthPage />} />
                   <Route path="/payment-success" element={<PaymentSuccessPage />} />

@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -26,9 +25,9 @@ export default {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "#4F46E5", // Electric Indigo
-          light: "#6366F1",
-          dark: "#4338CA",
+          DEFAULT: "#6366F1", // SmartVid purple
+          light: "#818CF8",
+          dark: "#4F46E5",
           foreground: "hsl(var(--primary-foreground))"
         },
         secondary: {
@@ -54,7 +53,7 @@ export default {
           foreground: "hsl(var(--muted-foreground))"
         },
         accent: {
-          DEFAULT: "#06B6D4", // Same as secondary for consistency
+          DEFAULT: "#6366F1", // Same as primary for consistency
           foreground: "hsl(var(--accent-foreground))"
         },
         popover: {
@@ -65,6 +64,10 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))"
         }
+      },
+      fontFamily: {
+        sans: ["Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
+        mono: ["Fira Code", "monospace"],
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -136,6 +139,22 @@ export default {
           from: { borderColor: "transparent" },
           "50%": { borderColor: "currentColor" },
           to: { borderColor: "transparent" }
+        },
+        slideDownAndFade: {
+          from: { opacity: '0', transform: 'translateY(-4px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        slideLeftAndFade: {
+          from: { opacity: '0', transform: 'translateX(4px)' },
+          to: { opacity: '1', transform: 'translateX(0)' },
+        },
+        slideUpAndFade: {
+          from: { opacity: '0', transform: 'translateY(4px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        slideRightAndFade: {
+          from: { opacity: '0', transform: 'translateX(-4px)' },
+          to: { opacity: '1', transform: 'translateX(0)' },
         }
       },
       animation: {
@@ -147,7 +166,11 @@ export default {
         "pulse-glow": "pulse-glow 3s ease-in-out infinite",
         shimmer: "shimmer 3s infinite",
         typing: "typing 3.5s steps(40, end)",
-        "blink-caret": "blink-caret 0.75s step-end infinite"
+        "blink-caret": "blink-caret 0.75s step-end infinite",
+        slideDownAndFade: 'slideDownAndFade 400ms cubic-bezier(0.16, 1, 0.3, 1)',
+        slideLeftAndFade: 'slideLeftAndFade 400ms cubic-bezier(0.16, 1, 0.3, 1)',
+        slideUpAndFade: 'slideUpAndFade 400ms cubic-bezier(0.16, 1, 0.3, 1)',
+        slideRightAndFade: 'slideRightAndFade 400ms cubic-bezier(0.16, 1, 0.3, 1)',
       }
     }
   },
