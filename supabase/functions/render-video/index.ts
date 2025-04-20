@@ -227,6 +227,69 @@ serve(async (req) => {
 
       console.log("Sending request to Shotstack API");
       
+      // First check credits by making a GET request to the account endpoint
+      try {
+        const accountResponse = await fetch("https://api.shotstack.io/v1/me", {
+          method: "GET",
+          headers: {
+            "x-api-key": API_KEY
+          }
+        });
+        
+        if (!accountResponse.ok) {
+          console.error(`Shotstack account API error: ${accountResponse.status} ${accountResponse.statusText}`);
+        } else {
+          const accountData = await accountResponse.json();
+          console.log("Account data:", JSON.stringify(accountData));
+          
+          if (accountData.response && accountData.response.credits !== undefined) {
+            const availableCredits = accountData.response.credits;
+            console.log(`Available credits: ${availableCredits}`);
+            
+            // Estimate credit requirement (based on duration and complexity)
+            // This is a simplified estimation - Shotstack's actual calculation may vary
+            const estimatedCredits = (totalDuration / 60) * 0.1; // Rough estimate
+            console.log(`Estimated credits required: ${estimatedCredits}`);
+            
+            if (availableCredits < estimatedCredits) {
+              console.log(`Insufficient credits: ${availableCredits} available, ${estimatedCredits} estimated required`);
+              
+              // Update project status to failed due to insufficient credits
+              try {
+                const { error: updateError } = await supabase
+                  .from("video_projects")
+                  .update({
+                    status: "failed",
+                    error_message: "Insufficient Shotstack credits to render this video. Please contact support."
+                  })
+                  .eq("id", actualProjectId);
+                  
+                if (updateError) {
+                  console.error("Error updating project status:", updateError);
+                } else {
+                  console.log("Updated project status to failed due to insufficient credits");
+                }
+              } catch (statusError) {
+                console.error("Error updating project status:", statusError);
+              }
+              
+              return new Response(
+                JSON.stringify({ 
+                  error: "Insufficient Shotstack credits",
+                  details: "Your account doesn't have enough credits to render this video. Please upgrade your Shotstack plan.",
+                  creditsAvailable: availableCredits,
+                  creditsNeeded: estimatedCredits 
+                }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 402 }
+              );
+            }
+          }
+        }
+      } catch (creditCheckError) {
+        console.error("Error checking Shotstack credits:", creditCheckError);
+        // Continue with the render attempt even if credit check fails
+      }
+      
       // Call Shotstack API to render the video
       const response = await fetch("https://api.shotstack.io/v1/render", {
         method: "POST",
@@ -241,10 +304,72 @@ serve(async (req) => {
         let errorText = "";
         try {
           errorText = await response.text();
+          console.error(`Shotstack API error response:`, errorText);
         } catch (e) {
           errorText = "Could not read error response";
+          console.error("Could not read Shotstack error response");
         }
-        console.error(`Shotstack API error response:`, errorText);
+        
+        // Check specifically for credit limit errors
+        const isCreditLimitError = 
+          response.status === 403 && 
+          (errorText.includes("credits required") || 
+           errorText.includes("exceeds one or more plan limits"));
+        
+        if (isCreditLimitError) {
+          console.error("Shotstack credit limit reached:", errorText);
+          
+          // Extract the credit information from the error message if possible
+          let creditsRequired = "unknown";
+          let creditsAvailable = "0.00";
+          
+          try {
+            // Try to parse credit information from error message
+            const creditsRequiredMatch = errorText.match(/'([0-9.]+)' credits required/);
+            const creditsAvailableMatch = errorText.match(/you have '([0-9.]+)' credits left/);
+            
+            if (creditsRequiredMatch && creditsRequiredMatch[1]) {
+              creditsRequired = creditsRequiredMatch[1];
+            }
+            
+            if (creditsAvailableMatch && creditsAvailableMatch[1]) {
+              creditsAvailable = creditsAvailableMatch[1];
+            }
+          } catch (parseError) {
+            console.error("Error parsing credit information from error message:", parseError);
+          }
+          
+          // Update project with credit limit error
+          try {
+            const { error: updateError } = await supabase
+              .from("video_projects")
+              .update({
+                status: "failed",
+                error_message: `Insufficient Shotstack credits (${creditsRequired} required, ${creditsAvailable} available). Please contact support.`
+              })
+              .eq("id", actualProjectId);
+              
+            if (updateError) {
+              console.error("Error updating project with credit limit error:", updateError);
+            } else {
+              console.log("Updated project with credit limit error");
+            }
+          } catch (dbError) {
+            console.error("Database error when updating credit limit error:", dbError);
+          }
+          
+          return new Response(
+            JSON.stringify({ 
+              error: "Insufficient Shotstack credits",
+              details: `Your account doesn't have enough credits to render this video. ${creditsRequired} credits required, ${creditsAvailable} available. Please upgrade your Shotstack plan.`,
+              creditsRequired,
+              creditsAvailable,
+              upgradeUrl: "https://dashboard.shotstack.io/subscription"
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 402 }
+          );
+        }
+        
         throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
       }
 
@@ -266,7 +391,8 @@ serve(async (req) => {
             render_id: renderId,
             status: "processing",
             has_captions: hasCaptions,
-            has_audio: hasAudio
+            has_audio: hasAudio,
+            error_message: null // Clear any previous error messages
           })
           .eq("id", actualProjectId);
           
@@ -297,7 +423,8 @@ serve(async (req) => {
         const { error: updateError } = await supabase
           .from("video_projects")
           .update({
-            status: "failed"
+            status: "failed",
+            error_message: apiError.message || "Error calling Shotstack API"
           })
           .eq("id", actualProjectId);
           
