@@ -1,3 +1,4 @@
+
 import { Outlet, useNavigate } from "react-router-dom";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -61,52 +62,58 @@ export function DashboardLayout() {
     .toUpperCase();
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
-      <DashboardSidebar />
-      <div className="flex-1 flex flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 shadow-sm">
-          <div className="flex flex-1 items-center justify-end md:justify-between">
-            <div className="hidden md:flex">
-              <h1 className="text-lg font-semibold">Dashboard</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" aria-label="Notifications">
-                <Bell className="h-5 w-5" />
-              </Button>
-              <ThemeToggle />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="relative h-8 w-8 rounded-full"
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={profile?.avatar_url || ""} alt={userName} />
-                      <AvatarFallback>{userInitials}</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem className="font-semibold">{userName}</DropdownMenuItem>
-                  <DropdownMenuItem className="text-sm text-muted-foreground">
-                    {userEmail}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>Profile</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>Settings</DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleSignOut}>
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Sign out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+    <div className="flex min-h-screen flex-col">
+      <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 shadow-sm">
+        <div className="flex flex-1 items-center justify-end md:justify-between">
+          <div className="hidden md:flex">
+            <h1 className="text-lg font-semibold">Dashboard</h1>
           </div>
-        </header>
-        <div className="p-4 md:p-6">
-          <Outlet />
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" aria-label="Notifications">
+              <Bell className="h-5 w-5" />
+            </Button>
+            <ThemeToggle />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="relative h-8 w-8 rounded-full"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={profile?.avatar_url || ""} alt={userName} />
+                    <AvatarFallback>{userInitials}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem className="font-semibold">{userName}</DropdownMenuItem>
+                <DropdownMenuItem className="text-sm text-muted-foreground">
+                  {userEmail}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>Profile</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>Settings</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSignOut}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
+      </header>
+      
+      <div className="flex flex-1 overflow-hidden">
+        <DashboardSidebar />
+        <main className="flex-1 overflow-y-auto">
+          <div className="p-4 md:p-6">
+            <Outlet />
+          </div>
+        </main>
       </div>
-      <ChatBubble />
+      
+      <div className="fixed bottom-4 right-4 z-50">
+        <ChatBubble />
+      </div>
     </div>
   );
 }

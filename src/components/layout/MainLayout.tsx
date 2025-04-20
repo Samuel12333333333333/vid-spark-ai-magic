@@ -6,13 +6,15 @@ import { ChatBubble } from "@/components/landing/ChatBubble";
 
 export default function MainLayout() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col relative">
       <MainHeader />
       <div className="flex-1">
         <Outlet />
       </div>
       <Footer />
-      <ChatBubble />
+      <div className="fixed bottom-4 right-4 z-50">
+        <ChatBubble />
+      </div>
     </div>
   );
 }

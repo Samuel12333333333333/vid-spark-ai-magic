@@ -13,13 +13,45 @@ import {
   X,
   Crown,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { Button } from "@/components/ui/button";
 
 export function DashboardSidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const { hasActiveSubscription, isPro, isBusiness } = useSubscription();
+  
+  // Close sidebar on route change on mobile
+  useEffect(() => {
+    const handleRouteChange = () => {
+      if (window.innerWidth < 768) {
+        setIsOpen(false);
+      }
+    };
+    
+    window.addEventListener('popstate', handleRouteChange);
+    return () => window.removeEventListener('popstate', handleRouteChange);
+  }, []);
+  
+  // Close sidebar when clicking outside on mobile
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        isOpen && 
+        window.innerWidth < 768 && 
+        !target.closest('[data-sidebar="true"]') &&
+        !target.closest('[data-sidebar-trigger="true"]')
+      ) {
+        setIsOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
 
   const links = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -35,23 +67,29 @@ export function DashboardSidebar() {
     <>
       {/* Mobile menu button */}
       <button
-        className="fixed bottom-5 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-smartvid-600 text-white shadow-lg md:hidden"
+        data-sidebar-trigger="true"
+        className="fixed bottom-20 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-white shadow-lg md:hidden"
         onClick={() => setIsOpen(!isOpen)}
       >
         {isOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
       {/* Sidebar for both mobile and desktop */}
-      <div
+      <aside
+        data-sidebar="true"
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-64 transform bg-white transition-transform duration-300 ease-in-out dark:bg-gray-950 md:translate-x-0",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          "bg-white transition-all duration-300 ease-in-out dark:bg-gray-950 md:relative md:block",
+          "md:w-64 md:min-w-64 md:shrink-0",
+          // Mobile styles
+          "fixed inset-y-0 left-0 z-30 w-64 transform",
+          isOpen ? "translate-x-0" : "-translate-x-full",
+          "md:translate-x-0" // Always show on desktop
         )}
       >
         <div className="flex h-16 items-center border-b px-6">
-          <h1 className="text-xl font-bold text-smartvid-600">SmartVid</h1>
+          <h1 className="text-xl font-bold text-primary">SmartVid</h1>
         </div>
-        <div className="space-y-1 p-2">
+        <div className="space-y-1 p-2 overflow-y-auto h-[calc(100vh-4rem)]">
           {links.map((link) => (
             <NavLink
               key={link.href}
@@ -61,7 +99,7 @@ export function DashboardSidebar() {
                 cn(
                   "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-smartvid-100 text-smartvid-600 dark:bg-gray-800 dark:text-smartvid-400"
+                    ? "bg-primary/10 text-primary dark:bg-gray-800 dark:text-primary-light"
                     : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
                 )
               }
@@ -74,8 +112,8 @@ export function DashboardSidebar() {
         </div>
 
         {/* Subscription status */}
-        <div className="absolute bottom-0 left-0 right-0 p-4">
-          <div className="mb-2 rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
+          <div className="rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900">
             <p className="mb-2 text-sm font-medium">
               {hasActiveSubscription ? (
                 <>
@@ -90,7 +128,7 @@ export function DashboardSidebar() {
             </p>
             <NavLink to="/dashboard/upgrade" onClick={() => setIsOpen(false)}>
               <Button 
-                className="w-full bg-smartvid-600 hover:bg-smartvid-700"
+                className="w-full bg-primary hover:bg-primary-dark"
                 variant="default"
                 size="sm"
               >
@@ -99,7 +137,7 @@ export function DashboardSidebar() {
             </NavLink>
           </div>
         </div>
-      </div>
+      </aside>
     </>
   );
 }
