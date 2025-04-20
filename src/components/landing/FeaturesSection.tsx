@@ -1,4 +1,3 @@
-
 import { Sparkles, Clock, Film, Layers, Upload, Palette, MessageSquare, Users, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
@@ -53,7 +52,13 @@ export function FeaturesSection() {
 
   return (
     <section id="features" className="py-20 md:py-28 lg:py-32 bg-white dark:bg-gray-950 relative overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-smartvid-200 to-transparent dark:via-gray-800"></div>
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent opacity-20"></div>
+      
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-secondary/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
+      </div>
+
       <div className="container px-4 md:px-6">
         <div className="flex flex-col items-center justify-center space-y-4 text-center max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center rounded-full border border-smartvid-200 bg-white px-3 py-1 text-sm dark:border-gray-800 dark:bg-gray-900 mb-2">
@@ -69,7 +74,10 @@ export function FeaturesSection() {
           {features.map((feature, index) => (
             <Card 
               key={index} 
-              className="flex flex-col p-6 h-full transition-all duration-200 hover:shadow-lg dark:border-gray-800 hover:border-smartvid-200 dark:hover:border-smartvid-800"
+              className="group flex flex-col p-6 h-full transition-all duration-200 hover:shadow-lg hover:scale-105 dark:border-gray-800 hover:border-primary/20 dark:hover:border-primary/20"
+              style={{
+                animationDelay: `${index * 100}ms`,
+              }}
             >
               <div className="rounded-full bg-smartvid-100 p-2.5 w-12 h-12 flex items-center justify-center mb-4 dark:bg-smartvid-900/20">
                 <feature.icon className="h-6 w-6 text-smartvid-600" />
@@ -80,7 +88,6 @@ export function FeaturesSection() {
           ))}
         </div>
 
-        {/* How It Works Section */}
         <div id="how-it-works" className="mt-32 max-w-4xl mx-auto">
           <div className="flex flex-col items-center justify-center space-y-4 text-center mb-16">
             <div className="inline-flex items-center rounded-full border border-smartvid-200 bg-white px-3 py-1 text-sm dark:border-gray-800 dark:bg-gray-900 mb-2">
@@ -93,24 +100,20 @@ export function FeaturesSection() {
           </div>
 
           <div className="grid gap-8 md:grid-cols-3 relative">
-            {/* Connecting Line */}
             <div className="hidden md:block absolute top-16 left-[calc(16.67%+1rem)] right-[calc(16.67%+1rem)] h-0.5 bg-smartvid-100 dark:bg-gray-800"></div>
             
-            {/* Step 1 */}
             <div className="relative flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-full bg-smartvid-600 text-white flex items-center justify-center text-xl font-bold mb-4 z-10">1</div>
               <h3 className="text-xl font-bold mb-2">Enter Your Idea</h3>
               <p className="text-gray-500 dark:text-gray-400">Type in your concept or message, and our AI will transform it into a complete script.</p>
             </div>
             
-            {/* Step 2 */}
             <div className="relative flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-full bg-smartvid-600 text-white flex items-center justify-center text-xl font-bold mb-4 z-10">2</div>
               <h3 className="text-xl font-bold mb-2">Customize Your Style</h3>
               <p className="text-gray-500 dark:text-gray-400">Choose from various templates, add your branding, and customize the look and feel.</p>
             </div>
             
-            {/* Step 3 */}
             <div className="relative flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-full bg-smartvid-600 text-white flex items-center justify-center text-xl font-bold mb-4 z-10">3</div>
               <h3 className="text-xl font-bold mb-2">Generate & Share</h3>

@@ -9,13 +9,13 @@ import { FAQSection } from "@/components/landing/FAQSection";
 import { CTASection } from "@/components/landing/CTASection";
 import { Footer } from "@/components/landing/Footer";
 import { FloatingHelpButton } from "@/components/landing/FloatingHelpButton";
+import { ChatBubble } from "@/components/chat/ChatBubble";
 import { useState, useEffect } from "react";
 
 export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Handle scroll for header styling
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 10) {
@@ -31,7 +31,6 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Enhanced Header with smoother transitions */}
       <header className={`
         sticky top-0 z-40 w-full
         transition-all duration-300 ease-in-out
@@ -40,7 +39,6 @@ export default function LandingPage() {
           : 'bg-transparent border-transparent'}
       `}>
         <div className="container flex h-16 items-center justify-between py-4">
-          {/* Logo */}
           <Link 
             to="/" 
             className="flex items-center space-x-2 transition-transform duration-300 hover:scale-105"
@@ -60,7 +58,6 @@ export default function LandingPage() {
             <span className="text-xl font-bold text-gray-900 dark:text-white">SmartVid</span>
           </Link>
 
-          {/* Desktop Navigation with hover effects */}
           <nav className="hidden md:flex gap-6">
             {[
               ['Features', '#features'],
@@ -87,7 +84,6 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-4">
             <ThemeToggle />
-            {/* Auth buttons with hover animations */}
             <div className="hidden md:flex gap-3">
               <Button 
                 variant="ghost" 
@@ -103,7 +99,6 @@ export default function LandingPage() {
                 <Link to="/register">Sign Up</Link>
               </Button>
             </div>
-            {/* Mobile menu button */}
             <Button
               className="md:hidden"
               variant="ghost"
@@ -140,7 +135,6 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Mobile Menu with slide animation */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t bg-white dark:bg-gray-950 pb-6 animate-slide-in-right">
             <nav className="flex flex-col space-y-4 p-4">
@@ -192,7 +186,6 @@ export default function LandingPage() {
         )}
       </header>
 
-      {/* Main content */}
       <main className="flex-1">
         <HeroSection />
         <FeaturesSection />
@@ -203,9 +196,7 @@ export default function LandingPage() {
       </main>
 
       <Footer />
-      
-      {/* Floating Help Button */}
-      <FloatingHelpButton />
+      <ChatBubble />
     </div>
   );
 }
