@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { SceneBreakdown } from "@/services/aiService"; // Import the SceneBreakdown type
 
 export interface VideoClip {
   id: string;
