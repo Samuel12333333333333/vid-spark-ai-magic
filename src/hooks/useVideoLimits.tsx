@@ -30,8 +30,14 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
       
-      const { data, error } = await supabase.rpc('get_video_usage')
-        .returns<VideoUsageResponse>();
+      // Use proper typing with PostgrestSingleResponse
+      const { data, error } = await supabase.rpc('get_video_usage', {})
+        .then(response => {
+          return response as unknown as { 
+            data: VideoUsageResponse | null, 
+            error: any 
+          };
+        });
       
       if (error) {
         console.error("Usage error:", error);
@@ -65,8 +71,14 @@ export function useVideoLimits() {
     }
 
     try {
-      const { data, error } = await supabase.rpc('increment_video_usage')
-        .returns<VideoUsageResponse>();
+      // Use proper typing with PostgrestSingleResponse
+      const { data, error } = await supabase.rpc('increment_video_usage', {})
+        .then(response => {
+          return response as unknown as { 
+            data: VideoUsageResponse | null, 
+            error: any 
+          };
+        });
       
       if (error) {
         console.error("Error incrementing video usage:", error);
