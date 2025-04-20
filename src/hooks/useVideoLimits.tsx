@@ -28,27 +28,33 @@ export function useVideoLimits() {
 
   const checkUsage = async () => {
     try {
+      // Use raw SQL query to avoid type issues with the client
       const { data: existingUsage, error: usageError } = await supabase
-        .from('video_usage')
-        .select('*')
+        .rpc('get_video_usage')
         .single();
 
       if (usageError) {
         if (usageError.message.includes('No rows found')) {
           // Create initial usage record if none exists
           const { data: newUsage, error: createError } = await supabase
-            .from('video_usage')
-            .insert([{ count: 0 }])
-            .select()
-            .single();
+            .rpc('initialize_video_usage');
             
           if (createError) throw createError;
-          setUsage(newUsage);
+          
+          if (newUsage) {
+            setUsage({
+              count: newUsage.count || 0,
+              reset_at: newUsage.reset_at || new Date().toISOString()
+            });
+          }
         } else {
           throw usageError;
         }
-      } else {
-        setUsage(existingUsage);
+      } else if (existingUsage) {
+        setUsage({
+          count: existingUsage.count || 0,
+          reset_at: existingUsage.reset_at || new Date().toISOString()
+        });
       }
     } catch (error) {
       console.error('Error checking video usage:', error);
@@ -73,16 +79,19 @@ export function useVideoLimits() {
         return false;
       }
 
-      // Increment usage
+      // Increment usage using a stored procedure
       const { data: updatedUsage, error } = await supabase
-        .from('video_usage')
-        .update({ count: usage.count + 1 })
-        .select()
-        .single();
+        .rpc('increment_video_usage');
 
       if (error) throw error;
-
-      setUsage(updatedUsage);
+      
+      if (updatedUsage) {
+        setUsage({
+          count: updatedUsage.count || 0,
+          reset_at: updatedUsage.reset_at || new Date().toISOString()
+        });
+      }
+      
       return true;
     } catch (error) {
       console.error('Error incrementing video usage:', error);
@@ -104,4 +113,3 @@ export function useVideoLimits() {
     incrementUsage
   };
 }
-
