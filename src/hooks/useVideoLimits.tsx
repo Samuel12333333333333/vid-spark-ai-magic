@@ -9,6 +9,12 @@ export interface VideoUsage {
   reset_at: string;
 }
 
+// Define types for our RPC function responses
+interface VideoUsageResponse {
+  count: number;
+  reset_at: string;
+}
+
 export function useVideoLimits() {
   const [usage, setUsage] = useState<VideoUsage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,16 +34,16 @@ export function useVideoLimits() {
 
   const checkUsage = async () => {
     try {
-      // Use raw SQL query to avoid type issues with the client
-      const { data: existingUsage, error: usageError } = await supabase
-        .rpc('get_video_usage')
+      // Use raw RPC call with proper type casting
+      const { data, error: usageError } = await supabase
+        .rpc<VideoUsageResponse>('get_video_usage')
         .single();
 
       if (usageError) {
         if (usageError.message.includes('No rows found')) {
           // Create initial usage record if none exists
           const { data: newUsage, error: createError } = await supabase
-            .rpc('initialize_video_usage');
+            .rpc<VideoUsageResponse>('initialize_video_usage');
             
           if (createError) throw createError;
           
@@ -50,10 +56,10 @@ export function useVideoLimits() {
         } else {
           throw usageError;
         }
-      } else if (existingUsage) {
+      } else if (data) {
         setUsage({
-          count: existingUsage.count || 0,
-          reset_at: existingUsage.reset_at || new Date().toISOString()
+          count: data.count || 0,
+          reset_at: data.reset_at || new Date().toISOString()
         });
       }
     } catch (error) {
@@ -80,15 +86,15 @@ export function useVideoLimits() {
       }
 
       // Increment usage using a stored procedure
-      const { data: updatedUsage, error } = await supabase
-        .rpc('increment_video_usage');
+      const { data, error } = await supabase
+        .rpc<VideoUsageResponse>('increment_video_usage');
 
       if (error) throw error;
       
-      if (updatedUsage) {
+      if (data) {
         setUsage({
-          count: updatedUsage.count || 0,
-          reset_at: updatedUsage.reset_at || new Date().toISOString()
+          count: data.count || 0,
+          reset_at: data.reset_at || new Date().toISOString()
         });
       }
       
