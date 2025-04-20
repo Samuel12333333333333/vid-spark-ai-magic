@@ -114,7 +114,7 @@ export default function CookiesPage() {
           <h2 className="text-2xl font-semibold mb-4 mt-8">5. Other Tracking Technologies</h2>
           <p>In addition to cookies, we may also use other similar technologies to track your activity on our website:</p>
           <ul className="list-disc pl-6 mb-6">
-            <li><strong>Web Beacons:</strong> Small graphic files (also known as "pixel tags" or "clear GIFs") that can be embedded in webpages and emails to track user behavior and collect data.</li>
+            <li><strong>Web Beacons:</strong> Small graphic files (also known as &quot;pixel tags&quot; or &quot;clear GIFs&quot;) that can be embedded in webpages and emails to track user behavior and collect data.</li>
             <li><strong>Local Storage Objects:</strong> HTML5 local storage that allows websites to store information locally on your device.</li>
             <li><strong>Device Fingerprinting:</strong> Collecting information about your device, such as your browser type, operating system, and installed plugins, to identify your device over time.</li>
           </ul>
