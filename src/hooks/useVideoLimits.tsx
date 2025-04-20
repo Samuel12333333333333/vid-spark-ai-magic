@@ -30,8 +30,11 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
       
-      // Call the RPC function directly with .rpc() method
-      const { data, error } = await supabase.rpc('get_video_usage');
+      // Use the fetch API through the Supabase client to call the RPC function
+      const { data, error } = await supabase.from('video_usage')
+        .select('count, reset_at')
+        .limit(1)
+        .maybeSingle();
       
       if (error) {
         console.error("Usage error:", error);
@@ -44,9 +47,8 @@ export function useVideoLimits() {
       
       if (data) {
         // Handle the response properly
-        const typedData = data as VideoUsageResponse;
-        setUsageCount(typedData.count);
-        setResetDate(typedData.reset_at ? new Date(typedData.reset_at) : getDefaultResetDate());
+        setUsageCount(data.count);
+        setResetDate(data.reset_at ? new Date(data.reset_at) : getDefaultResetDate());
       } else {
         setUsageCount(0);
         setResetDate(getDefaultResetDate());
@@ -67,8 +69,14 @@ export function useVideoLimits() {
     }
 
     try {
-      // Call the RPC function directly with .rpc() method
-      const { data, error } = await supabase.rpc('increment_video_usage');
+      // Use a direct POST request using the REST API feature of Supabase
+      const { data, error } = await supabase.from('video_usage')
+        .upsert({ 
+          count: usageCount + 1, 
+          reset_at: resetDate?.toISOString() || getDefaultResetDate().toISOString() 
+        })
+        .select()
+        .single();
       
       if (error) {
         console.error("Error incrementing video usage:", error);
@@ -76,10 +84,8 @@ export function useVideoLimits() {
       }
       
       if (data) {
-        // Handle the response properly
-        const typedData = data as VideoUsageResponse;
-        setUsageCount(typedData.count);
-        setResetDate(typedData.reset_at ? new Date(typedData.reset_at) : getDefaultResetDate());
+        setUsageCount(data.count);
+        setResetDate(data.reset_at ? new Date(data.reset_at) : getDefaultResetDate());
       } else {
         setUsageCount(prev => prev + 1);
       }
@@ -89,7 +95,7 @@ export function useVideoLimits() {
       console.error("Error incrementing video usage:", error);
       return false;
     }
-  }, [canGenerateVideo, maxVideosPerMonth, resetDate]);
+  }, [canGenerateVideo, maxVideosPerMonth, resetDate, usageCount]);
 
   return {
     usageCount,
