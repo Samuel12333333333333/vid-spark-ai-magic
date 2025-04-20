@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,6 +18,20 @@ import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import PaymentSuccessPage from "./pages/PaymentSuccessPage";
 import ProductOverviewPage from "./pages/product/ProductOverviewPage";
+import FeaturesPage from "./pages/product/FeaturesPage";
+import IntegrationsPage from "./pages/product/IntegrationsPage";
+import UseCasesPage from "./pages/product/UseCasesPage";
+import BlogPage from "./pages/resources/BlogPage";
+import HelpCenterPage from "./pages/resources/HelpCenterPage";
+import CommunityPage from "./pages/resources/CommunityPage";
+import APIDocsPage from "./pages/resources/APIDocsPage";
+import CareersPage from "./pages/company/CareersPage";
+import AboutPage from "./pages/AboutPage";
+import ContactPage from "./pages/ContactPage";
+import PrivacyPage from "./pages/PrivacyPage";
+import TermsPage from "./pages/TermsPage";
+import CookiesPage from "./pages/CookiesPage";
+import PricingPage from "./pages/PricingPage";
 
 // Dashboard Pages
 import DashboardHome from "./pages/dashboard/DashboardHome";
