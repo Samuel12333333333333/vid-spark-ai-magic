@@ -24,6 +24,15 @@ export interface VoiceOption {
   name: string;
 }
 
+// Define reliable mock videos that are guaranteed to work
+const MOCK_VIDEOS = [
+  "https://assets.mixkit.co/videos/preview/mixkit-spinning-around-the-earth-29351-large.mp4",
+  "https://assets.mixkit.co/videos/preview/mixkit-daytime-city-traffic-aerial-view-56-large.mp4",
+  "https://assets.mixkit.co/videos/preview/mixkit-waves-in-the-water-1164-large.mp4",
+  "https://assets.mixkit.co/videos/preview/mixkit-young-woman-talking-with-coworker-in-the-office-27443-large.mp4",
+  "https://assets.mixkit.co/videos/preview/mixkit-digital-animation-of-a-city-of-the-future-10084-large.mp4"
+];
+
 export const mediaService = {
   validateVideoUrl(url?: string): string | undefined {
     if (!url) return undefined;
@@ -384,8 +393,9 @@ export const mediaService = {
         } else if (elapsedSeconds < 18) {
           return { status: 'saving' };
         } else {
-          // After 20 seconds, return a completed video with a sample URL
-          const mockVideoUrl = 'https://assets.mixkit.co/videos/preview/mixkit-gradient-pink-to-blue-1-second-animation-32811-large.mp4';
+          // After 20 seconds, return a completed video with a known working video URL
+          const mockVideoIndex = Math.floor(Math.random() * MOCK_VIDEOS.length);
+          const mockVideoUrl = MOCK_VIDEOS[mockVideoIndex];
           return { status: 'done', url: mockVideoUrl };
         }
       }
