@@ -30,8 +30,8 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
       
-      // Use supabase.rpc properly with explicit typing
-      const { data, error } = await supabase.rpc<VideoUsageResponse>('get_video_usage');
+      // Use supabase.rpc properly with explicit typing for both input and output
+      const { data, error } = await supabase.rpc<null, VideoUsageResponse>('get_video_usage');
       
       if (error) {
         console.error("Usage error:", error);
@@ -66,8 +66,8 @@ export function useVideoLimits() {
     }
 
     try {
-      // Use supabase.rpc properly with explicit typing
-      const { data, error } = await supabase.rpc<VideoUsageResponse>('increment_video_usage');
+      // Use supabase.rpc properly with explicit typing for both input and output
+      const { data, error } = await supabase.rpc<null, VideoUsageResponse>('increment_video_usage');
       
       if (error) {
         console.error("Error incrementing video usage:", error);
