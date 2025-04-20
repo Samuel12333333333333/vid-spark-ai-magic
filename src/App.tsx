@@ -63,12 +63,22 @@ const App = () => {
                   {/* New marketing pages with MainLayout */}
                   <Route element={<MainLayout />}>
                     <Route path="/product" element={<ProductOverviewPage />} />
-                    {/* Other marketing pages will be added here */}
+                    <Route path="/features" element={<FeaturesPage />} />
+                    <Route path="/pricing" element={<PricingPage />} />
+                    <Route path="/templates" element={<TemplatesPage />} />
+                    <Route path="/integrations" element={<IntegrationsPage />} />
+                    <Route path="/use-cases" element={<UseCasesPage />} />
+                    <Route path="/blog" element={<BlogPage />} />
+                    <Route path="/help" element={<HelpCenterPage />} />
+                    <Route path="/community" element={<CommunityPage />} />
+                    <Route path="/api-docs" element={<APIDocsPage />} />
+                    <Route path="/about" element={<AboutPage />} />
+                    <Route path="/careers" element={<CareersPage />} />
+                    <Route path="/contact" element={<ContactPage />} />
+                    <Route path="/privacy" element={<PrivacyPage />} />
+                    <Route path="/terms" element={<TermsPage />} />
+                    <Route path="/cookies" element={<CookiesPage />} />
                   </Route>
-                  
-                  <Route path="/login" element={<AuthPage />} />
-                  <Route path="/register" element={<AuthPage />} />
-                  <Route path="/payment-success" element={<PaymentSuccessPage />} />
                   
                   {/* Dashboard Routes - Protected */}
                   <Route
