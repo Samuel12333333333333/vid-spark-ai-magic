@@ -31,11 +31,8 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
 
-      // Explicitly cast the function name parameter type to avoid the 'never' constraint
-      const { data, error } = await supabase.rpc('get_video_usage') as { 
-        data: VideoUsageResponse | null; 
-        error: any;
-      };
+      // Use the correct type assertion for Supabase RPC calls
+      const { data, error } = await supabase.rpc<VideoUsageResponse>('get_video_usage');
 
       if (error) {
         console.error("Usage error:", error);
@@ -73,11 +70,8 @@ export function useVideoLimits() {
     }
 
     try {
-      // Explicitly cast the function name parameter type to avoid the 'never' constraint
-      const { data, error } = await supabase.rpc('increment_video_usage') as {
-        data: VideoUsageResponse | null;
-        error: any;
-      };
+      // Use the correct type assertion for Supabase RPC calls
+      const { data, error } = await supabase.rpc<VideoUsageResponse>('increment_video_usage');
 
       if (error) {
         console.error("Error incrementing video usage:", error);
