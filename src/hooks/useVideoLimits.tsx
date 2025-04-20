@@ -8,6 +8,11 @@ interface VideoUsageResponse {
   reset_at: string;
 }
 
+interface UsageData {
+  count: number;
+  reset_at: string | null;
+}
+
 export function useVideoLimits() {
   const [usageCount, setUsageCount] = useState<number>(0);
   const [resetDate, setResetDate] = useState<Date | null>(null);
@@ -26,38 +31,33 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
       
-      // Fetch video usage from the database
-      const { data, error } = await supabase.rpc('get_video_usage');
+      const { data, error } = await supabase
+        .rpc<UsageData>('get_video_usage')
+        .single();
       
       if (error) {
         console.error("Usage error:", error);
         console.error("Using default usage values due to error");
         
-        // Default values if we can't get usage data
         setUsageCount(0);
         setResetDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1));
         return;
       }
       
-      if (data && Array.isArray(data) && data.length > 0) {
-        const usageData = data[0] as VideoUsageResponse;
-        setUsageCount(usageData.count || 0);
+      if (data) {
+        setUsageCount(data.count);
         
-        if (usageData.reset_at) {
-          setResetDate(new Date(usageData.reset_at));
+        if (data.reset_at) {
+          setResetDate(new Date(data.reset_at));
         } else {
-          // Default to first day of next month if no reset date
           setResetDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1));
         }
       } else {
-        // No data returned or empty array
         setUsageCount(0);
         setResetDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1));
       }
     } catch (error) {
       console.error("Error checking video usage:", error);
-      
-      // Default values on error
       setUsageCount(0);
       setResetDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1));
     } finally {
@@ -72,24 +72,22 @@ export function useVideoLimits() {
     }
 
     try {
-      // Increment usage count in the database
-      const { data, error } = await supabase.rpc('increment_video_usage');
+      const { data, error } = await supabase
+        .rpc<UsageData>('increment_video_usage')
+        .single();
       
       if (error) {
         console.error("Error incrementing video usage:", error);
         return false;
       }
       
-      // Update local state based on response
-      if (data && Array.isArray(data) && data.length > 0) {
-        const usageData = data[0] as VideoUsageResponse;
-        setUsageCount(usageData.count || 0);
+      if (data) {
+        setUsageCount(data.count);
         
-        if (usageData.reset_at) {
-          setResetDate(new Date(usageData.reset_at));
+        if (data.reset_at) {
+          setResetDate(new Date(data.reset_at));
         }
       } else {
-        // If we can't get the updated count, increment locally
         setUsageCount(prev => prev + 1);
       }
       

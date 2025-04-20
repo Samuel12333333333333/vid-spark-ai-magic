@@ -1,87 +1,22 @@
+
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, LayoutGrid, LayoutList } from "lucide-react";
-import { TemplateCard } from "@/components/dashboard/TemplateCard";
+import { useTemplates } from "@/hooks/useTemplates";
+import { TemplateFilters } from "@/components/templates/TemplateFilters";
+import { TemplateList } from "@/components/templates/TemplateList";
+import type { Template } from "@/types/template";
 
 export default function TemplatesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const { data: allTemplates = [], isLoading } = useTemplates();
 
-  // Updated mock data with real images
-  const allTemplates = [
-    {
-      id: "t1",
-      name: "Product Showcase",
-      description: "Highlight your product features in a clean, professional format.",
-      thumbnail: "https://images.unsplash.com/photo-1605810230434-7631ac76ec81",
-      category: "Marketing",
-    },
-    {
-      id: "t2",
-      name: "Social Media Story",
-      description: "Engaging vertical format optimized for Instagram and TikTok.",
-      thumbnail: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158",
-      category: "Social",
-    },
-    {
-      id: "t3",
-      name: "Educational Explainer",
-      description: "Clear step-by-step format to explain complex concepts.",
-      thumbnail: "https://images.unsplash.com/photo-1487058792275-0ad4aaf24ca7",
-      category: "Education",
-    },
-    {
-      id: "t4",
-      name: "Company Overview",
-      description: "Professional template to introduce your business and services.",
-      thumbnail: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b",
-      category: "Business",
-    },
-    {
-      id: "t5",
-      name: "Interview Style",
-      description: "Format with text overlays perfect for interviews and testimonials.",
-      thumbnail: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7",
-      category: "Marketing",
-    },
-    {
-      id: "t6",
-      name: "Product Unboxing",
-      description: "Showcase your product's unboxing experience with this template.",
-      thumbnail: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6",
-      category: "Marketing",
-    },
-    {
-      id: "t7",
-      name: "Motivational Quote",
-      description: "Stylish template for sharing motivational quotes and tips.",
-      thumbnail: "https://images.unsplash.com/photo-1531297484001-80022131f5a1",
-      category: "Social",
-    },
-    {
-      id: "t8",
-      name: "Step-by-Step Tutorial",
-      description: "Clear instruction format for tutorials and how-to videos.",
-      thumbnail: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b",
-      category: "Education",
-    },
-    {
-      id: "t9",
-      name: "News Update",
-      description: "Professional format for delivering news and updates.",
-      thumbnail: "https://images.unsplash.com/photo-1487058792275-0ad4aaf24ca7",
-      category: "Business",
-    },
-  ];
-
-  // Filter templates based on search query and category
-  const filterTemplates = (templates: typeof allTemplates, category: string) => {
+  // Filter templates based on search query
+  const filterTemplates = (templates: Template[], category: string) => {
     return templates.filter(template => {
       const matchesSearch = !searchQuery || 
         template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        template.description.toLowerCase().includes(searchQuery.toLowerCase());
+        template.description?.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesCategory = category === "all" || template.category.toLowerCase() === category.toLowerCase();
       
@@ -95,71 +30,23 @@ export default function TemplatesPage() {
   const businessTemplates = filterTemplates(allTemplates, "business");
   const allFilteredTemplates = filterTemplates(allTemplates, "all");
 
-  const renderTemplateGrid = (templates: typeof allTemplates) => {
-    if (templates.length === 0) {
-      return (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No templates found matching your search</p>
-          <Button 
-            variant="outline" 
-            className="mt-4"
-            onClick={() => setSearchQuery("")}
-          >
-            Clear Search
-          </Button>
-        </div>
-      );
-    }
-
-    return (
-      <div className={`grid gap-6 ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}>
-        {templates.map((template) => (
-          <TemplateCard key={template.id} {...template} />
-        ))}
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">Video Templates</h1>
+        <h1 className="text-3xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+          Video Templates
+        </h1>
         <p className="text-muted-foreground">
           Start with a pre-designed template to create your video faster
         </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search templates..." 
-            className="pl-9"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className={viewMode === "grid" ? "bg-primary/10" : ""}
-            onClick={() => setViewMode("grid")}
-          >
-            <LayoutGrid className="h-4 w-4" />
-            <span className="sr-only">Grid view</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className={viewMode === "list" ? "bg-primary/10" : ""}
-            onClick={() => setViewMode("list")}
-          >
-            <LayoutList className="h-4 w-4" />
-            <span className="sr-only">List view</span>
-          </Button>
-        </div>
-      </div>
+      <TemplateFilters
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+      />
 
       <Tabs defaultValue="all" className="w-full">
         <TabsList className="mb-6">
@@ -171,23 +58,23 @@ export default function TemplatesPage() {
         </TabsList>
         
         <TabsContent value="all" className="pt-2">
-          {renderTemplateGrid(allFilteredTemplates)}
+          <TemplateList templates={allFilteredTemplates} viewMode={viewMode} />
         </TabsContent>
         
         <TabsContent value="marketing" className="pt-2">
-          {renderTemplateGrid(marketingTemplates)}
+          <TemplateList templates={marketingTemplates} viewMode={viewMode} />
         </TabsContent>
         
         <TabsContent value="social" className="pt-2">
-          {renderTemplateGrid(socialTemplates)}
+          <TemplateList templates={socialTemplates} viewMode={viewMode} />
         </TabsContent>
         
         <TabsContent value="education" className="pt-2">
-          {renderTemplateGrid(educationTemplates)}
+          <TemplateList templates={educationTemplates} viewMode={viewMode} />
         </TabsContent>
         
         <TabsContent value="business" className="pt-2">
-          {renderTemplateGrid(businessTemplates)}
+          <TemplateList templates={businessTemplates} viewMode={viewMode} />
         </TabsContent>
       </Tabs>
     </div>
