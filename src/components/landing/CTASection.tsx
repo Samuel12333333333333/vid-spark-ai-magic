@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
+import { ScrollReveal } from "@/components/ui/scroll-reveal";
 
 export function CTASection() {
   const [isVisible, setIsVisible] = useState(false);
@@ -103,8 +104,9 @@ export function CTASection() {
         </div>
       </div>
       
-      {/* Add custom keyframes for the floating particles */}
-      <style jsx>{`
+      {/* Add keyframes for the floating particles in CSS */}
+      <style>
+        {`
         @keyframes float {
           0%, 100% {
             transform: translateY(0) translateX(0);
@@ -113,7 +115,8 @@ export function CTASection() {
             transform: translateY(-20px) translateX(10px);
           }
         }
-      `}</style>
+        `}
+      </style>
     </section>
   );
 }
