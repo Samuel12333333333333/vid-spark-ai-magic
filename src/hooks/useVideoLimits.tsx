@@ -31,9 +31,9 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
 
-      // Using any here to bypass the TypeScript constraint for RPC calls
-      const { data, error } = await supabase.rpc('get_video_usage') as { 
-        data: VideoUsageResponse | null; 
+      // We need to use type assertion without explicit type parameters
+      const { data, error } = await supabase.functions.invoke<VideoUsageResponse>("get_video_usage") as {
+        data: VideoUsageResponse | null;
         error: any;
       };
 
@@ -73,8 +73,8 @@ export function useVideoLimits() {
     }
 
     try {
-      // Using any here to bypass the TypeScript constraint for RPC calls
-      const { data, error } = await supabase.rpc('increment_video_usage') as {
+      // We need to use type assertion without explicit type parameters
+      const { data, error } = await supabase.functions.invoke<VideoUsageResponse>("increment_video_usage") as {
         data: VideoUsageResponse | null;
         error: any;
       };
