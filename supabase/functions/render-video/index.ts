@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 
@@ -5,22 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
-
-// Array of reliable sample videos to use in mock responses
-const MOCK_VIDEOS = [
-  "https://assets.mixkit.co/videos/preview/mixkit-spinning-around-the-earth-29351-large.mp4",
-  "https://assets.mixkit.co/videos/preview/mixkit-daytime-city-traffic-aerial-view-56-large.mp4",
-  "https://assets.mixkit.co/videos/preview/mixkit-waves-in-the-water-1164-large.mp4",
-  "https://assets.mixkit.co/videos/preview/mixkit-young-woman-talking-with-coworker-in-the-office-27443-large.mp4",
-  "https://assets.mixkit.co/videos/preview/mixkit-digital-animation-of-a-city-of-the-future-10084-large.mp4"
-];
-
-// Helper function to create a timestamp-based mock ID
-function createMockRenderId(prefix = 'mock') {
-  // Use current timestamp in hex as part of the ID to enable time-based status updates
-  const timestamp = Date.now().toString(16);
-  return `${prefix}-${crypto.randomUUID()}-${timestamp}`;
-}
 
 serve(async (req) => {
   // Handle CORS preflight request
@@ -34,20 +19,9 @@ serve(async (req) => {
     const API_KEY = Deno.env.get("SHOTSTACK_API_KEY");
     if (!API_KEY) {
       console.error("SHOTSTACK_API_KEY is not defined");
-      
-      // TESTING MODE: Return a mock response if the API key is missing
-      console.log("TESTING MODE: Returning mock render ID for testing");
-      const mockRenderId = createMockRenderId('mock');
-      
       return new Response(
-        JSON.stringify({ 
-          renderId: mockRenderId,
-          estimatedDuration: 30,
-          hasAudio: true,
-          hasCaptions: true,
-          isMockResponse: true
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Shotstack API key is not configured" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
 
@@ -192,54 +166,9 @@ serve(async (req) => {
     
     console.log(`Total video duration: ${totalDuration} seconds`);
 
-    // TESTING MODE: Use mock response for development/testing
-    if (API_KEY === "test" || API_KEY === "mocked") {
-      console.log("TESTING MODE: Using mocked Shotstack API response");
-      const mockRenderId = createMockRenderId('mock');
-      
-      try {
-        // Create a Supabase client
-        const supabase = createClient(
-          Deno.env.get("SUPABASE_URL") || "",
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
-        );
-        
-        // Update the project with the mock render ID
-        const { error: updateError } = await supabase
-          .from("video_projects")
-          .update({
-            render_id: mockRenderId,
-            status: "processing",
-            has_captions: hasCaptions,
-            has_audio: hasAudio,
-            narration_script: scriptToSave
-          })
-          .eq("id", actualProjectId);
-          
-        if (updateError) {
-          console.error("Error updating project with mock render ID:", updateError);
-        } else {
-          console.log(`Updated project ${actualProjectId} with mock render ID ${mockRenderId}`);
-        }
-      } catch (mockDbError) {
-        console.error("Error in mock DB update:", mockDbError);
-      }
-      
-      return new Response(
-        JSON.stringify({ 
-          renderId: mockRenderId,
-          estimatedDuration: totalDuration,
-          hasAudio: hasAudio,
-          hasCaptions: hasCaptions,
-          isMockResponse: true
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     try {
-      // Let's build a simpler test payload for Shotstack
-      const simpleTimeline = {
+      // Build timeline for Shotstack
+      const timeline = {
         background: "#000000",
         tracks: [
           {
@@ -259,12 +188,31 @@ serve(async (req) => {
                   src: scene.videoUrl
                 },
                 start: startPosition,
-                length: duration
+                length: duration,
+                transition: {
+                  in: "fade",
+                  out: "fade"
+                }
               };
             })
           }
         ]
       };
+
+      // Add audio track if provided
+      if (audioBase64 && audioBase64.length > 100) {
+        // We'd need to upload the audio to a storage location first
+        // This would typically be handled by another function
+        console.log("Audio provided, but direct base64 audio is not supported by Shotstack");
+        // Would need an additional step to convert base64 to URL
+      }
+
+      // Add text overlays for captions if enabled
+      if (hasCaptions && narrationScript) {
+        console.log("Captions enabled, adding text overlays");
+        // Would need to split narrationScript into segments and add as text overlays
+        // This would be a more complex implementation
+      }
 
       const output = {
         format: "mp4",
@@ -272,114 +220,43 @@ serve(async (req) => {
         aspectRatio: "16:9"
       };
 
-      const simplePayload = { 
-        timeline: simpleTimeline, 
+      const shotstackPayload = { 
+        timeline, 
         output 
       };
 
-      console.log("Sending simplified request to Shotstack API");
+      console.log("Sending request to Shotstack API");
       
-      // Add retry mechanism for Shotstack API calls
-      let shotStackRetries = 0;
-      const maxShotStackRetries = 2;
-      let shotStackData = null;
-      let shotStackError = null;
-      
-      while (shotStackRetries <= maxShotStackRetries && !shotStackData) {
+      // Call Shotstack API to render the video
+      const response = await fetch("https://api.shotstack.io/v1/render", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY
+        },
+        body: JSON.stringify(shotstackPayload)
+      });
+
+      if (!response.ok) {
+        let errorText = "";
         try {
-          // Call Shotstack API to render the video
-          const response = await fetch("https://api.shotstack.io/v1/render", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": API_KEY
-            },
-            body: JSON.stringify(simplePayload)
-          });
-    
-          if (!response.ok) {
-            let errorText = "";
-            try {
-              errorText = await response.text();
-            } catch (e) {
-              errorText = "Could not read error response";
-            }
-            console.error(`Shotstack API error response (attempt ${shotStackRetries + 1}):`, errorText);
-            shotStackRetries++;
-            if (shotStackRetries <= maxShotStackRetries) {
-              console.log(`Retrying Shotstack API call (${shotStackRetries}/${maxShotStackRetries})...`);
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
-              continue;
-            }
-            throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
-          }
-    
-          const data = await response.json();
-          console.log("Shotstack API response:", JSON.stringify(data));
-          
-          if (!data.response || !data.response.id) {
-            console.error(`Invalid response from Shotstack API (attempt ${shotStackRetries + 1}):`, data);
-            shotStackRetries++;
-            if (shotStackRetries <= maxShotStackRetries) {
-              console.log(`Retrying Shotstack API call (${shotStackRetries}/${maxShotStackRetries})...`);
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
-              continue;
-            }
-            throw new Error("Invalid response from Shotstack API");
-          }
-          
-          shotStackData = data;
-          console.log("Shotstack render ID:", data.response.id);
-          break;
-        } catch (apiAttemptError) {
-          console.error(`Error in Shotstack API call attempt ${shotStackRetries + 1}:`, apiAttemptError);
-          shotStackError = apiAttemptError;
-          shotStackRetries++;
-          if (shotStackRetries <= maxShotStackRetries) {
-            console.log(`Retrying Shotstack API call (${shotStackRetries}/${maxShotStackRetries})...`);
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
-          }
+          errorText = await response.text();
+        } catch (e) {
+          errorText = "Could not read error response";
         }
+        console.error(`Shotstack API error response:`, errorText);
+        throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("Shotstack API response:", JSON.stringify(data));
+      
+      if (!data.response || !data.response.id) {
+        console.error(`Invalid response from Shotstack API:`, data);
+        throw new Error("Invalid response from Shotstack API");
       }
       
-      // If we couldn't get a successful response after all retries, use mock response
-      if (!shotStackData) {
-        console.error("All Shotstack API attempts failed. Using mock response instead:", shotStackError);
-        const mockRenderId = createMockRenderId('error-mock');
-        
-        // Update project status to processing with mock render ID
-        try {
-          const { error: updateError } = await supabase
-            .from("video_projects")
-            .update({
-              render_id: mockRenderId,
-              status: "processing",
-              has_captions: hasCaptions,
-              has_audio: hasAudio
-            })
-            .eq("id", actualProjectId);
-            
-          if (updateError) {
-            console.error("Error updating project with mock render ID:", updateError);
-          }
-        } catch (mockDbError) {
-          console.error("Error in mock DB update:", mockDbError);
-        }
-        
-        return new Response(
-          JSON.stringify({ 
-            renderId: mockRenderId,
-            estimatedDuration: totalDuration,
-            hasAudio: hasAudio,
-            hasCaptions: hasCaptions,
-            error: shotStackError?.message,
-            isMockResponse: true
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      const renderId = shotStackData.response.id;
+      const renderId = data.response.id;
 
       // Update the project in Supabase with the render ID and metadata
       try {
@@ -433,34 +310,20 @@ serve(async (req) => {
         console.error("Error updating project status after API error:", statusError);
       }
       
-      // FALLBACK: Return mock response despite error
-      const mockRenderId = createMockRenderId('error-fallback');
       return new Response(
         JSON.stringify({ 
-          renderId: mockRenderId,
-          estimatedDuration: totalDuration,
-          hasAudio: hasAudio,
-          hasCaptions: hasCaptions,
-          error: apiError.message,
-          isMockResponse: true
+          error: apiError.message
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
   } catch (error) {
     console.error("Error in render-video function:", error);
-    // Return a fallback mock response so the frontend can still test
-    const mockRenderId = createMockRenderId('error-fallback');
     return new Response(
       JSON.stringify({ 
-        renderId: mockRenderId,
-        estimatedDuration: 20,
-        hasAudio: false,
-        hasCaptions: true,
-        error: error.message,
-        isMockResponse: true
+        error: error.message
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
 });

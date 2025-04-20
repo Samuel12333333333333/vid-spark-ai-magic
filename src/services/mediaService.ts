@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { SceneBreakdown } from "@/services/aiService"; // Import the SceneBreakdown type
 
@@ -25,15 +26,6 @@ export interface VoiceOption {
   id: string;
   name: string;
 }
-
-// Define reliable mock videos that are guaranteed to work
-const MOCK_VIDEOS = [
-  "https://assets.mixkit.co/videos/preview/mixkit-spinning-around-the-earth-29351-large.mp4",
-  "https://assets.mixkit.co/videos/preview/mixkit-daytime-city-traffic-aerial-view-56-large.mp4",
-  "https://assets.mixkit.co/videos/preview/mixkit-waves-in-the-water-1164-large.mp4",
-  "https://assets.mixkit.co/videos/preview/mixkit-young-woman-talking-with-coworker-in-the-office-27443-large.mp4",
-  "https://assets.mixkit.co/videos/preview/mixkit-digital-animation-of-a-city-of-the-future-10084-large.mp4"
-];
 
 export const mediaService = {
   validateVideoUrl(url?: string): string | undefined {
@@ -185,98 +177,37 @@ export const mediaService = {
       
       console.log(`Calling generate-audio function with script: "${finalScript}" and voiceId: ${voiceId}`);
       
-      // Add a retry mechanism for audio generation
-      let retries = 0;
-      const maxRetries = 2;
-      let audioData = null;
-      let audioError = null;
+      const { data, error } = await supabase.functions.invoke('generate-audio', {
+        body: { 
+          script: finalScript, 
+          voiceId, 
+          userId, 
+          projectId,
+          scenes: scenes || [] // Include scenes as fallback for generation
+        }
+      });
       
-      while (retries <= maxRetries && !audioData) {
-        try {
-          const { data, error } = await supabase.functions.invoke('generate-audio', {
-            body: { 
-              script: finalScript, 
-              voiceId, 
-              userId, 
-              projectId,
-              scenes: scenes || [] // Include scenes as fallback for generation
-            }
-          });
-          
-          if (error) {
-            console.error(`Audio generation attempt ${retries + 1} failed:`, error);
-            audioError = error;
-            retries++;
-            if (retries <= maxRetries) {
-              console.log(`Retrying audio generation (${retries}/${maxRetries})...`);
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
-            }
-            continue;
-          }
-          
-          if (!data) {
-            console.error(`Audio generation attempt ${retries + 1} returned no data`);
-            audioError = new Error('No data returned from generate-audio function');
-            retries++;
-            if (retries <= maxRetries) {
-              console.log(`Retrying audio generation (${retries}/${maxRetries})...`);
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
-            }
-            continue;
-          }
-          
-          if (!data.audioBase64) {
-            if (data.error) {
-              console.error(`Audio generation attempt ${retries + 1} returned error:`, data.error);
-              audioError = new Error(`Audio generation failed: ${data.error}`);
-            } else {
-              console.error(`Audio generation attempt ${retries + 1} returned no audio data`);
-              audioError = new Error('No audio data returned from generate-audio function');
-            }
-            retries++;
-            if (retries <= maxRetries) {
-              console.log(`Retrying audio generation (${retries}/${maxRetries})...`);
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
-            }
-            continue;
-          }
-          
-          // Verify that audioBase64 data looks valid
-          if (data.audioBase64.length < 100 || !data.audioBase64.match(/^[A-Za-z0-9+/=]+$/)) {
-            console.error(`Audio generation attempt ${retries + 1} returned invalid audio data`);
-            audioError = new Error('Invalid audio data received');
-            retries++;
-            if (retries <= maxRetries) {
-              console.log(`Retrying audio generation (${retries}/${maxRetries})...`);
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
-            }
-            continue;
-          }
-          
-          // Valid audio found
-          audioData = data;
-          console.log("Audio generation successful - audioBase64 length:", data.audioBase64.length);
-          console.log("Narration script used:", data.narrationScript || finalScript);
-          break;
-        } catch (attemptError) {
-          console.error(`Error in audio generation attempt ${retries + 1}:`, attemptError);
-          audioError = attemptError;
-          retries++;
-          if (retries <= maxRetries) {
-            console.log(`Retrying audio generation (${retries}/${maxRetries})...`);
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
-          }
+      if (error) {
+        console.error("Error generating audio:", error);
+        throw error;
+      }
+      
+      if (!data || !data.audioBase64) {
+        if (data?.error) {
+          console.error("Audio generation returned error:", data.error);
+          throw new Error(`Audio generation failed: ${data.error}`);
+        } else {
+          console.error("No audio data returned from generate-audio function");
+          throw new Error("No audio data returned from generate-audio function");
         }
       }
       
-      // If we couldn't generate audio after all retries, throw the last error
-      if (!audioData) {
-        throw audioError || new Error('Failed to generate audio after multiple attempts');
-      }
+      console.log("Audio generation successful - audioBase64 length:", data.audioBase64.length);
+      console.log("Narration script used:", data.narrationScript || finalScript);
       
       return {
-        audioBase64: audioData.audioBase64,
-        narrationScript: audioData.narrationScript || finalScript
+        audioBase64: data.audioBase64,
+        narrationScript: data.narrationScript || finalScript
       };
     } catch (error) {
       console.error('Error in generateAudio:', error);
@@ -302,72 +233,31 @@ export const mediaService = {
         throw new Error(`Some scenes are missing video URLs (${invalidScenes.length} of ${scenes.length})`);
       }
       
-      // Add retry mechanism
-      let attempts = 0;
-      const maxAttempts = 3;
-      
-      while (attempts < maxAttempts) {
-        attempts++;
-        try {
-          console.log(`Video render attempt ${attempts}`);
-          
-          const { data, error } = await supabase.functions.invoke("render-video", {
-            body: {
-              scenes,
-              userId,
-              projectId,
-              audioBase64,
-              includeCaptions,
-              narrationScript,
-              has_audio: !!audioBase64,
-              has_captions: !!includeCaptions
-            }
-          });
-          
-          if (error) {
-            console.error(`Video render attempt ${attempts} failed:`, error);
-            if (attempts < maxAttempts) {
-              console.log(`Retrying video render (${attempts}/${maxAttempts})...`);
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
-              continue;
-            }
-            throw error;
-          }
-          
-          if (!data) {
-            console.error(`Invalid response from render-video function (attempt ${attempts})`);
-            if (attempts < maxAttempts) {
-              console.log(`Retrying video render (${attempts}/${maxAttempts})...`);
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
-              continue;
-            }
-            throw new Error("Invalid response from render-video function");
-          }
-          
-          // Check if this is a mock response due to API issues
-          if (data.isMockResponse) {
-            console.log("Received mock response from render-video function:", data);
-            
-            if (data.error) {
-              console.warn(`Using mock render ID despite error: ${data.error}`);
-            }
-          }
-          
-          console.log(`Successfully obtained render ID: ${data.renderId}`);
-          return data.renderId;
-        } catch (attemptError) {
-          console.error(`Error in video render attempt ${attempts}:`, attemptError);
-          if (attempts < maxAttempts) {
-            console.log(`Retrying video render (${attempts}/${maxAttempts})...`);
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
-            continue;
-          }
-          throw attemptError;
+      const { data, error } = await supabase.functions.invoke("render-video", {
+        body: {
+          scenes,
+          userId,
+          projectId,
+          audioBase64,
+          includeCaptions,
+          narrationScript,
+          has_audio: !!audioBase64,
+          has_captions: !!includeCaptions
         }
+      });
+      
+      if (error) {
+        console.error("Error rendering video:", error);
+        throw error;
       }
       
-      // If all attempts fail, throw an error
-      throw new Error("All video render attempts failed");
+      if (!data || !data.renderId) {
+        console.error("Invalid response from render-video function:", data);
+        throw new Error("Invalid response from render-video function");
+      }
+      
+      console.log(`Successfully obtained render ID: ${data.renderId}`);
+      return data.renderId;
     } catch (error) {
       console.error("Error in renderVideo:", error);
       throw error;
@@ -378,27 +268,6 @@ export const mediaService = {
     try {
       console.log(`Checking render status for: ${renderId}`);
       
-      // Handle mock render IDs for testing (when Shotstack API is unavailable)
-      if (renderId.startsWith('mock-') || renderId.startsWith('error-mock-') || renderId.startsWith('error-fallback-')) {
-        console.log(`Mock render ID detected: ${renderId}. Using edge function to simulate render.`);
-        
-        // Instead of simulating locally, use the edge function for consistent behavior
-        const { data, error } = await supabase.functions.invoke("check-render-status", {
-          body: { renderId }
-        });
-        
-        if (error) {
-          console.error("Error checking mock render status:", error);
-          // Fall back to a working video URL on error
-          const mockVideoIndex = Math.floor(Math.random() * MOCK_VIDEOS.length);
-          return { status: 'done', url: MOCK_VIDEOS[mockVideoIndex], isFallback: true };
-        }
-        
-        console.log("Mock render status response:", data);
-        return data;
-      }
-      
-      // For real render IDs, proceed with the actual API check
       const { data, error } = await supabase.functions.invoke("check-render-status", {
         body: { renderId }
       });
@@ -412,14 +281,7 @@ export const mediaService = {
       return data;
     } catch (error) {
       console.error("Error in checkRenderStatus:", error);
-      
-      // Fallback to ensure UI doesn't get stuck - return a working video
-      const mockVideoIndex = Math.floor(Math.random() * MOCK_VIDEOS.length);
-      return { 
-        status: 'done', 
-        url: MOCK_VIDEOS[mockVideoIndex],
-        isFallback: true
-      };
+      throw error;
     }
   },
 
