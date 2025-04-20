@@ -31,8 +31,11 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
 
-      // Fix: Properly type the RPC call without using generics that conflict with constraints
-      const { data, error } = await supabase.rpc('get_video_usage');
+      // Using any here to bypass the TypeScript constraint for RPC calls
+      const { data, error } = await supabase.rpc('get_video_usage') as { 
+        data: VideoUsageResponse | null; 
+        error: any;
+      };
 
       if (error) {
         console.error("Usage error:", error);
@@ -44,11 +47,9 @@ export function useVideoLimits() {
       }
 
       if (data) {
-        // Explicitly cast data to our expected type
-        const typedData = data as VideoUsageResponse;
-        setUsageCount(typedData.count);
+        setUsageCount(data.count);
         setResetDate(
-          typedData.reset_at ? new Date(typedData.reset_at) : getDefaultResetDate()
+          data.reset_at ? new Date(data.reset_at) : getDefaultResetDate()
         );
       } else {
         setUsageCount(0);
@@ -72,8 +73,11 @@ export function useVideoLimits() {
     }
 
     try {
-      // Fix: Properly type the RPC call without using generics that conflict with constraints
-      const { data, error } = await supabase.rpc('increment_video_usage');
+      // Using any here to bypass the TypeScript constraint for RPC calls
+      const { data, error } = await supabase.rpc('increment_video_usage') as {
+        data: VideoUsageResponse | null;
+        error: any;
+      };
 
       if (error) {
         console.error("Error incrementing video usage:", error);
@@ -81,11 +85,9 @@ export function useVideoLimits() {
       }
 
       if (data) {
-        // Explicitly cast data to our expected type
-        const typedData = data as VideoUsageResponse;
-        setUsageCount(typedData.count);
+        setUsageCount(data.count);
         setResetDate(
-          typedData.reset_at ? new Date(typedData.reset_at) : getDefaultResetDate()
+          data.reset_at ? new Date(data.reset_at) : getDefaultResetDate()
         );
       } else {
         setUsageCount((prev) => prev + 1);
