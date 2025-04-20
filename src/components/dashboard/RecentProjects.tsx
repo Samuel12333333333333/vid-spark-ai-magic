@@ -74,46 +74,48 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
       {projects.map((project) => (
         <Card key={project.id} className="overflow-hidden">
           <div className="relative">
-            {project.video_url && project.status === "completed" ? (
-              <div className="w-full aspect-video bg-black overflow-hidden">
-                <video 
-                  id={`video-${project.id}`}
-                  className="w-full h-full object-cover" 
-                  poster={project.thumbnail_url || "/placeholder.svg"}
-                  muted
-                  preload="metadata"
-                  onLoadStart={() => handleVideoLoadStart(project.id)}
-                  onLoadedData={() => handleVideoLoaded(project.id)}
-                  onError={() => handleVideoError(project.id)}
-                >
-                  <source src={project.video_url} type="video/mp4" />
-                  Your browser does not support video playback.
-                </video>
-                <div 
-                  className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/40" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    playingVideo === project.id ? stopVideo() : playVideo(project.id);
-                  }}
-                >
-                  <div className="rounded-full bg-black/60 p-3">
-                    {playingVideo === project.id ? (
-                      <X className="h-8 w-8 text-white" />
-                    ) : (
-                      <Play className="h-8 w-8 text-white" />
-                    )}
+            <Link to={`/dashboard/videos/${project.id}`}>
+              {project.video_url && project.status === "completed" ? (
+                <div className="w-full aspect-video bg-black overflow-hidden">
+                  <video 
+                    id={`video-${project.id}`}
+                    className="w-full h-full object-cover" 
+                    poster={project.thumbnail_url || "/placeholder.svg"}
+                    muted
+                    preload="metadata"
+                    onLoadStart={() => handleVideoLoadStart(project.id)}
+                    onLoadedData={() => handleVideoLoaded(project.id)}
+                    onError={() => handleVideoError(project.id)}
+                  >
+                    <source src={project.video_url} type="video/mp4" />
+                    Your browser does not support video playback.
+                  </video>
+                  <div 
+                    className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/40" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      playingVideo === project.id ? stopVideo() : playVideo(project.id);
+                    }}
+                  >
+                    <div className="rounded-full bg-black/60 p-3">
+                      {playingVideo === project.id ? (
+                        <X className="h-8 w-8 text-white" />
+                      ) : (
+                        <Play className="h-8 w-8 text-white" />
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <img
-                src={project.thumbnail_url || "/placeholder.svg"}
-                alt={project.title}
-                className="w-full aspect-video object-cover"
-                loading="lazy"
-              />
-            )}
+              ) : (
+                <img
+                  src={project.thumbnail_url || "/placeholder.svg"}
+                  alt={project.title}
+                  className="w-full aspect-video object-cover"
+                  loading="lazy"
+                />
+              )}
+            </Link>
             {project.status === "processing" && (
               <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                 <div className="text-white text-sm font-medium px-3 py-1 bg-smartvid-600 rounded-full">
@@ -144,7 +146,9 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
           <CardContent className="p-3">
             <div className="flex justify-between items-start">
               <div>
-                <h3 className="font-medium text-sm line-clamp-1">{project.title}</h3>
+                <Link to={`/dashboard/videos/${project.id}`} className="hover:underline">
+                  <h3 className="font-medium text-sm line-clamp-1">{project.title}</h3>
+                </Link>
                 <p className="text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(project.created_at), { addSuffix: true })}
                 </p>

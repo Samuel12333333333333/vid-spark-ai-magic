@@ -20,6 +20,7 @@ import PaymentSuccessPage from "./pages/PaymentSuccessPage";
 // Dashboard Pages
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import VideosPage from "./pages/dashboard/VideosPage";
+import VideoDetailPage from "./pages/dashboard/VideoDetailPage";
 import TemplatesPage from "./pages/dashboard/TemplatesPage";
 import ScriptsPage from "./pages/dashboard/ScriptsPage";
 import GeneratorPage from "./pages/dashboard/GeneratorPage";
@@ -72,6 +73,7 @@ const App = () => {
                   >
                     <Route index element={<DashboardHome />} />
                     <Route path="videos" element={<VideosPage />} />
+                    <Route path="videos/:id" element={<VideoDetailPage />} />
                     <Route path="templates" element={<TemplatesPage />} />
                     <Route path="scripts" element={<ScriptsPage />} />
                     <Route path="generator" element={<GeneratorPage />} />

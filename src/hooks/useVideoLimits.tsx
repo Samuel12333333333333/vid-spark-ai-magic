@@ -30,8 +30,8 @@ export function useVideoLimits() {
       const { data, error } = await supabase.rpc('get_video_usage');
       
       if (error) {
-        console.info("Usage error:", error);
-        console.warning("Using default usage values due to error");
+        console.error("Usage error:", error);
+        console.error("Using default usage values due to error");
         
         // Default values if we can't get usage data
         setUsageCount(0);
