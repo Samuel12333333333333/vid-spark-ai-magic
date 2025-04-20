@@ -39,11 +39,9 @@ export default function GeneratorPage() {
           if (pexelsResult.error) {
             console.error('Error testing Pexels API key:', pexelsResult.error);
             setApiStatus(prev => ({ ...prev, pexels: 'error' }));
-            toast.error("Pexels API connection issue. Please check your API key.");
           } else if (!pexelsResult.data || !Array.isArray(pexelsResult.data.videos)) {
             console.error('Invalid response from Pexels API test:', pexelsResult.data);
             setApiStatus(prev => ({ ...prev, pexels: 'error' }));
-            toast.error("Pexels API returned invalid data");
           } else {
             console.log('Pexels API key test successful');
             setApiStatus(prev => ({ ...prev, pexels: 'ok' }));
@@ -51,24 +49,21 @@ export default function GeneratorPage() {
         } catch (pexelsError) {
           console.error('Exception testing Pexels API:', pexelsError);
           setApiStatus(prev => ({ ...prev, pexels: 'error' }));
-          toast.error("Pexels API connection failed");
         }
         
         // Check Gemini API with proper error handling
         try {
           setApiStatus(prev => ({ ...prev, gemini: 'checking' }));
           const geminiResult = await supabase.functions.invoke('generate-scenes', {
-            body: { prompt: "Test scene", type: "scene" }
+            body: { prompt: "Test scene" }
           });
           
           if (geminiResult.error) {
             console.error('Error testing Gemini API key:', geminiResult.error);
             setApiStatus(prev => ({ ...prev, gemini: 'error' }));
-            toast.error("Gemini API connection issue. Please check your API key.");
-          } else if (!geminiResult.data) {
+          } else if (!geminiResult.data || !geminiResult.data.scenes) {
             console.error('Invalid response from Gemini API test:', geminiResult);
             setApiStatus(prev => ({ ...prev, gemini: 'error' }));
-            toast.error("Gemini API returned invalid data");
           } else {
             console.log('Gemini API key test successful');
             setApiStatus(prev => ({ ...prev, gemini: 'ok' }));
@@ -76,38 +71,21 @@ export default function GeneratorPage() {
         } catch (geminiError) {
           console.error('Exception testing Gemini API:', geminiError);
           setApiStatus(prev => ({ ...prev, gemini: 'error' }));
-          toast.error("Gemini API connection failed");
         }
         
         // Check Shotstack API with proper error handling
         try {
           setApiStatus(prev => ({ ...prev, shotstack: 'checking' }));
-          
-          // Test Shotstack API with a minimal request that won't trigger a full render
-          const shotstackTestResult = await supabase.functions.invoke('render-video', {
-            body: { 
-              scenes: [{
-                id: "test-scene",
-                scene: "Test Scene",
-                description: "A test scene for API validation",
-                keywords: ["test"],
-                duration: 2,
-                videoUrl: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-              }],
-              userId: "test-user",
-              projectId: "test-project-" + Date.now(),
-              includeCaptions: true
-            }
+          const shotstackTestResult = await supabase.functions.invoke('test-shotstack', {
+            body: {} 
           });
           
           if (shotstackTestResult.error) {
             console.error('Error testing Shotstack API key:', shotstackTestResult.error);
             setApiStatus(prev => ({ ...prev, shotstack: 'error' }));
-            toast.error("Shotstack API connection issue. Please check your API key.");
-          } else if (!shotstackTestResult.data || !shotstackTestResult.data.renderId) {
+          } else if (!shotstackTestResult.data || !shotstackTestResult.data.success) {
             console.error('Invalid response from Shotstack API test:', shotstackTestResult);
             setApiStatus(prev => ({ ...prev, shotstack: 'error' }));
-            toast.error("Shotstack API returned invalid data");
           } else {
             console.log('Shotstack API test successful');
             setApiStatus(prev => ({ ...prev, shotstack: 'ok' }));
@@ -115,7 +93,6 @@ export default function GeneratorPage() {
         } catch (shotstackError) {
           console.error('Exception testing Shotstack API:', shotstackError);
           setApiStatus(prev => ({ ...prev, shotstack: 'error' }));
-          toast.error("Shotstack API connection failed");
         }
         
         // Check ElevenLabs API with proper error handling
@@ -136,15 +113,12 @@ export default function GeneratorPage() {
           if (elevenLabsResult.error) {
             console.error('Error testing ElevenLabs API key:', elevenLabsResult.error);
             setApiStatus(prev => ({ ...prev, elevenlabs: 'error' }));
-            toast.error("ElevenLabs API connection issue. Please check your API key.");
           } else if (!elevenLabsResult.data) {
             console.error('No data returned from ElevenLabs API test');
             setApiStatus(prev => ({ ...prev, elevenlabs: 'error' }));
-            toast.error("ElevenLabs API returned invalid data");
           } else if (!elevenLabsResult.data.audioBase64) {
             console.error('ElevenLabs API did not return audio data');
             setApiStatus(prev => ({ ...prev, elevenlabs: 'error' }));
-            toast.error("ElevenLabs API did not generate audio");
           } else {
             console.log('ElevenLabs API key test successful');
             setApiStatus(prev => ({ ...prev, elevenlabs: 'ok' }));
@@ -152,7 +126,6 @@ export default function GeneratorPage() {
         } catch (elevenLabsError) {
           console.error('Exception testing ElevenLabs API:', elevenLabsError);
           setApiStatus(prev => ({ ...prev, elevenlabs: 'error' }));
-          toast.error("ElevenLabs API connection failed");
         }
       } catch (error) {
         console.error('Error in checkApiKeys:', error);
