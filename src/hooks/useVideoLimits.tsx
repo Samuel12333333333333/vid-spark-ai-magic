@@ -36,14 +36,14 @@ export function useVideoLimits() {
     try {
       // Use raw RPC call with proper type casting
       const { data, error: usageError } = await supabase
-        .rpc<VideoUsageResponse>('get_video_usage')
+        .rpc<VideoUsageResponse, {}>('get_video_usage')
         .single();
 
       if (usageError) {
         if (usageError.message.includes('No rows found')) {
           // Create initial usage record if none exists
           const { data: newUsage, error: createError } = await supabase
-            .rpc<VideoUsageResponse>('initialize_video_usage');
+            .rpc<VideoUsageResponse, {}>('initialize_video_usage');
             
           if (createError) throw createError;
           
@@ -87,7 +87,7 @@ export function useVideoLimits() {
 
       // Increment usage using a stored procedure
       const { data, error } = await supabase
-        .rpc<VideoUsageResponse>('increment_video_usage');
+        .rpc<VideoUsageResponse, {}>('increment_video_usage');
 
       if (error) throw error;
       
