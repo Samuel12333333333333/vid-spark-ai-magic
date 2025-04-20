@@ -53,7 +53,7 @@ export default function UpgradePage() {
         "Basic AI voiceover",
       ],
       current: isPro,
-      priceId: "price_1RDLTHQOvLVQwvg3Ov3c2vwC",
+      priceId: "price_1OoGc4QOvLVQwvg3rZZKVVP3", // Updated price ID for Pro plan
     },
     {
       name: "Business",
@@ -73,7 +73,7 @@ export default function UpgradePage() {
         "API access",
       ],
       current: isBusiness,
-      priceId: "price_1RDLTRQOvLVQwvg37k3aLu6j",
+      priceId: "price_1OoGcTQOvLVQwvg3wgqYXNlx", // Updated price ID for Business plan
     },
   ];
 

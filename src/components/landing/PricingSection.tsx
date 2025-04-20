@@ -53,7 +53,7 @@ export function PricingSection() {
       ],
       cta: "Upgrade to Pro",
       popular: true,
-      priceId: "price_1RDLTHQOvLVQwvg3Ov3c2vwC", // Using a price ID, not product ID
+      priceId: "price_1OoGc4QOvLVQwvg3rZZKVVP3", // Updated price ID for Pro plan
     },
     {
       name: "Business",
@@ -74,7 +74,7 @@ export function PricingSection() {
       ],
       cta: "Upgrade to Business",
       popular: false,
-      priceId: "price_1RDLTRQOvLVQwvg37k3aLu6j", // Using a price ID, not product ID
+      priceId: "price_1OoGcTQOvLVQwvg3wgqYXNlx", // Updated price ID for Business plan
     },
   ];
 
@@ -92,6 +92,8 @@ export function PricingSection() {
 
     try {
       setIsLoading(plan.name);
+      
+      console.log("Creating checkout for plan:", plan.name, "with priceId:", plan.priceId);
       
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: {
