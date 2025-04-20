@@ -15,6 +15,13 @@ const MOCK_VIDEOS = [
   "https://assets.mixkit.co/videos/preview/mixkit-digital-animation-of-a-city-of-the-future-10084-large.mp4"
 ];
 
+// Helper function to create a timestamp-based mock ID
+function createMockRenderId(prefix = 'mock') {
+  // Use current timestamp in hex as part of the ID to enable time-based status updates
+  const timestamp = Date.now().toString(16);
+  return `${prefix}-${crypto.randomUUID()}-${timestamp}`;
+}
+
 serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === "OPTIONS") {
@@ -30,7 +37,7 @@ serve(async (req) => {
       
       // TESTING MODE: Return a mock response if the API key is missing
       console.log("TESTING MODE: Returning mock render ID for testing");
-      const mockRenderId = `mock-${crypto.randomUUID()}`;
+      const mockRenderId = createMockRenderId('mock');
       
       return new Response(
         JSON.stringify({ 
@@ -109,14 +116,14 @@ serve(async (req) => {
     }
 
     // Validate projectId is a valid UUID if it's a test project
+    let actualProjectId = projectId;
     if (projectId.startsWith("test-project-")) {
       // For testing purposes, create a random UUID instead of using the test string
-      const testProjectId = crypto.randomUUID();
-      console.log(`Converting test project ID ${projectId} to UUID ${testProjectId} for database compatibility`);
-      requestData.projectId = testProjectId;
+      actualProjectId = crypto.randomUUID();
+      console.log(`Converting test project ID ${projectId} to UUID ${actualProjectId} for database compatibility`);
     }
 
-    console.log(`Rendering video for project ${projectId} with ${scenes.length} scenes`);
+    console.log(`Rendering video for project ${actualProjectId} with ${scenes.length} scenes`);
     console.log(`Audio enabled: ${hasAudio ? 'Yes' : 'No'}`);
     console.log(`Captions enabled: ${hasCaptions ? 'Yes' : 'No'}`);
     
@@ -165,7 +172,7 @@ serve(async (req) => {
           has_audio: hasAudio,
           has_captions: hasCaptions
         })
-        .eq("id", projectId);
+        .eq("id", actualProjectId);
         
       if (updateNarrationError) {
         console.error("Error updating project narration script:", updateNarrationError);
@@ -185,26 +192,34 @@ serve(async (req) => {
     
     console.log(`Total video duration: ${totalDuration} seconds`);
 
-    // TESTING MODE: If we detect Shotstack API issues, return a mock response
-    // This allows testing the rest of the functionality
+    // TESTING MODE: Use mock response for development/testing
     if (API_KEY === "test" || API_KEY === "mocked") {
       console.log("TESTING MODE: Using mocked Shotstack API response");
-      const mockRenderId = `mock-${crypto.randomUUID()}`;
+      const mockRenderId = createMockRenderId('mock');
       
-      // Update the project with the mock render ID
       try {
+        // Create a Supabase client
+        const supabase = createClient(
+          Deno.env.get("SUPABASE_URL") || "",
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+        );
+        
+        // Update the project with the mock render ID
         const { error: updateError } = await supabase
           .from("video_projects")
           .update({
             render_id: mockRenderId,
             status: "processing",
             has_captions: hasCaptions,
-            has_audio: hasAudio
+            has_audio: hasAudio,
+            narration_script: scriptToSave
           })
-          .eq("id", projectId);
+          .eq("id", actualProjectId);
           
         if (updateError) {
           console.error("Error updating project with mock render ID:", updateError);
+        } else {
+          console.log(`Updated project ${actualProjectId} with mock render ID ${mockRenderId}`);
         }
       } catch (mockDbError) {
         console.error("Error in mock DB update:", mockDbError);
@@ -330,7 +345,7 @@ serve(async (req) => {
       // If we couldn't get a successful response after all retries, use mock response
       if (!shotStackData) {
         console.error("All Shotstack API attempts failed. Using mock response instead:", shotStackError);
-        const mockRenderId = `mock-${crypto.randomUUID()}`;
+        const mockRenderId = createMockRenderId('error-mock');
         
         // Update project status to processing with mock render ID
         try {
@@ -342,7 +357,7 @@ serve(async (req) => {
               has_captions: hasCaptions,
               has_audio: hasAudio
             })
-            .eq("id", projectId);
+            .eq("id", actualProjectId);
             
           if (updateError) {
             console.error("Error updating project with mock render ID:", updateError);
@@ -376,7 +391,7 @@ serve(async (req) => {
             has_captions: hasCaptions,
             has_audio: hasAudio
           })
-          .eq("id", projectId);
+          .eq("id", actualProjectId);
           
         if (updateError) {
           console.error("Error updating project in database:", updateError);
@@ -407,7 +422,7 @@ serve(async (req) => {
           .update({
             status: "failed"
           })
-          .eq("id", projectId);
+          .eq("id", actualProjectId);
           
         if (updateError) {
           console.error("Error updating project status to failed:", updateError);
@@ -419,7 +434,7 @@ serve(async (req) => {
       }
       
       // FALLBACK: Return mock response despite error
-      const mockRenderId = `error-mock-${crypto.randomUUID()}`;
+      const mockRenderId = createMockRenderId('error-fallback');
       return new Response(
         JSON.stringify({ 
           renderId: mockRenderId,
@@ -435,9 +450,10 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error in render-video function:", error);
     // Return a fallback mock response so the frontend can still test
+    const mockRenderId = createMockRenderId('error-fallback');
     return new Response(
       JSON.stringify({ 
-        renderId: `error-fallback-${crypto.randomUUID()}`,
+        renderId: mockRenderId,
         estimatedDuration: 20,
         hasAudio: false,
         hasCaptions: true,
