@@ -92,6 +92,14 @@ serve(async (req) => {
       );
     }
 
+    // Validate projectId is a valid UUID if it's a test project
+    if (projectId.startsWith("test-project-")) {
+      // For testing purposes, create a random UUID instead of using the test string
+      const testProjectId = crypto.randomUUID();
+      console.log(`Converting test project ID ${projectId} to UUID ${testProjectId} for database compatibility`);
+      requestData.projectId = testProjectId;
+    }
+
     console.log(`Rendering video for project ${projectId} with ${scenes.length} scenes`);
     console.log(`Audio enabled: ${hasAudio ? 'Yes' : 'No'}`);
     console.log(`Captions enabled: ${hasCaptions ? 'Yes' : 'No'}`);
@@ -317,7 +325,8 @@ serve(async (req) => {
               },
               start: 0,
               length: totalDuration,
-              effect: "fadeOut"
+              // Important: Changed from "fadeOut" to "none" as fadeOut is not supported for video clip effects
+              effect: "none"
             }]
           });
           
@@ -446,7 +455,8 @@ serve(async (req) => {
       // Choose a default soundtrack
       const soundtrack = {
         src: "https://shotstack-assets.s3-ap-southeast-2.amazonaws.com/music/unminus/palmtrees.mp3",
-        effect: "fadeOut"
+        // Changed from "fadeOut" to "none" since fadeOut is not a valid video effect
+        effect: "none"
       };
       
       tracks.push({

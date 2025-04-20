@@ -1,144 +1,112 @@
 
-import { useState, useEffect } from 'react';
-import { useSubscription } from "@/contexts/SubscriptionContext";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export interface VideoUsage {
+interface VideoUsageResponse {
   count: number;
   reset_at: string;
 }
 
-type RPCResponse = {
-  count: number;
-  reset_at: string;
-};
-
 export function useVideoLimits() {
-  const [usage, setUsage] = useState<VideoUsage | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { subscription } = useSubscription();
-  
-  const getLimit = () => {
-    if (!subscription) return 1; // Free tier
-    switch (subscription.plan_name.toLowerCase()) {
-      case 'business':
-        return 100;
-      case 'pro':
-        return 20;
-      default:
-        return 1;
-    }
-  };
+  const [usageCount, setUsageCount] = useState<number>(0);
+  const [resetDate, setResetDate] = useState<Date | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const maxVideosPerMonth = 5; // Free tier limit
 
-  const checkUsage = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Use the most basic approach for RPC calls
-      const { data, error: usageError } = await supabase
-        .rpc('get_video_usage')
-        .single();
-
-      if (usageError) {
-        console.log("Usage error:", usageError.message);
-        
-        if (usageError.message.includes('No rows found') || usageError.message.includes('does not exist')) {
-          console.log("No usage record found, creating initial usage");
-          
-          // Create initial usage record if none exists
-          const { data: newUsage, error: createError } = await supabase
-            .rpc('initialize_video_usage');
-            
-          if (createError) {
-            console.error("Error initializing usage:", createError);
-            throw createError;
-          }
-          
-          if (newUsage) {
-            const typedData = newUsage as unknown as RPCResponse;
-            setUsage({
-              count: typedData.count || 0,
-              reset_at: typedData.reset_at || new Date().toISOString()
-            });
-          }
-        } else {
-          // Fall back to default values if there's an error
-          console.warn("Using default usage values due to error");
-          setUsage({
-            count: 0,
-            reset_at: new Date().toISOString()
-          });
-        }
-      } else if (data) {
-        const typedData = data as unknown as RPCResponse;
-        setUsage({
-          count: typedData.count || 0,
-          reset_at: typedData.reset_at || new Date().toISOString()
-        });
-      }
-    } catch (error) {
-      console.error('Error checking video usage:', error);
-      // Don't show error toast, just use default values
-      setUsage({
-        count: 0,
-        reset_at: new Date().toISOString()
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const incrementUsage = async () => {
-    try {
-      const currentLimit = getLimit();
-      
-      if (!usage) {
-        await checkUsage();
-        return false;
-      }
-
-      // Check if usage would exceed limit
-      if (usage.count >= currentLimit) {
-        toast.error(`You've reached your monthly limit of ${currentLimit} videos. Please upgrade your plan for more.`);
-        return false;
-      }
-
-      // Increment usage using a stored procedure
-      const { data, error } = await supabase
-        .rpc('increment_video_usage');
-
-      if (error) {
-        console.error("Error incrementing usage:", error);
-        throw error;
-      }
-      
-      if (data) {
-        const typedData = data as unknown as RPCResponse;
-        setUsage({
-          count: typedData.count || 0,
-          reset_at: typedData.reset_at || new Date().toISOString()
-        });
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error incrementing video usage:', error);
-      // Continue anyway despite error
-      return true;
-    }
-  };
+  // Check if user can generate a video
+  const canGenerateVideo = usageCount < maxVideosPerMonth;
+  const remainingVideos = maxVideosPerMonth - usageCount;
 
   useEffect(() => {
     checkUsage();
   }, []);
 
+  const checkUsage = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch video usage from the database
+      const { data, error } = await supabase.rpc('get_video_usage');
+      
+      if (error) {
+        console.info("Usage error:", error);
+        console.warning("Using default usage values due to error");
+        
+        // Default values if we can't get usage data
+        setUsageCount(0);
+        setResetDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1));
+        return;
+      }
+      
+      if (data && Array.isArray(data) && data.length > 0) {
+        const usageData = data[0] as VideoUsageResponse;
+        setUsageCount(usageData.count || 0);
+        
+        if (usageData.reset_at) {
+          setResetDate(new Date(usageData.reset_at));
+        } else {
+          // Default to first day of next month if no reset date
+          setResetDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1));
+        }
+      } else {
+        // No data returned or empty array
+        setUsageCount(0);
+        setResetDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1));
+      }
+    } catch (error) {
+      console.error("Error checking video usage:", error);
+      
+      // Default values on error
+      setUsageCount(0);
+      setResetDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1));
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const incrementUsage = useCallback(async (): Promise<boolean> => {
+    if (!canGenerateVideo) {
+      toast.error(`You've reached your limit of ${maxVideosPerMonth} videos this month. Your limit will reset on ${resetDate?.toLocaleDateString()}.`);
+      return false;
+    }
+
+    try {
+      // Increment usage count in the database
+      const { data, error } = await supabase.rpc('increment_video_usage');
+      
+      if (error) {
+        console.error("Error incrementing video usage:", error);
+        return false;
+      }
+      
+      // Update local state based on response
+      if (data && Array.isArray(data) && data.length > 0) {
+        const usageData = data[0] as VideoUsageResponse;
+        setUsageCount(usageData.count || 0);
+        
+        if (usageData.reset_at) {
+          setResetDate(new Date(usageData.reset_at));
+        }
+      } else {
+        // If we can't get the updated count, increment locally
+        setUsageCount(prev => prev + 1);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Error incrementing video usage:", error);
+      return false;
+    }
+  }, [canGenerateVideo, maxVideosPerMonth, resetDate]);
+
   return {
-    usage,
+    usageCount,
+    resetDate,
     isLoading,
-    currentLimit: getLimit(),
-    remainingVideos: usage ? Math.max(0, getLimit() - usage.count) : getLimit(),
-    canGenerateVideo: usage ? usage.count < getLimit() : true,
-    incrementUsage
+    canGenerateVideo,
+    remainingVideos,
+    incrementUsage,
+    maxVideosPerMonth
   };
 }
