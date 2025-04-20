@@ -31,11 +31,8 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
 
-      // We need to use type assertion without explicit type parameters
-      const { data, error } = await supabase.functions.invoke("get_video_usage") as {
-        data: VideoUsageResponse | null;
-        error: any;
-      };
+      // Call the get_video_usage edge function
+      const { data, error } = await supabase.functions.invoke("get_video_usage");
 
       if (error) {
         console.error("Usage error:", error);
@@ -73,11 +70,8 @@ export function useVideoLimits() {
     }
 
     try {
-      // We need to use type assertion without explicit type parameters
-      const { data, error } = await supabase.functions.invoke("increment_video_usage") as {
-        data: VideoUsageResponse | null;
-        error: any;
-      };
+      // Call the increment_video_usage edge function
+      const { data, error } = await supabase.functions.invoke("increment_video_usage");
 
       if (error) {
         console.error("Error incrementing video usage:", error);

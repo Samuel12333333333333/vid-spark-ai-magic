@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,6 +82,12 @@ export function VideoGenerator() {
       }
     };
   }, [renderCheckInterval]);
+
+  // For debugging
+  useEffect(() => {
+    console.log("canGenerateVideo:", canGenerateVideo);
+    console.log("remainingVideos:", remainingVideos);
+  }, [canGenerateVideo, remainingVideos]);
 
   const videoStyles = [
     { value: "ad", label: "Advertisement" },
@@ -849,7 +856,7 @@ export function VideoGenerator() {
               </Button>
               <Button 
                 onClick={handleVideoGenerate} 
-                disabled={isGenerating || !canGenerateVideo} 
+                disabled={isGenerating || !textPrompt || (remainingVideos <= 0)}
                 className="bg-smartvid-600 hover:bg-smartvid-700"
               >
                 {isGenerating ? (
@@ -857,7 +864,7 @@ export function VideoGenerator() {
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Generating...
                   </>
-                ) : !canGenerateVideo ? (
+                ) : remainingVideos <= 0 ? (
                   <>
                     <AlertTriangle className="mr-2 h-4 w-4" />
                     Monthly Limit Reached
