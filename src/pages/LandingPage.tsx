@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -9,7 +8,7 @@ import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
 import { FAQSection } from "@/components/landing/FAQSection";
 import { CTASection } from "@/components/landing/CTASection";
 import { Footer } from "@/components/landing/Footer";
-import { FloatingHelpButton } from "@/components/landing/FloatingHelpButton";
+import { ChatBubble } from "@/components/landing/ChatBubble";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
@@ -134,7 +133,7 @@ export default function LandingPage() {
         <PricingSection />
         <FAQSection />
         <CTASection />
-        <FloatingHelpButton />
+        <ChatBubble />
       </main>
 
       <Footer />
