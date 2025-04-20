@@ -11,6 +11,7 @@ import { Footer } from "@/components/landing/Footer";
 import { FloatingHelpButton } from "@/components/landing/FloatingHelpButton";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 
 export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -18,11 +19,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 10) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
-      }
+      setIsScrolled(window.scrollY > 10);
     };
 
     window.addEventListener("scroll", handleScroll);
@@ -30,52 +27,45 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className={`
-        sticky top-0 z-40 w-full
-        transition-all duration-300 ease-in-out
-        ${isScrolled 
-          ? 'bg-white/80 backdrop-blur-lg dark:bg-gray-950/80 shadow-sm border-b border-gray-200 dark:border-gray-800' 
-          : 'bg-transparent border-transparent'}
-      `}>
+    <div className="min-h-screen flex flex-col bg-gradient-to-tl from-[#fdfbfb] via-[#ebedee] to-[#dfe9f3] dark:from-gray-900 dark:via-gray-950 dark:to-black">
+      <motion.header
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className={`
+          sticky top-0 z-40 w-full
+          transition-all duration-300 ease-in-out
+          ${isScrolled
+            ? 'bg-white/80 backdrop-blur-lg dark:bg-gray-900/80 shadow-md border-b border-gray-200 dark:border-gray-800'
+            : 'bg-transparent border-transparent'}
+        `}
+      >
         <div className="container flex h-16 items-center justify-between py-4">
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             className="flex items-center space-x-2 transition-transform duration-300 hover:scale-105"
           >
-            <svg 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              className="h-6 w-6 text-smartvid-600"
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-6 w-6 text-primary"
             >
-              <path d="m22 8-6 4 6 4V8Z"/>
-              <rect width="14" height="12" x="2" y="6" rx="2" ry="2"/>
+              <path d="m22 8-6 4 6 4V8Z" />
+              <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
             </svg>
             <span className="text-xl font-bold text-gray-900 dark:text-white">SmartVid</span>
           </Link>
 
           <nav className="hidden md:flex gap-6">
-            {[
-              ['Features', '#features'],
-              ['How It Works', '#how-it-works'],
-              ['Pricing', '#pricing'],
-              ['Testimonials', '#testimonials'],
-              ['FAQ', '#faq']
-            ].map(([label, href]) => (
+            {["Features", "How It Works", "Pricing", "Testimonials", "FAQ"].map((label) => (
               <Link
                 key={label}
-                to={href}
-                className="text-sm font-medium text-gray-600 dark:text-gray-300
-                  transition-all duration-300 ease-in-out
-                  hover:text-primary dark:hover:text-primary
-                  relative after:content-[''] after:absolute after:w-full after:scale-x-0
-                  after:h-0.5 after:bottom-0 after:left-0 after:bg-primary
-                  after:origin-bottom-right after:transition-transform after:duration-300
-                  hover:after:scale-x-100 hover:after:origin-bottom-left"
+                to={`#${label.toLowerCase().replace(/ /g, '-')}`}
+                className="text-sm font-semibold text-gray-700 dark:text-gray-300 transition-all hover:text-primary dark:hover:text-primary relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-0 after:left-0 after:bg-primary after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left"
               >
                 {label}
               </Link>
@@ -85,17 +75,10 @@ export default function LandingPage() {
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <div className="hidden md:flex gap-3">
-              <Button 
-                variant="ghost" 
-                asChild 
-                className="text-sm font-medium transition-colors duration-300"
-              >
+              <Button variant="ghost" asChild className="text-sm font-medium transition-colors duration-300">
                 <Link to="/login">Sign In</Link>
               </Button>
-              <Button 
-                className="bg-primary hover:bg-primary/90 transition-all duration-300 hover:scale-105" 
-                asChild
-              >
+              <Button className="bg-primary hover:bg-primary/90 transition-all duration-300 hover:scale-105" asChild>
                 <Link to="/register">Sign Up</Link>
               </Button>
             </div>
@@ -136,55 +119,35 @@ export default function LandingPage() {
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden border-t bg-white dark:bg-gray-950 pb-6 animate-slide-in-right">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="md:hidden border-t bg-white dark:bg-gray-950 pb-6 animate-slide-in-right"
+          >
             <nav className="flex flex-col space-y-4 p-4">
-              <Link
-                to="#features"
-                className="text-base font-medium text-gray-600 hover:text-smartvid-600 dark:text-gray-300 dark:hover:text-smartvid-500 py-2"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Features
-              </Link>
-              <Link
-                to="#how-it-works"
-                className="text-base font-medium text-gray-600 hover:text-smartvid-600 dark:text-gray-300 dark:hover:text-smartvid-500 py-2"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                How It Works
-              </Link>
-              <Link
-                to="#pricing"
-                className="text-base font-medium text-gray-600 hover:text-smartvid-600 dark:text-gray-300 dark:hover:text-smartvid-500 py-2"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Pricing
-              </Link>
-              <Link
-                to="#testimonials"
-                className="text-base font-medium text-gray-600 hover:text-smartvid-600 dark:text-gray-300 dark:hover:text-smartvid-500 py-2"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Testimonials
-              </Link>
-              <Link
-                to="#faq"
-                className="text-base font-medium text-gray-600 hover:text-smartvid-600 dark:text-gray-300 dark:hover:text-smartvid-500 py-2"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                FAQ
-              </Link>
+              {["Features", "How It Works", "Pricing", "Testimonials", "FAQ"].map((label) => (
+                <Link
+                  key={label}
+                  to={`#${label.toLowerCase().replace(/ /g, '-')}`}
+                  className="text-base font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-primary py-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {label}
+                </Link>
+              ))}
               <div className="flex flex-col gap-2 pt-2">
                 <Button variant="outline" asChild className="w-full">
                   <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Sign In</Link>
                 </Button>
-                <Button className="bg-smartvid-600 hover:bg-smartvid-700 w-full" asChild>
+                <Button className="bg-primary hover:bg-primary/90 w-full" asChild>
                   <Link to="/register" onClick={() => setMobileMenuOpen(false)}>Sign Up</Link>
                 </Button>
               </div>
             </nav>
-          </div>
+          </motion.div>
         )}
-      </header>
+      </motion.header>
 
       <main className="flex-1">
         <HeroSection />
@@ -193,6 +156,7 @@ export default function LandingPage() {
         <PricingSection />
         <FAQSection />
         <CTASection />
+        <FloatingHelpButton />
       </main>
 
       <Footer />
