@@ -30,11 +30,8 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
       
-      // Use the fetch API through the Supabase client to call the RPC function
-      const { data, error } = await supabase.from('video_usage')
-        .select('count, reset_at')
-        .limit(1)
-        .maybeSingle();
+      // Use supabase.rpc properly with explicit typing
+      const { data, error } = await supabase.rpc<VideoUsageResponse>('get_video_usage');
       
       if (error) {
         console.error("Usage error:", error);
@@ -69,14 +66,8 @@ export function useVideoLimits() {
     }
 
     try {
-      // Use a direct POST request using the REST API feature of Supabase
-      const { data, error } = await supabase.from('video_usage')
-        .upsert({ 
-          count: usageCount + 1, 
-          reset_at: resetDate?.toISOString() || getDefaultResetDate().toISOString() 
-        })
-        .select()
-        .single();
+      // Use supabase.rpc properly with explicit typing
+      const { data, error } = await supabase.rpc<VideoUsageResponse>('increment_video_usage');
       
       if (error) {
         console.error("Error incrementing video usage:", error);
@@ -95,7 +86,7 @@ export function useVideoLimits() {
       console.error("Error incrementing video usage:", error);
       return false;
     }
-  }, [canGenerateVideo, maxVideosPerMonth, resetDate, usageCount]);
+  }, [canGenerateVideo, maxVideosPerMonth, resetDate]);
 
   return {
     usageCount,
