@@ -30,10 +30,13 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
       
+      // Fix: Use a direct supabase call without type parameters in the rpc call
       const { data, error } = await supabase
-        .rpc('get_video_usage')
+        .from('rpc')
+        .select('*')
+        .eq('fn_name', 'get_video_usage')
+        .maybeSingle()
         .then(response => {
-          // Type assertion to match the expected return
           return {
             data: response.data as VideoUsageResponse | null,
             error: response.error
@@ -72,10 +75,13 @@ export function useVideoLimits() {
     }
 
     try {
+      // Fix: Use a direct supabase call without type parameters in the rpc call
       const { data, error } = await supabase
-        .rpc('increment_video_usage')
+        .from('rpc')
+        .select('*')
+        .eq('fn_name', 'increment_video_usage')
+        .maybeSingle()
         .then(response => {
-          // Type assertion to match the expected return
           return {
             data: response.data as VideoUsageResponse | null,
             error: response.error
