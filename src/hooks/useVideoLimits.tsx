@@ -30,18 +30,8 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
       
-      // Fix: Use a direct supabase call without type parameters in the rpc call
-      const { data, error } = await supabase
-        .from('rpc')
-        .select('*')
-        .eq('fn_name', 'get_video_usage')
-        .maybeSingle()
-        .then(response => {
-          return {
-            data: response.data as VideoUsageResponse | null,
-            error: response.error
-          };
-        });
+      // Call the RPC function directly with .rpc() method
+      const { data, error } = await supabase.rpc('get_video_usage');
       
       if (error) {
         console.error("Usage error:", error);
@@ -53,8 +43,10 @@ export function useVideoLimits() {
       }
       
       if (data) {
-        setUsageCount(data.count);
-        setResetDate(data.reset_at ? new Date(data.reset_at) : getDefaultResetDate());
+        // Handle the response properly
+        const typedData = data as VideoUsageResponse;
+        setUsageCount(typedData.count);
+        setResetDate(typedData.reset_at ? new Date(typedData.reset_at) : getDefaultResetDate());
       } else {
         setUsageCount(0);
         setResetDate(getDefaultResetDate());
@@ -75,18 +67,8 @@ export function useVideoLimits() {
     }
 
     try {
-      // Fix: Use a direct supabase call without type parameters in the rpc call
-      const { data, error } = await supabase
-        .from('rpc')
-        .select('*')
-        .eq('fn_name', 'increment_video_usage')
-        .maybeSingle()
-        .then(response => {
-          return {
-            data: response.data as VideoUsageResponse | null,
-            error: response.error
-          };
-        });
+      // Call the RPC function directly with .rpc() method
+      const { data, error } = await supabase.rpc('increment_video_usage');
       
       if (error) {
         console.error("Error incrementing video usage:", error);
@@ -94,8 +76,10 @@ export function useVideoLimits() {
       }
       
       if (data) {
-        setUsageCount(data.count);
-        setResetDate(data.reset_at ? new Date(data.reset_at) : getDefaultResetDate());
+        // Handle the response properly
+        const typedData = data as VideoUsageResponse;
+        setUsageCount(typedData.count);
+        setResetDate(typedData.reset_at ? new Date(typedData.reset_at) : getDefaultResetDate());
       } else {
         setUsageCount(prev => prev + 1);
       }
