@@ -31,8 +31,8 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
 
-      // Use the correct type assertion for Supabase RPC calls
-      const { data, error } = await supabase.rpc<VideoUsageResponse>('get_video_usage');
+      // Provide both return type and parameters type (empty object for params)
+      const { data, error } = await supabase.rpc<VideoUsageResponse, {}>('get_video_usage');
 
       if (error) {
         console.error("Usage error:", error);
@@ -70,8 +70,8 @@ export function useVideoLimits() {
     }
 
     try {
-      // Use the correct type assertion for Supabase RPC calls
-      const { data, error } = await supabase.rpc<VideoUsageResponse>('increment_video_usage');
+      // Provide both return type and parameters type (empty object for params)
+      const { data, error } = await supabase.rpc<VideoUsageResponse, {}>('increment_video_usage');
 
       if (error) {
         console.error("Error incrementing video usage:", error);
