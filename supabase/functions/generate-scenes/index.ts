@@ -58,7 +58,7 @@ serve(async (req) => {
       console.log("Calling Gemini API...");
       
       // Updated to use the correct Gemini API endpoint format
-      const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
       
       const response = await fetch(apiUrl, {
         method: "POST",
