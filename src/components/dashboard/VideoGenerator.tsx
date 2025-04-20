@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,7 +58,7 @@ export function VideoGenerator() {
 
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { canGenerateVideo, remainingVideos, incrementUsage } = useVideoLimits();
+  const { canGenerateVideo, remainingVideos, incrementUsage, isError: limitsError, refreshUsage } = useVideoLimits();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -83,11 +82,17 @@ export function VideoGenerator() {
     };
   }, [renderCheckInterval]);
 
-  // For debugging
   useEffect(() => {
-    console.log("canGenerateVideo:", canGenerateVideo);
-    console.log("remainingVideos:", remainingVideos);
-  }, [canGenerateVideo, remainingVideos]);
+    console.log("Video limits state:");
+    console.log("- canGenerateVideo:", canGenerateVideo);
+    console.log("- remainingVideos:", remainingVideos);
+    console.log("- Generate Video button should be enabled:", !isGenerating && textPrompt && remainingVideos > 0);
+    console.log("- Current text prompt:", textPrompt ? "Has content" : "Empty");
+  }, [canGenerateVideo, remainingVideos, isGenerating, textPrompt]);
+
+  useEffect(() => {
+    refreshUsage();
+  }, [refreshUsage]);
 
   const videoStyles = [
     { value: "ad", label: "Advertisement" },
@@ -347,6 +352,13 @@ export function VideoGenerator() {
   const handleVideoGenerate = async () => {
     if (!textPrompt) {
       toast.error("Please enter a text prompt for your video");
+      return;
+    }
+
+    await refreshUsage();
+    
+    if (remainingVideos <= 0) {
+      toast.error(`You've reached your monthly limit of videos. Please try again next month.`);
       return;
     }
 
@@ -856,7 +868,7 @@ export function VideoGenerator() {
               </Button>
               <Button 
                 onClick={handleVideoGenerate} 
-                disabled={isGenerating || !textPrompt || (remainingVideos <= 0)}
+                disabled={isGenerating || !textPrompt || remainingVideos <= 0}
                 className="bg-smartvid-600 hover:bg-smartvid-700"
               >
                 {isGenerating ? (
