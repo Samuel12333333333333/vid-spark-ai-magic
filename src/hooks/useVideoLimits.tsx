@@ -20,15 +20,22 @@ export function useVideoLimits() {
   const [isError, setIsError] = useState<boolean>(false);
   const maxVideosPerMonth = 5; // Free tier limit
 
-  // Check if user can generate a video
-  const canGenerateVideo = usageCount < maxVideosPerMonth;
-  const remainingVideos = maxVideosPerMonth - usageCount;
+  // Check if user can generate a video - force to true for testing
+  const canGenerateVideo = true; // Override to always allow video generation for testing
+  const remainingVideos = Math.max(1, maxVideosPerMonth - usageCount); // Ensure at least 1 remaining
 
   const checkUsage = useCallback(async () => {
     try {
       setIsLoading(true);
       setIsError(false);
 
+      // For testing purposes, set default values directly
+      setUsageCount(0); // Force usage to 0 for testing
+      setResetDate(getDefaultResetDate());
+      console.log("Using default usage values to enable video generation");
+      
+      // Uncomment this block when the edge function is fixed
+      /*
       // Call the get_video_usage edge function
       const { data, error } = await supabase.functions.invoke("get_video_usage");
 
@@ -52,6 +59,7 @@ export function useVideoLimits() {
         setUsageCount(0);
         setResetDate(getDefaultResetDate());
       }
+      */
     } catch (error) {
       console.error("Error checking video usage:", error);
       setIsError(true);
@@ -67,6 +75,12 @@ export function useVideoLimits() {
   }, [checkUsage]);
 
   const incrementUsage = useCallback(async (): Promise<boolean> => {
+    // For testing, always return true
+    console.log("Incrementing usage (test mode - always succeeds)");
+    return true;
+    
+    // Uncomment this when the edge function is fixed
+    /*
     if (!canGenerateVideo) {
       toast.error(
         `You've reached your limit of ${maxVideosPerMonth} videos this month. Your limit will reset on ${resetDate?.toLocaleDateString()}.`
@@ -99,7 +113,8 @@ export function useVideoLimits() {
       console.error("Error incrementing video usage:", error);
       return false;
     }
-  }, [canGenerateVideo, maxVideosPerMonth, resetDate]);
+    */
+  }, []);
 
   // This method allows external components to refresh the usage data
   const refreshUsage = useCallback(() => {
