@@ -29,7 +29,6 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-tl from-[#fdfbfb] via-[#ebedee] to-[#dfe9f3] dark:from-gray-900 dark:via-gray-950 dark:to-black">
-      {/* Header remains at the top */}
       <motion.header
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -61,18 +60,6 @@ export default function LandingPage() {
             </svg>
             <span className="text-xl font-bold text-gray-900 dark:text-white">SmartVid</span>
           </Link>
-
-          <nav className="hidden md:flex gap-6">
-            {["Features", "How It Works", "Pricing", "Testimonials", "FAQ"].map((label) => (
-              <Link
-                key={label}
-                to={`#${label.toLowerCase().replace(/ /g, '-')}`}
-                className="text-sm font-semibold text-gray-700 dark:text-gray-300 transition-all hover:text-primary dark:hover:text-primary relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-0 after:left-0 after:bg-primary after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left"
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
 
           <div className="flex items-center gap-4">
             <ThemeToggle />
@@ -128,16 +115,6 @@ export default function LandingPage() {
             className="md:hidden border-t bg-white dark:bg-gray-950 pb-6 animate-slide-in-right"
           >
             <nav className="flex flex-col space-y-4 p-4">
-              {["Features", "How It Works", "Pricing", "Testimonials", "FAQ"].map((label) => (
-                <Link
-                  key={label}
-                  to={`#${label.toLowerCase().replace(/ /g, '-')}`}
-                  className="text-base font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-primary py-2"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {label}
-                </Link>
-              ))}
               <div className="flex flex-col gap-2 pt-2">
                 <Button variant="outline" asChild className="w-full">
                   <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Sign In</Link>
@@ -151,15 +128,12 @@ export default function LandingPage() {
         )}
       </motion.header>
 
-      {/* Main content area */}
       <main className="flex-1">
         <HeroSection />
         <FeaturesSection />
         <TestimonialsSection />
         <PricingSection />
         <FAQSection />
-        
-        {/* Move CTA and Help Button to the bottom */}
         <CTASection />
         <FloatingHelpButton />
       </main>
