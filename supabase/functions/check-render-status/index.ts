@@ -110,7 +110,8 @@ serve(async (req) => {
         status: 'done', 
         url: MOCK_VIDEOS[0], 
         error: error.message,
-        isMock: true 
+        isMock: true,
+        isFallback: true
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

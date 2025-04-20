@@ -17,6 +17,8 @@ export interface VideoClip {
 export interface RenderStatus {
   status: string;
   url?: string;
+  isMock?: boolean;
+  isFallback?: boolean;
 }
 
 export interface VoiceOption {
@@ -372,7 +374,7 @@ export const mediaService = {
     }
   },
   
-  async checkRenderStatus(renderId: string): Promise<{ status: string; url?: string }> {
+  async checkRenderStatus(renderId: string): Promise<RenderStatus> {
     try {
       console.log(`Checking render status for: ${renderId}`);
       
@@ -389,7 +391,7 @@ export const mediaService = {
           console.error("Error checking mock render status:", error);
           // Fall back to a working video URL on error
           const mockVideoIndex = Math.floor(Math.random() * MOCK_VIDEOS.length);
-          return { status: 'done', url: MOCK_VIDEOS[mockVideoIndex] };
+          return { status: 'done', url: MOCK_VIDEOS[mockVideoIndex], isFallback: true };
         }
         
         console.log("Mock render status response:", data);
