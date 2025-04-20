@@ -53,7 +53,7 @@ export function PricingSection() {
       ],
       cta: "Upgrade to Pro",
       popular: true,
-      priceId: "price_1OoGc4QOvLVQwvg3rZZKVVP3", // Updated price ID for Pro plan
+      priceId: "price_1OoGvNQOvLVQwvg3xKYLpqWs", // Price ID for Pro plan
     },
     {
       name: "Business",
@@ -74,7 +74,7 @@ export function PricingSection() {
       ],
       cta: "Upgrade to Business",
       popular: false,
-      priceId: "price_1OoGcTQOvLVQwvg3wgqYXNlx", // Updated price ID for Business plan
+      priceId: "price_1OoGvpQOvLVQwvg3kXYlR8Nt", // Price ID for Business plan
     },
   ];
 
