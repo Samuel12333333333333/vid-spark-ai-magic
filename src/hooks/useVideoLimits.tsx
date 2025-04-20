@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-// Define the proper response type from the RPC function
+// Define proper types for the RPC functions
 interface VideoUsageResponse {
   count: number;
   reset_at: string;
@@ -30,8 +30,8 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
       
-      // Use supabase.rpc properly with explicit typing for both input and output
-      const { data, error } = await supabase.rpc<null, VideoUsageResponse>('get_video_usage');
+      const { data, error } = await supabase.rpc('get_video_usage')
+        .returns<VideoUsageResponse>();
       
       if (error) {
         console.error("Usage error:", error);
@@ -43,7 +43,6 @@ export function useVideoLimits() {
       }
       
       if (data) {
-        // Handle the response properly
         setUsageCount(data.count);
         setResetDate(data.reset_at ? new Date(data.reset_at) : getDefaultResetDate());
       } else {
@@ -66,8 +65,8 @@ export function useVideoLimits() {
     }
 
     try {
-      // Use supabase.rpc properly with explicit typing for both input and output
-      const { data, error } = await supabase.rpc<null, VideoUsageResponse>('increment_video_usage');
+      const { data, error } = await supabase.rpc('increment_video_usage')
+        .returns<VideoUsageResponse>();
       
       if (error) {
         console.error("Error incrementing video usage:", error);
