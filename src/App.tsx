@@ -74,6 +74,8 @@ const App = () => {
                 <Routes>
                   {/* Public Routes */}
                   <Route path="/" element={<LandingPage />} />
+                  <Route path="/login" element={<AuthPage />} />
+                  <Route path="/register" element={<AuthPage />} />
                   
                   {/* New marketing pages with MainLayout */}
                   <Route element={<MainLayout />}>

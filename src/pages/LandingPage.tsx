@@ -10,7 +10,6 @@ import { FAQSection } from "@/components/landing/FAQSection";
 import { CTASection } from "@/components/landing/CTASection";
 import { Footer } from "@/components/landing/Footer";
 import { FloatingHelpButton } from "@/components/landing/FloatingHelpButton";
-import { ChatBubble } from "@/components/chat/ChatBubble";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
@@ -139,7 +138,6 @@ export default function LandingPage() {
       </main>
 
       <Footer />
-      <ChatBubble />
     </div>
   );
 }
