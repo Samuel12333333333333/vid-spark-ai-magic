@@ -18,6 +18,7 @@ import { mediaService, VideoClip, VoiceOption } from "@/services/mediaService";
 import { videoService, VideoProject } from "@/services/videoService";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useVideoLimits } from "@/hooks/useVideoLimits";
 
 type GenerationStep = "script" | "style" | "media" | "branding" | "voiceover" | "generate" | "preview";
 
@@ -57,6 +58,7 @@ export function VideoGenerator() {
 
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { canGenerateVideo, remainingVideos, incrementUsage } = useVideoLimits();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -335,9 +337,14 @@ export function VideoGenerator() {
     }
   };
 
-  const handleVideoGenerate = () => {
+  const handleVideoGenerate = async () => {
     if (!textPrompt) {
       toast.error("Please enter a text prompt for your video");
+      return;
+    }
+
+    const canProceed = await incrementUsage();
+    if (!canProceed) {
       return;
     }
     
@@ -395,6 +402,13 @@ export function VideoGenerator() {
               ELEVEN_LABS_API_KEY - For voiceover generation {apiErrors.elevenlabs && "(Error detected)"}
             </li>
           </ul>
+        </AlertDescription>
+      </Alert>
+
+      <Alert className="mb-6">
+        <AlertTitle>Video Generation Limit</AlertTitle>
+        <AlertDescription>
+          You have {remainingVideos} video {remainingVideos === 1 ? 'generation' : 'generations'} remaining this month.
         </AlertDescription>
       </Alert>
 
@@ -835,13 +849,18 @@ export function VideoGenerator() {
               </Button>
               <Button 
                 onClick={handleVideoGenerate} 
-                disabled={isGenerating} 
+                disabled={isGenerating || !canGenerateVideo} 
                 className="bg-smartvid-600 hover:bg-smartvid-700"
               >
                 {isGenerating ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Generating...
+                  </>
+                ) : !canGenerateVideo ? (
+                  <>
+                    <AlertTriangle className="mr-2 h-4 w-4" />
+                    Monthly Limit Reached
                   </>
                 ) : (
                   <>
