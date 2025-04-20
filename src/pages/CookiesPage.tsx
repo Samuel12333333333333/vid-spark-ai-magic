@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Footer } from '@/components/landing/Footer';
@@ -120,20 +119,20 @@ export default function CookiesPage() {
           </ul>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">6. Managing Cookies</h2>
-          <p>Most web browsers allow you to control cookies through their settings. Here's how to manage cookies in the most popular browsers:</p>
+          <p>Most web browsers allow you to control cookies through their settings. Here&apos;s how to manage cookies in the most popular browsers:</p>
           <ul className="list-disc pl-6 mb-6">
-            <li><strong>Google Chrome:</strong> Click the three dots in the top right corner, then "Settings" > "Privacy and security" > "Cookies and other site data".</li>
-            <li><strong>Mozilla Firefox:</strong> Click the three lines in the top right corner, then "Options" > "Privacy & Security" > "Cookies and Site Data".</li>
-            <li><strong>Safari:</strong> Click "Safari" in the menu bar, then "Preferences" > "Privacy".</li>
-            <li><strong>Microsoft Edge:</strong> Click the three dots in the top right corner, then "Settings" > "Cookies and site permissions" > "Cookies and site data".</li>
+            <li><strong>Google Chrome:</strong> Click the three dots in the top right corner, then &quot;Settings&quot; &gt; &quot;Privacy and security&quot; &gt; &quot;Cookies and other site data&quot;.</li>
+            <li><strong>Mozilla Firefox:</strong> Click the three lines in the top right corner, then &quot;Options&quot; &gt; &quot;Privacy &amp; Security&quot; &gt; &quot;Cookies and Site Data&quot;.</li>
+            <li><strong>Safari:</strong> Click &quot;Safari&quot; in the menu bar, then &quot;Preferences&quot; &gt; &quot;Privacy&quot;.</li>
+            <li><strong>Microsoft Edge:</strong> Click the three dots in the top right corner, then &quot;Settings&quot; &gt; &quot;Cookies and site permissions&quot; &gt; &quot;Cookies and site data&quot;.</li>
           </ul>
           <p>Please note that restricting cookies may impact the functionality of our website and services.</p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">7. Cookie Consent</h2>
-          <p>When you first visit our website, we may ask for your consent to set cookies through a cookie banner. You can change your cookie preferences at any time by clicking on the "Cookie Settings" link in the footer of our website.</p>
+          <p>When you first visit our website, we may ask for your consent to set cookies through a cookie banner. You can change your cookie preferences at any time by clicking on the &quot;Cookie Settings&quot; link in the footer of our website.</p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">8. Updates to This Cookie Policy</h2>
-          <p>We may update this Cookie Policy from time to time. The updated version will be indicated by an updated "Last Updated" date at the top of this page. We encourage you to review this Cookie Policy periodically to stay informed about how we use cookies.</p>
+          <p>We may update this Cookie Policy from time to time. The updated version will be indicated by an updated &quot;Last Updated&quot; date at the top of this page. We encourage you to review this Cookie Policy periodically to stay informed about how we use cookies.</p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">9. Contact Us</h2>
           <p>If you have any questions about our use of cookies or this Cookie Policy, please contact us at: privacy@smartvid.ai</p>
