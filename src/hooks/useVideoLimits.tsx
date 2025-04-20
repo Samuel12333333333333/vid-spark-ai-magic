@@ -10,7 +10,8 @@ interface VideoUsageResponse {
 }
 
 // Helper function to get the default reset date
-const getDefaultResetDate = () => new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
+const getDefaultResetDate = () =>
+  new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
 
 export function useVideoLimits() {
   const [usageCount, setUsageCount] = useState<number>(0);
@@ -29,28 +30,27 @@ export function useVideoLimits() {
   const checkUsage = useCallback(async () => {
     try {
       setIsLoading(true);
-      
-      // Fix the type error by providing proper generic types to rpc
-      const { data, error } = await supabase.rpc<null, VideoUsageResponse>('get_video_usage', null)
-        .then(response => {
-          return response as unknown as { 
-            data: VideoUsageResponse | null, 
-            error: any 
-          };
-        });
-      
+
+      // Properly typed RPC call with no arguments
+      const { data, error } = await supabase.rpc<
+        VideoUsageResponse,
+        Record<string, never>
+      >("get_video_usage", {});
+
       if (error) {
         console.error("Usage error:", error);
         console.error("Using default usage values due to error");
-        
+
         setUsageCount(0);
         setResetDate(getDefaultResetDate());
         return;
       }
-      
+
       if (data) {
         setUsageCount(data.count);
-        setResetDate(data.reset_at ? new Date(data.reset_at) : getDefaultResetDate());
+        setResetDate(
+          data.reset_at ? new Date(data.reset_at) : getDefaultResetDate()
+        );
       } else {
         setUsageCount(0);
         setResetDate(getDefaultResetDate());
@@ -66,32 +66,33 @@ export function useVideoLimits() {
 
   const incrementUsage = useCallback(async (): Promise<boolean> => {
     if (!canGenerateVideo) {
-      toast.error(`You've reached your limit of ${maxVideosPerMonth} videos this month. Your limit will reset on ${resetDate?.toLocaleDateString()}.`);
+      toast.error(
+        `You've reached your limit of ${maxVideosPerMonth} videos this month. Your limit will reset on ${resetDate?.toLocaleDateString()}.`
+      );
       return false;
     }
 
     try {
-      // Fix the type error by providing proper generic types to rpc
-      const { data, error } = await supabase.rpc<null, VideoUsageResponse>('increment_video_usage', null)
-        .then(response => {
-          return response as unknown as { 
-            data: VideoUsageResponse | null, 
-            error: any 
-          };
-        });
-      
+      // Properly typed RPC call with no arguments
+      const { data, error } = await supabase.rpc<
+        VideoUsageResponse,
+        Record<string, never>
+      >("increment_video_usage", {});
+
       if (error) {
         console.error("Error incrementing video usage:", error);
         return false;
       }
-      
+
       if (data) {
         setUsageCount(data.count);
-        setResetDate(data.reset_at ? new Date(data.reset_at) : getDefaultResetDate());
+        setResetDate(
+          data.reset_at ? new Date(data.reset_at) : getDefaultResetDate()
+        );
       } else {
-        setUsageCount(prev => prev + 1);
+        setUsageCount((prev) => prev + 1);
       }
-      
+
       return true;
     } catch (error) {
       console.error("Error incrementing video usage:", error);
@@ -106,6 +107,6 @@ export function useVideoLimits() {
     canGenerateVideo,
     remainingVideos,
     incrementUsage,
-    maxVideosPerMonth
+    maxVideosPerMonth,
   };
 }
