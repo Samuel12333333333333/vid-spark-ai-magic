@@ -31,8 +31,8 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
 
-      // Provide both return type and parameters type (empty object for params)
-      const { data, error } = await supabase.rpc<VideoUsageResponse, {}>('get_video_usage');
+      // Fix: Properly type the RPC call without using generics that conflict with constraints
+      const { data, error } = await supabase.rpc('get_video_usage');
 
       if (error) {
         console.error("Usage error:", error);
@@ -44,9 +44,11 @@ export function useVideoLimits() {
       }
 
       if (data) {
-        setUsageCount(data.count);
+        // Explicitly cast data to our expected type
+        const typedData = data as VideoUsageResponse;
+        setUsageCount(typedData.count);
         setResetDate(
-          data.reset_at ? new Date(data.reset_at) : getDefaultResetDate()
+          typedData.reset_at ? new Date(typedData.reset_at) : getDefaultResetDate()
         );
       } else {
         setUsageCount(0);
@@ -70,8 +72,8 @@ export function useVideoLimits() {
     }
 
     try {
-      // Provide both return type and parameters type (empty object for params)
-      const { data, error } = await supabase.rpc<VideoUsageResponse, {}>('increment_video_usage');
+      // Fix: Properly type the RPC call without using generics that conflict with constraints
+      const { data, error } = await supabase.rpc('increment_video_usage');
 
       if (error) {
         console.error("Error incrementing video usage:", error);
@@ -79,9 +81,11 @@ export function useVideoLimits() {
       }
 
       if (data) {
-        setUsageCount(data.count);
+        // Explicitly cast data to our expected type
+        const typedData = data as VideoUsageResponse;
+        setUsageCount(typedData.count);
         setResetDate(
-          data.reset_at ? new Date(data.reset_at) : getDefaultResetDate()
+          typedData.reset_at ? new Date(typedData.reset_at) : getDefaultResetDate()
         );
       } else {
         setUsageCount((prev) => prev + 1);
