@@ -3,14 +3,10 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Define the proper response type from the RPC function
 interface VideoUsageResponse {
   count: number;
   reset_at: string;
-}
-
-interface UsageData {
-  count: number;
-  reset_at: string | null;
 }
 
 export function useVideoLimits() {
@@ -31,6 +27,7 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
       
+      // Update the RPC call to match the expected return type
       const { data, error } = await supabase
         .rpc<VideoUsageResponse>('get_video_usage');
       
@@ -71,6 +68,7 @@ export function useVideoLimits() {
     }
 
     try {
+      // Update the RPC call to match the expected return type
       const { data, error } = await supabase
         .rpc<VideoUsageResponse>('increment_video_usage');
       
