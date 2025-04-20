@@ -205,89 +205,116 @@ serve(async (req) => {
       }
     };
 
-    // Call ElevenLabs API to generate audio
-    try {
-      console.log("Calling ElevenLabs API with voice ID:", selectedVoiceId);
-      
-      // Make the API call with proper error handling
-      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "xi-api-key": ELEVEN_LABS_API_KEY,
-          "Accept": "audio/mpeg"
-        },
-        body: JSON.stringify(ttsPayload)
-      });
+    // Add a retry mechanism for ElevenLabs API calls
+    let retries = 0;
+    const maxRetries = 3;
+    let audioBuffer = null;
+    let audioError = null;
+    
+    while (retries <= maxRetries && !audioBuffer) {
+      try {
+        console.log(`ElevenLabs API call attempt ${retries + 1} with voice ID: ${selectedVoiceId}`);
+        
+        // Make the API call with proper error handling
+        const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "xi-api-key": ELEVEN_LABS_API_KEY,
+            "Accept": "audio/mpeg"
+          },
+          body: JSON.stringify(ttsPayload)
+        });
 
-      if (!response.ok) {
-        let errorDetails = "";
-        try {
-          const errorData = await response.json();
-          errorDetails = JSON.stringify(errorData);
-          console.error("ElevenLabs API error response:", errorDetails);
-        } catch (e) {
-          const errorText = await response.text();
-          errorDetails = errorText.substring(0, 500);
-          console.error("ElevenLabs API error response (text):", errorDetails);
+        if (!response.ok) {
+          let errorDetails = "";
+          try {
+            const errorData = await response.json();
+            errorDetails = JSON.stringify(errorData);
+            console.error(`ElevenLabs API error response (attempt ${retries + 1}):`, errorDetails);
+          } catch (e) {
+            const errorText = await response.text();
+            errorDetails = errorText.substring(0, 500);
+            console.error(`ElevenLabs API error response (text) (attempt ${retries + 1}):`, errorDetails);
+          }
+          
+          retries++;
+          if (retries <= maxRetries) {
+            console.log(`Retrying ElevenLabs API call (${retries}/${maxRetries})...`);
+            // Use an exponential backoff for retries
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries - 1))); 
+            continue;
+          }
+          
+          throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}. Details: ${errorDetails}`);
+        }
+
+        // Get audio data as ArrayBuffer
+        audioBuffer = await response.arrayBuffer();
+        
+        if (!audioBuffer || audioBuffer.byteLength === 0) {
+          console.error(`Received empty audio data from ElevenLabs (attempt ${retries + 1})`);
+          retries++;
+          if (retries <= maxRetries) {
+            console.log(`Retrying ElevenLabs API call (${retries}/${maxRetries})...`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries - 1)));
+            continue;
+          }
+          
+          throw new Error("Received empty audio data from ElevenLabs after multiple attempts");
         }
         
-        throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}. Details: ${errorDetails}`);
+        console.log(`Received audio data with size: ${audioBuffer.byteLength} bytes`);
+        break;
+      } catch (attemptError) {
+        console.error(`Error in ElevenLabs API call attempt ${retries + 1}:`, attemptError);
+        audioError = attemptError;
+        retries++;
+        if (retries <= maxRetries) {
+          console.log(`Retrying ElevenLabs API call (${retries}/${maxRetries})...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries - 1)));
+        }
       }
-
-      // Get audio data as ArrayBuffer
-      const audioBuffer = await response.arrayBuffer();
-      
-      if (!audioBuffer || audioBuffer.byteLength === 0) {
-        console.error("Received empty audio data from ElevenLabs");
-        throw new Error("Received empty audio data from ElevenLabs");
-      }
-      
-      console.log(`Received audio data with size: ${audioBuffer.byteLength} bytes`);
-      
-      // Convert to base64 for storage - using a safer approach with chunks
-      let base64Audio = '';
-      const chunks = [];
-      const bytes = new Uint8Array(audioBuffer);
-      const chunkSize = 1024;
-      
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        const chunk = bytes.slice(i, i + chunkSize);
-        chunks.push(String.fromCharCode.apply(null, chunk));
-      }
-      
-      base64Audio = btoa(chunks.join(''));
-      
-      console.log(`Audio data converted to base64 (length: ${base64Audio.length})`);
-      console.log("Audio generation successful, returning data");
-
-      return new Response(
-        JSON.stringify({ 
-          audioBase64: base64Audio,
-          format: "mp3",
-          voiceId: selectedVoiceId,
-          narrationScript: narrationScript,
-          voiceName: AVAILABLE_VOICES.find(v => v.id === selectedVoiceId)?.name || "Unknown Voice"
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } catch (audioError) {
-      console.error("Error generating audio with ElevenLabs:", audioError);
-      
-      // Improved error response
-      return new Response(
-        JSON.stringify({ 
-          error: "Failed to generate audio with ElevenLabs API", 
-          details: audioError.message 
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
     }
-  } catch (error) {
-    console.error("Error in generate-audio function:", error);
+    
+    // If we couldn't get audio after all retries, throw the last error
+    if (!audioBuffer) {
+      throw audioError || new Error('Failed to generate audio after multiple attempts');
+    }
+    
+    // Convert to base64 for storage - using a safer approach with chunks
+    let base64Audio = '';
+    const chunks = [];
+    const bytes = new Uint8Array(audioBuffer);
+    const chunkSize = 1024;
+    
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.slice(i, i + chunkSize);
+      chunks.push(String.fromCharCode.apply(null, chunk));
+    }
+    
+    base64Audio = btoa(chunks.join(''));
+    
+    console.log(`Audio data converted to base64 (length: ${base64Audio.length})`);
+    console.log("Audio generation successful, returning data");
+
     return new Response(
       JSON.stringify({ 
-        error: "Error generating audio", 
+        audioBase64: base64Audio,
+        format: "mp3",
+        voiceId: selectedVoiceId,
+        narrationScript: narrationScript,
+        voiceName: AVAILABLE_VOICES.find(v => v.id === selectedVoiceId)?.name || "Unknown Voice"
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Error in generate-audio function:", error);
+    
+    // Improved error response
+    return new Response(
+      JSON.stringify({ 
+        error: "Failed to generate audio with ElevenLabs API", 
         details: error.message 
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }

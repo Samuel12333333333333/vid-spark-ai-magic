@@ -149,13 +149,15 @@ export const mediaService = {
           console.log(`Generated script from scenes: "${finalScript}"`);
         } catch (scriptError) {
           console.error("Error generating script from scenes:", scriptError);
-          throw new Error("Failed to generate narration script");
+          finalScript = "Journey with us through this visual story.";
+          console.log("Using fallback script:", finalScript);
         }
       }
       
       // Ensure we have a valid script
       if (!finalScript || finalScript.trim() === "") {
-        throw new Error("No valid script provided or generated");
+        finalScript = "Journey with us through this visual story.";
+        console.log("Using default fallback script:", finalScript);
       }
       
       // Sanitize the script - important for ElevenLabs
@@ -172,46 +174,98 @@ export const mediaService = {
       
       console.log(`Calling generate-audio function with script: "${finalScript}" and voiceId: ${voiceId}`);
       
-      const { data, error } = await supabase.functions.invoke('generate-audio', {
-        body: { 
-          script: finalScript, 
-          voiceId, 
-          userId, 
-          projectId
+      // Add a retry mechanism for audio generation
+      let retries = 0;
+      const maxRetries = 2;
+      let audioData = null;
+      let audioError = null;
+      
+      while (retries <= maxRetries && !audioData) {
+        try {
+          const { data, error } = await supabase.functions.invoke('generate-audio', {
+            body: { 
+              script: finalScript, 
+              voiceId, 
+              userId, 
+              projectId,
+              scenes: scenes || [] // Include scenes as fallback for generation
+            }
+          });
+          
+          if (error) {
+            console.error(`Audio generation attempt ${retries + 1} failed:`, error);
+            audioError = error;
+            retries++;
+            if (retries <= maxRetries) {
+              console.log(`Retrying audio generation (${retries}/${maxRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+            }
+            continue;
+          }
+          
+          if (!data) {
+            console.error(`Audio generation attempt ${retries + 1} returned no data`);
+            audioError = new Error('No data returned from generate-audio function');
+            retries++;
+            if (retries <= maxRetries) {
+              console.log(`Retrying audio generation (${retries}/${maxRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+            }
+            continue;
+          }
+          
+          if (!data.audioBase64) {
+            if (data.error) {
+              console.error(`Audio generation attempt ${retries + 1} returned error:`, data.error);
+              audioError = new Error(`Audio generation failed: ${data.error}`);
+            } else {
+              console.error(`Audio generation attempt ${retries + 1} returned no audio data`);
+              audioError = new Error('No audio data returned from generate-audio function');
+            }
+            retries++;
+            if (retries <= maxRetries) {
+              console.log(`Retrying audio generation (${retries}/${maxRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+            }
+            continue;
+          }
+          
+          // Verify that audioBase64 data looks valid
+          if (data.audioBase64.length < 100 || !data.audioBase64.match(/^[A-Za-z0-9+/=]+$/)) {
+            console.error(`Audio generation attempt ${retries + 1} returned invalid audio data`);
+            audioError = new Error('Invalid audio data received');
+            retries++;
+            if (retries <= maxRetries) {
+              console.log(`Retrying audio generation (${retries}/${maxRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+            }
+            continue;
+          }
+          
+          // Valid audio found
+          audioData = data;
+          console.log("Audio generation successful - audioBase64 length:", data.audioBase64.length);
+          console.log("Narration script used:", data.narrationScript || finalScript);
+          break;
+        } catch (attemptError) {
+          console.error(`Error in audio generation attempt ${retries + 1}:`, attemptError);
+          audioError = attemptError;
+          retries++;
+          if (retries <= maxRetries) {
+            console.log(`Retrying audio generation (${retries}/${maxRetries})...`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          }
         }
-      });
-      
-      if (error) {
-        console.error('Error generating audio:', error);
-        throw error;
       }
       
-      if (!data) {
-        console.error('No data returned from generate-audio function');
-        throw new Error('Failed to generate audio content');
+      // If we couldn't generate audio after all retries, throw the last error
+      if (!audioData) {
+        throw audioError || new Error('Failed to generate audio after multiple attempts');
       }
-      
-      if (!data.audioBase64) {
-        if (data.error) {
-          console.error('Audio generation error:', data.error);
-          throw new Error(`Audio generation failed: ${data.error}`);
-        }
-        console.error('No audio data returned from generate-audio function');
-        throw new Error('Failed to generate audio content');
-      }
-      
-      // Verify that audioBase64 data looks valid
-      if (data.audioBase64.length < 100 || !data.audioBase64.match(/^[A-Za-z0-9+/=]+$/)) {
-        console.error('Invalid audio data returned from generate-audio function');
-        throw new Error('Invalid audio data received');
-      }
-      
-      console.log("Audio generation successful - audioBase64 length:", data.audioBase64.length);
-      console.log("Narration script used:", data.narrationScript || finalScript);
       
       return {
-        audioBase64: data.audioBase64,
-        narrationScript: data.narrationScript || finalScript
+        audioBase64: audioData.audioBase64,
+        narrationScript: audioData.narrationScript || finalScript
       };
     } catch (error) {
       console.error('Error in generateAudio:', error);
@@ -270,64 +324,160 @@ export const mediaService = {
       }
       
       // Validate audio data if provided
+      let hasAudio = false;
       if (audioBase64) {
         if (audioBase64.length < 100 || !audioBase64.match(/^[A-Za-z0-9+/=]+$/)) {
           console.error('Invalid audio data, will proceed without audio');
           audioBase64 = undefined;
         } else {
-          // Log audio data length for debugging
+          // Audio data is valid
+          hasAudio = true;
           console.log(`Audio base64 data length: ${audioBase64.length}`);
         }
       }
       
       // Sanitize narration script if provided
       let finalNarrationScript = narrationScript;
-      if (finalNarrationScript) {
-        finalNarrationScript = finalNarrationScript
-          .replace(/\.\.+/g, '.') // Replace multiple periods with a single one
-          .replace(/\s+/g, ' ')   // Replace multiple spaces with a single one
-          .trim();                // Trim whitespace
+      if (!finalNarrationScript || finalNarrationScript.trim() === '') {
+        // Generate a script from scene descriptions as fallback
+        finalNarrationScript = scenes
+          .map(scene => scene.description || scene.scene || "")
+          .filter(text => text.trim() !== "")
+          .join(". ");
+        
+        if (finalNarrationScript) {
+          console.log(`Generated fallback narration from scenes: ${finalNarrationScript.substring(0, 100)}...`);
+        } else {
+          finalNarrationScript = "Experience this visual journey with us.";
+          console.log("Using default narration:", finalNarrationScript);
+        }
       }
       
-      // Prepare the payload - ensure all fields are properly defined
+      // Clean up the narration script
+      finalNarrationScript = finalNarrationScript
+        .replace(/\.\.+/g, '.') // Replace multiple periods with a single one
+        .replace(/\s+/g, ' ')   // Replace multiple spaces with a single one
+        .trim();                // Trim whitespace
+      
+      // Prepare the payload with explicit boolean values
       const payload = { 
         scenes, 
         userId, 
         projectId, 
         audioBase64, 
-        includeCaptions: !!includeCaptions, // Ensure boolean
-        narrationScript: finalNarrationScript || "" // Ensure string 
+        includeCaptions: includeCaptions === true, 
+        narrationScript: finalNarrationScript,
+        // Add explicit flags for better debugging
+        has_audio: hasAudio,
+        has_captions: includeCaptions === true
       };
       
       // Call the edge function with detailed logging
       console.log("Sending request to render-video function with payload structure:", {
         scenesCount: scenes.length,
-        hasAudio: !!audioBase64,
+        hasAudio: hasAudio,
         audioLength: audioBase64?.length || 0,
-        includesCaptions: !!includeCaptions,
+        includesCaptions: includeCaptions === true,
         hasNarrationScript: !!finalNarrationScript,
         narrationScriptLength: finalNarrationScript?.length || 0
       });
       
-      const { data, error } = await supabase.functions.invoke('render-video', {
-        body: payload
-      });
+      // Add retry mechanism for video rendering
+      let retries = 0;
+      const maxRetries = 2;
+      let renderData = null;
+      let renderError = null;
       
-      if (error) {
-        console.error('Error rendering video:', error);
-        throw error;
+      while (retries <= maxRetries && !renderData) {
+        try {
+          const { data, error } = await supabase.functions.invoke('render-video', {
+            body: payload
+          });
+          
+          if (error) {
+            console.error(`Video render attempt ${retries + 1} failed:`, error);
+            renderError = error;
+            retries++;
+            if (retries <= maxRetries) {
+              console.log(`Retrying video render (${retries}/${maxRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+              continue;
+            }
+            throw error;
+          }
+          
+          if (!data || !data.renderId) {
+            console.error(`Video render attempt ${retries + 1} returned no render ID`);
+            renderError = new Error('Failed to start video rendering process');
+            retries++;
+            if (retries <= maxRetries) {
+              console.log(`Retrying video render (${retries}/${maxRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+              continue;
+            }
+            throw new Error('Failed to start video rendering process');
+          }
+          
+          renderData = data;
+          console.log("Render started with ID:", data.renderId);
+          break;
+        } catch (attemptError) {
+          console.error(`Error in video render attempt ${retries + 1}:`, attemptError);
+          renderError = attemptError;
+          retries++;
+          if (retries <= maxRetries) {
+            console.log(`Retrying video render (${retries}/${maxRetries})...`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          }
+        }
       }
       
-      if (!data || !data.renderId) {
-        console.error('No render ID returned from render-video function');
-        throw new Error('Failed to start video rendering process');
+      // If we couldn't render after all retries, throw the last error
+      if (!renderData) {
+        throw renderError || new Error('Failed to render video after multiple attempts');
       }
       
-      console.log("Render started with ID:", data.renderId);
+      // Store metadata about the render for debugging purposes
+      try {
+        const { error: updateError } = await supabase
+          .from("video_projects")
+          .update({
+            has_audio: hasAudio,
+            has_captions: includeCaptions === true,
+            narration_script: finalNarrationScript
+          })
+          .eq("id", projectId);
+          
+        if (updateError) {
+          console.error("Error updating video project with metadata:", updateError);
+        } else {
+          console.log("Successfully stored render metadata in project");
+        }
+      } catch (metadataError) {
+        console.error("Error storing render metadata:", metadataError);
+      }
       
-      return data.renderId;
+      return renderData.renderId;
     } catch (error) {
       console.error('Error in renderVideo:', error);
+      
+      // Update project status to failed
+      try {
+        const { error: updateError } = await supabase
+          .from("video_projects")
+          .update({
+            status: "failed",
+            render_id: null
+          })
+          .eq("id", projectId);
+          
+        if (updateError) {
+          console.error("Error updating project status to failed:", updateError);
+        }
+      } catch (statusError) {
+        console.error("Error updating project status:", statusError);
+      }
+      
       throw error;
     }
   },

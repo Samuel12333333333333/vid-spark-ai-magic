@@ -45,16 +45,35 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
     const requestData = await req.json();
+    
+    // Log the full request data for debugging
+    console.log("Full render-video request data:", JSON.stringify(requestData));
+    
     console.log("Request received for render-video:", JSON.stringify({
       scenesCount: requestData.scenes?.length || 0,
       userId: requestData.userId,
       projectId: requestData.projectId,
       audioProvided: !!requestData.audioBase64 ? "Yes" : "No",
       audioLength: requestData.audioBase64?.length || 0,
-      captionsEnabled: !!requestData.includeCaptions
+      captionsEnabled: !!requestData.includeCaptions,
+      hasAudioFlag: requestData.has_audio,
+      hasCaptionsFlag: requestData.has_captions
     }));
     
-    const { scenes, userId, projectId, audioBase64, includeCaptions, narrationScript } = requestData;
+    const { 
+      scenes, 
+      userId, 
+      projectId, 
+      audioBase64, 
+      includeCaptions, 
+      narrationScript,
+      has_audio: hasAudioFlag,
+      has_captions: hasCaptionsFlag
+    } = requestData;
+    
+    // Use explicit flags from request or fall back to derived values
+    const hasAudio = hasAudioFlag === true || (!!audioBase64 && audioBase64.length > 100);
+    const hasCaptions = hasCaptionsFlag === true || includeCaptions === true;
     
     // Validate required fields
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
@@ -74,6 +93,8 @@ serve(async (req) => {
     }
 
     console.log(`Rendering video for project ${projectId} with ${scenes.length} scenes`);
+    console.log(`Audio enabled: ${hasAudio ? 'Yes' : 'No'}`);
+    console.log(`Captions enabled: ${hasCaptions ? 'Yes' : 'No'}`);
     
     // Validate each scene has a videoUrl
     const invalidScenes = scenes.filter(scene => !scene.videoUrl);
@@ -88,65 +109,48 @@ serve(async (req) => {
       );
     }
     
-    // Log audio and captions status
-    const hasAudio = !!audioBase64 && audioBase64.length > 100;
-    console.log(`Audio provided: ${hasAudio ? 'Yes' : 'No'}, Audio length: ${audioBase64 ? audioBase64.length : 0}`);
-    console.log(`Include captions: ${includeCaptions ? 'Yes' : 'No'}`);
-    
     // Store narration script in the database if provided
     let scriptToSave = narrationScript;
-    if (scriptToSave && typeof scriptToSave === 'string' && scriptToSave.trim() !== '') {
-      console.log(`Narration script provided with length: ${scriptToSave.length}`);
+    if (!scriptToSave || scriptToSave.trim() === '') {
+      // Generate a script from scene descriptions as fallback
+      scriptToSave = scenes
+        .map(scene => scene.description || scene.scene || "")
+        .filter(text => text.trim() !== "")
+        .join(". ");
       
-      try {
-        // Update the project with the narration script
-        const { error: updateNarrationError } = await supabase
-          .from("video_projects")
-          .update({
-            narration_script: scriptToSave,
-            has_audio: hasAudio,
-            has_captions: includeCaptions
-          })
-          .eq("id", projectId);
-          
-        if (updateNarrationError) {
-          console.error("Error updating project narration script:", updateNarrationError);
-        } else {
-          console.log("Successfully updated narration script in database");
-        }
-      } catch (dbError) {
-        console.error("Error updating narration script in database:", dbError);
-        // Continue execution despite database error
+      if (scriptToSave) {
+        console.log(`Generated fallback narration from scenes: ${scriptToSave.substring(0, 100)}...`);
+      } else {
+        scriptToSave = "Experience this visual journey with us.";
+        console.log("Using default narration:", scriptToSave);
       }
-    } else {
-      console.log("No valid narration script provided");
-      // Try to get narration script from scene descriptions as fallback
-      try {
-        scriptToSave = scenes
-          .map(scene => scene.description || scene.scene || "")
-          .filter(text => text.trim() !== "")
-          .join(". ");
+    }
+    
+    // Clean up the script
+    scriptToSave = scriptToSave
+      .replace(/\.\.+/g, '.') // Replace multiple periods with a single one
+      .replace(/\s+/g, ' ')   // Replace multiple spaces with a single one
+      .trim();               // Trim whitespace
+      
+    try {
+      // Update the project with the narration script and audio/caption flags
+      const { error: updateNarrationError } = await supabase
+        .from("video_projects")
+        .update({
+          narration_script: scriptToSave,
+          has_audio: hasAudio,
+          has_captions: hasCaptions
+        })
+        .eq("id", projectId);
         
-        if (scriptToSave) {
-          console.log(`Generated fallback narration from scenes: ${scriptToSave.substring(0, 100)}...`);
-          
-          // Update with the fallback script
-          const { error: updateFallbackError } = await supabase
-            .from("video_projects")
-            .update({
-              narration_script: scriptToSave,
-              has_audio: hasAudio,
-              has_captions: includeCaptions
-            })
-            .eq("id", projectId);
-            
-          if (updateFallbackError) {
-            console.error("Error updating fallback narration:", updateFallbackError);
-          }
-        }
-      } catch (fallbackError) {
-        console.error("Error generating fallback narration:", fallbackError);
+      if (updateNarrationError) {
+        console.error("Error updating project narration script:", updateNarrationError);
+      } else {
+        console.log("Successfully updated narration script and flags in database");
       }
+    } catch (dbError) {
+      console.error("Error updating narration script in database:", dbError);
+      // Continue execution despite database error
     }
 
     // Calculate total duration for reference
@@ -190,15 +194,19 @@ serve(async (req) => {
 
     // Add audio track if audio is provided
     let audioUrl = null;
-    if (hasAudio) {
+    
+    // Debug the audio buffer state before processing
+    console.log("Audio processing state:", {
+      hasAudioFlag: hasAudio,
+      audioBase64Present: !!audioBase64,
+      audioBase64Length: audioBase64?.length || 0,
+      audioDataValid: audioBase64?.length > 100 && !!audioBase64?.match(/^[A-Za-z0-9+/=]+$/)
+    });
+    
+    if (hasAudio && audioBase64 && audioBase64.length > 100 && audioBase64.match(/^[A-Za-z0-9+/=]+$/)) {
       try {
         console.log("Processing audio data for upload");
         const audioFileName = `audio-${projectId}-${Date.now()}.mp3`;
-        
-        // Some basic validation of the audio data
-        if (!audioBase64.match(/^[A-Za-z0-9+/=]+$/)) {
-          throw new Error("Invalid base64 data");
-        }
         
         // Convert base64 to Uint8Array in chunks to avoid memory issues
         const chunkSize = 1024;
@@ -244,33 +252,63 @@ serve(async (req) => {
         
         console.log("Uploading audio to Shotstack");
         
-        const uploadResponse = await fetch('https://api.shotstack.io/v1/assets/media', {
-          method: 'POST',
-          headers: {
-            'x-api-key': API_KEY
-          },
-          body: formData
-        });
+        // Add retry mechanism for audio upload
+        let uploadRetries = 0;
+        const maxUploadRetries = 2;
+        let uploadSuccess = false;
         
-        if (!uploadResponse.ok) {
-          let errorText = await uploadResponse.text();
-          console.error(`Error uploading audio: ${uploadResponse.status}`, errorText);
-          throw new Error(`Error uploading audio: ${uploadResponse.status}`);
+        while (uploadRetries <= maxUploadRetries && !uploadSuccess) {
+          try {
+            const uploadResponse = await fetch('https://api.shotstack.io/v1/assets/media', {
+              method: 'POST',
+              headers: {
+                'x-api-key': API_KEY
+              },
+              body: formData
+            });
+            
+            if (!uploadResponse.ok) {
+              let errorText = await uploadResponse.text();
+              console.error(`Audio upload attempt ${uploadRetries + 1} failed: ${uploadResponse.status}`, errorText);
+              uploadRetries++;
+              if (uploadRetries <= maxUploadRetries) {
+                console.log(`Retrying audio upload (${uploadRetries}/${maxUploadRetries})...`);
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+                continue;
+              }
+              throw new Error(`Error uploading audio: ${uploadResponse.status}`);
+            }
+            
+            const uploadResult = await uploadResponse.json();
+            console.log("Audio upload result:", JSON.stringify(uploadResult));
+            
+            if (!uploadResult.success || !uploadResult.response || !uploadResult.response.url) {
+              console.error("Invalid response from audio upload:", uploadResult);
+              uploadRetries++;
+              if (uploadRetries <= maxUploadRetries) {
+                console.log(`Retrying audio upload (${uploadRetries}/${maxUploadRetries})...`);
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+                continue;
+              }
+              throw new Error("Invalid response from audio upload");
+            }
+            
+            audioUrl = uploadResult.response.url;
+            uploadSuccess = true;
+            console.log("Audio uploaded successfully, URL:", audioUrl);
+          } catch (uploadAttemptError) {
+            console.error(`Error in audio upload attempt ${uploadRetries + 1}:`, uploadAttemptError);
+            uploadRetries++;
+            if (uploadRetries <= maxUploadRetries) {
+              console.log(`Retrying audio upload (${uploadRetries}/${maxUploadRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+            }
+          }
         }
         
-        const uploadResult = await uploadResponse.json();
-        console.log("Audio upload result:", JSON.stringify(uploadResult));
-        
-        if (!uploadResult.success || !uploadResult.response || !uploadResult.response.url) {
-          console.error("Invalid response from audio upload:", uploadResult);
-          throw new Error("Invalid response from audio upload");
-        }
-        
-        audioUrl = uploadResult.response.url;
-        console.log("Audio uploaded successfully, URL:", audioUrl);
-        
-        // Add audio track to tracks array
+        // If we have a valid audio URL after upload attempts
         if (audioUrl) {
+          // Add audio track to tracks array
           tracks.push({
             clips: [{
               asset: {
@@ -288,9 +326,7 @@ serve(async (req) => {
             const { error: updateAudioError } = await supabase
               .from("video_projects")
               .update({
-                has_audio: true,
-                // Store the audio URL in narration_script if we don't have a script yet
-                ...((!scriptToSave || scriptToSave.trim() === '') ? { narration_script: `Audio URL: ${audioUrl}` } : {})
+                has_audio: true
               })
               .eq("id", projectId);
               
@@ -302,29 +338,30 @@ serve(async (req) => {
           } catch (audioUpdateError) {
             console.error("Error saving audio URL to project:", audioUpdateError);
           }
+        } else {
+          console.error("Failed to obtain a valid audio URL after all upload attempts");
         }
       } catch (audioError) {
         console.error("Error processing audio:", audioError);
         // Continue without audio rather than failing the entire render
       }
+    } else {
+      console.log("Skipping audio processing: Invalid or missing audio data");
     }
 
     // Add captions track if enabled
-    if (includeCaptions) {
+    if (hasCaptions) {
       try {
         console.log("Adding captions from narration script");
         
-        // Use provided narration script or fall back to scene descriptions
-        let captionText = scriptToSave;
-        if (!captionText || captionText.trim() === '') {
-          captionText = scenes
-            .map(scene => scene.description || scene.scene || `Scene ${scenes.indexOf(scene) + 1}`)
-            .join(". ");
-          console.log("Using scene descriptions for captions:", captionText.substring(0, 100) + "...");
+        // Ensure we have a script for captions
+        if (!scriptToSave || scriptToSave.trim() === '') {
+          console.error("No script available for captions");
+          scriptToSave = "Experience this visual journey with us.";
         }
         
         // Clean up narration text and split into sentences
-        const cleanScript = captionText
+        const cleanScript = scriptToSave
           .replace(/\.{2,}/g, '.') // Replace multiple periods with a single one
           .replace(/\s+/g, ' ')    // Replace multiple spaces with a single one
           .trim();
@@ -338,12 +375,27 @@ serve(async (req) => {
         console.log(`Generated ${sentences.length} caption segments`);
         
         if (sentences.length === 0) {
-          console.warn("No valid sentences found in narration script");
+          console.warn("No valid sentences found in narration script, using default caption");
+          // Add a single caption with default text
+          tracks.push({
+            clips: [{
+              asset: {
+                type: "title",
+                text: "Experience this visual journey with us",
+                style: "minimal",
+                size: "medium",
+                position: "bottom",
+                background: "#00000080"
+              },
+              start: 0,
+              length: totalDuration
+            }]
+          });
         } else {
           // Calculate approximate duration per caption
           const durationPerCaption = totalDuration / sentences.length;
           
-          // Add captions track
+          // Add captions track with multiple segments
           tracks.push({
             clips: sentences.map((text, index) => ({
               asset: {
@@ -358,31 +410,56 @@ serve(async (req) => {
               length: durationPerCaption
             }))
           });
-          
-          // Update project to indicate captions are included
-          try {
-            const { error: updateCaptionsError } = await supabase
-              .from("video_projects")
-              .update({
-                has_captions: true
-              })
-              .eq("id", projectId);
-              
-            if (updateCaptionsError) {
-              console.error("Error updating project with captions flag:", updateCaptionsError);
-            } else {
-              console.log("Successfully updated project with captions information");
-            }
-          } catch (captionsUpdateError) {
-            console.error("Error saving captions flag to project:", captionsUpdateError);
-          }
-          
-          console.log("Caption track added successfully");
         }
+        
+        // Update project to indicate captions are included
+        try {
+          const { error: updateCaptionsError } = await supabase
+            .from("video_projects")
+            .update({
+              has_captions: true
+            })
+            .eq("id", projectId);
+            
+          if (updateCaptionsError) {
+            console.error("Error updating project with captions flag:", updateCaptionsError);
+          } else {
+            console.log("Successfully updated project with captions information");
+          }
+        } catch (captionsUpdateError) {
+          console.error("Error saving captions flag to project:", captionsUpdateError);
+        }
+        
+        console.log("Caption track added successfully");
       } catch (captionsError) {
         console.error("Error adding captions:", captionsError);
         // Continue without captions rather than failing the entire render
       }
+    } else {
+      console.log("Skipping captions: Captions are disabled");
+    }
+
+    // Add a soundtrack if no audio was provided
+    if (!audioUrl) {
+      console.log("No audio provided, adding a background soundtrack");
+      
+      // Choose a default soundtrack
+      const soundtrack = {
+        src: "https://shotstack-assets.s3-ap-southeast-2.amazonaws.com/music/unminus/palmtrees.mp3",
+        effect: "fadeOut"
+      };
+      
+      tracks.push({
+        clips: [{
+          asset: {
+            type: "audio",
+            src: soundtrack.src
+          },
+          start: 0,
+          length: totalDuration,
+          effect: soundtrack.effect
+        }]
+      });
     }
 
     const timeline = {
@@ -407,47 +484,85 @@ serve(async (req) => {
     }));
 
     try {
-      // Call Shotstack API to render the video
-      const response = await fetch("https://api.shotstack.io/v1/render", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY
-        },
-        body: JSON.stringify(shotstackPayload)
-      });
-
-      if (!response.ok) {
-        let errorText = "";
+      // Add retry mechanism for Shotstack API calls
+      let shotStackRetries = 0;
+      const maxShotStackRetries = 2;
+      let shotStackData = null;
+      let shotStackError = null;
+      
+      while (shotStackRetries <= maxShotStackRetries && !shotStackData) {
         try {
-          errorText = await response.text();
-        } catch (e) {
-          errorText = "Could not read error response";
+          // Call Shotstack API to render the video
+          const response = await fetch("https://api.shotstack.io/v1/render", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": API_KEY
+            },
+            body: JSON.stringify(shotstackPayload)
+          });
+    
+          if (!response.ok) {
+            let errorText = "";
+            try {
+              errorText = await response.text();
+            } catch (e) {
+              errorText = "Could not read error response";
+            }
+            console.error(`Shotstack API error response (attempt ${shotStackRetries + 1}):`, errorText);
+            shotStackRetries++;
+            if (shotStackRetries <= maxShotStackRetries) {
+              console.log(`Retrying Shotstack API call (${shotStackRetries}/${maxShotStackRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+              continue;
+            }
+            throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
+          }
+    
+          const data = await response.json();
+          console.log("Shotstack API response:", JSON.stringify(data));
+          
+          if (!data.response || !data.response.id) {
+            console.error(`Invalid response from Shotstack API (attempt ${shotStackRetries + 1}):`, data);
+            shotStackRetries++;
+            if (shotStackRetries <= maxShotStackRetries) {
+              console.log(`Retrying Shotstack API call (${shotStackRetries}/${maxShotStackRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+              continue;
+            }
+            throw new Error("Invalid response from Shotstack API");
+          }
+          
+          shotStackData = data;
+          console.log("Shotstack render ID:", data.response.id);
+          break;
+        } catch (apiAttemptError) {
+          console.error(`Error in Shotstack API call attempt ${shotStackRetries + 1}:`, apiAttemptError);
+          shotStackError = apiAttemptError;
+          shotStackRetries++;
+          if (shotStackRetries <= maxShotStackRetries) {
+            console.log(`Retrying Shotstack API call (${shotStackRetries}/${maxShotStackRetries})...`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          }
         }
-        console.error("Shotstack API error response:", errorText);
-        throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log("Shotstack API response:", JSON.stringify(data));
-      
-      if (!data.response || !data.response.id) {
-        console.error("Invalid response from Shotstack API:", data);
-        throw new Error("Invalid response from Shotstack API");
       }
       
-      const renderId = data.response.id;
-      console.log("Shotstack render ID:", renderId);
+      // If we couldn't get a successful response after all retries, throw the last error
+      if (!shotStackData) {
+        throw shotStackError || new Error('Failed to get a valid response from Shotstack API after multiple attempts');
+      }
+      
+      const renderId = shotStackData.response.id;
 
-      // Update the project in Supabase with the render ID
+      // Update the project in Supabase with the render ID and metadata
       try {
         const { error: updateError } = await supabase
           .from("video_projects")
           .update({
             render_id: renderId,
             status: "processing",
-            has_captions: includeCaptions === true,
-            has_audio: audioUrl !== null
+            has_captions: hasCaptions,
+            has_audio: !!audioUrl
           })
           .eq("id", projectId);
           
@@ -455,7 +570,7 @@ serve(async (req) => {
           console.error("Error updating project in database:", updateError);
           // Still continue since we have the render ID to return
         } else {
-          console.log("Successfully updated project with render ID");
+          console.log("Successfully updated project with render ID and metadata");
         }
       } catch (dbError) {
         console.error("Error updating project with render ID:", dbError);
@@ -464,12 +579,33 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           renderId,
-          estimatedDuration: totalDuration
+          estimatedDuration: totalDuration,
+          hasAudio: !!audioUrl,
+          hasCaptions: hasCaptions
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } catch (apiError) {
       console.error("Error calling Shotstack API:", apiError);
+      
+      // Update project status to failed
+      try {
+        const { error: updateError } = await supabase
+          .from("video_projects")
+          .update({
+            status: "failed"
+          })
+          .eq("id", projectId);
+          
+        if (updateError) {
+          console.error("Error updating project status to failed:", updateError);
+        } else {
+          console.log("Updated project status to failed due to Shotstack API error");
+        }
+      } catch (statusError) {
+        console.error("Error updating project status after API error:", statusError);
+      }
+      
       return new Response(
         JSON.stringify({ 
           error: "Error rendering video with Shotstack API", 

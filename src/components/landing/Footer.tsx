@@ -48,7 +48,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="#pricing" className="text-gray-500 hover:text-smartvid-600 dark:text-gray-400 dark:hover:text-smartvid-500 transition-colors">
+                <Link to="/#pricing" className="text-gray-500 hover:text-smartvid-600 dark:text-gray-400 dark:hover:text-smartvid-500 transition-colors">
                   Pricing
                 </Link>
               </li>
@@ -84,7 +84,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="#faq" className="text-gray-500 hover:text-smartvid-600 dark:text-gray-400 dark:hover:text-smartvid-500 transition-colors">
+                <Link to="/#faq" className="text-gray-500 hover:text-smartvid-600 dark:text-gray-400 dark:hover:text-smartvid-500 transition-colors">
                   FAQs
                 </Link>
               </li>

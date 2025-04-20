@@ -41,8 +41,8 @@ export const videoService = {
         ...project,
         video_url: mediaService.validateVideoUrl(project.video_url),
         // Ensure boolean fields are boolean
-        has_audio: project.has_audio === true,
-        has_captions: project.has_captions === true
+        has_audio: Boolean(project.has_audio),
+        has_captions: Boolean(project.has_captions)
       }));
       
       return processedData as VideoProject[];
@@ -70,8 +70,8 @@ export const videoService = {
         ...project,
         video_url: mediaService.validateVideoUrl(project.video_url),
         // Ensure boolean fields are boolean
-        has_audio: project.has_audio === true,
-        has_captions: project.has_captions === true
+        has_audio: Boolean(project.has_audio),
+        has_captions: Boolean(project.has_captions)
       }));
       
       return processedData as VideoProject[];
@@ -104,8 +104,8 @@ export const videoService = {
         // Validate video URL
         data.video_url = mediaService.validateVideoUrl(data.video_url);
         // Ensure boolean fields are boolean
-        data.has_audio = data.has_audio === true;
-        data.has_captions = data.has_captions === true;
+        data.has_audio = Boolean(data.has_audio);
+        data.has_captions = Boolean(data.has_captions);
       }
       
       return data as VideoProject;
@@ -134,8 +134,8 @@ export const videoService = {
       // Ensure default values for new columns and proper data types
       const projectWithDefaults = {
         ...project,
-        has_audio: project.has_audio === true,
-        has_captions: project.has_captions === true,
+        has_audio: Boolean(project.has_audio),
+        has_captions: Boolean(project.has_captions),
         narration_script: project.narration_script || null
       };
 
@@ -169,12 +169,8 @@ export const videoService = {
       // Ensure boolean values are stored as booleans
       const sanitizedUpdates = {
         ...updates,
-        has_audio: updates.has_audio === true || updates.has_audio === false 
-          ? updates.has_audio 
-          : undefined,
-        has_captions: updates.has_captions === true || updates.has_captions === false 
-          ? updates.has_captions 
-          : undefined,
+        has_audio: updates.has_audio !== undefined ? Boolean(updates.has_audio) : undefined,
+        has_captions: updates.has_captions !== undefined ? Boolean(updates.has_captions) : undefined,
         narration_script: updates.narration_script || undefined
       };
 

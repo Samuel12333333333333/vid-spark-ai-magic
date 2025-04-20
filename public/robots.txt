@@ -1,14 +1,21 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
 
 User-agent: *
 Allow: /
+
+# Disallow certain pages
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /login/
+Disallow: /logout/
+Disallow: /api/
+
+# Allow search engines to crawl these specific pages
+Allow: /terms
+Allow: /privacy
+Allow: /about
+Allow: /contact
+Allow: /cookies
+
+# Sitemap location
+Sitemap: https://smartvid.ai/sitemap.xml
+
