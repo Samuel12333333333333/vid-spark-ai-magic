@@ -31,11 +31,11 @@ export function useVideoLimits() {
     try {
       setIsLoading(true);
 
-      // Properly typed RPC call with no arguments
-      const { data, error } = await supabase.rpc<
-        VideoUsageResponse,
-        Record<string, never>
-      >("get_video_usage", {});
+      // Fix: swap the generic type parameters to their correct positions
+      const { data, error } = await supabase.rpc("get_video_usage", {}) as unknown as {
+        data: VideoUsageResponse | null;
+        error: any;
+      };
 
       if (error) {
         console.error("Usage error:", error);
@@ -73,11 +73,11 @@ export function useVideoLimits() {
     }
 
     try {
-      // Properly typed RPC call with no arguments
-      const { data, error } = await supabase.rpc<
-        VideoUsageResponse,
-        Record<string, never>
-      >("increment_video_usage", {});
+      // Fix: swap the generic type parameters to their correct positions
+      const { data, error } = await supabase.rpc("increment_video_usage", {}) as unknown as {
+        data: VideoUsageResponse | null;
+        error: any;
+      };
 
       if (error) {
         console.error("Error incrementing video usage:", error);
