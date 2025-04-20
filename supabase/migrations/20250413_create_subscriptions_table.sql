@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   status TEXT NOT NULL,
   current_period_end TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(user_id)
 );
 
 -- Enable RLS

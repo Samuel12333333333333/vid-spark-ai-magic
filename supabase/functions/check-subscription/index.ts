@@ -111,45 +111,89 @@ serve(async (req) => {
         planName = "pro";
       }
       
-      // Create or update subscription record
-      const { data: updatedSubscription, error: updateError } = await supabaseAdmin
+      // First check if there's an existing subscription record
+      const { data: existingSubscription } = await supabaseAdmin
         .from("subscriptions")
-        .upsert({
-          user_id: user.id,
-          stripe_customer_id: customerId,
-          stripe_subscription_id: stripeSubscription.id,
-          plan_name: planName,
-          status: stripeSubscription.status,
-          current_period_end: new Date(stripeSubscription.current_period_end * 1000).toISOString(),
-          updated_at: new Date().toISOString(),
-        }, { 
-          onConflict: 'user_id',
-          returning: 'representation'
-        });
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
         
-      if (updateError) {
-        console.error("Error updating subscription in database:", updateError);
-        throw new Error(`Database error: ${updateError.message}`);
+      if (existingSubscription) {
+        // Update existing record
+        const { data: updatedSubscription, error: updateError } = await supabaseAdmin
+          .from("subscriptions")
+          .update({
+            stripe_customer_id: customerId,
+            stripe_subscription_id: stripeSubscription.id,
+            plan_name: planName,
+            status: stripeSubscription.status,
+            current_period_end: new Date(stripeSubscription.current_period_end * 1000).toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", user.id)
+          .select();
+          
+        if (updateError) {
+          console.error("Error updating subscription in database:", updateError);
+          throw new Error(`Database error: ${updateError.message}`);
+        }
+        
+        subscriptionData = updatedSubscription[0];
+      } else {
+        // Insert new record
+        const { data: newSubscription, error: insertError } = await supabaseAdmin
+          .from("subscriptions")
+          .insert({
+            user_id: user.id,
+            stripe_customer_id: customerId,
+            stripe_subscription_id: stripeSubscription.id,
+            plan_name: planName,
+            status: stripeSubscription.status,
+            current_period_end: new Date(stripeSubscription.current_period_end * 1000).toISOString(),
+          })
+          .select();
+          
+        if (insertError) {
+          console.error("Error inserting subscription in database:", insertError);
+          throw new Error(`Database error: ${insertError.message}`);
+        }
+        
+        subscriptionData = newSubscription[0];
       }
       
-      subscriptionData = updatedSubscription[0];
       console.log("Updated subscription in database:", subscriptionData);
     } else {
       console.log("No active subscription found for customer:", customerId);
       
-      // Clear any existing subscription records
-      const { error: deleteError } = await supabaseAdmin
+      // If no active subscription, check if there's an existing record to update
+      const { data: existingSubscription } = await supabaseAdmin
         .from("subscriptions")
-        .delete()
-        .eq("user_id", user.id);
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
         
-      if (deleteError) {
-        console.error("Error removing old subscription records:", deleteError);
+      if (existingSubscription) {
+        // Update to inactive status
+        const { data: updatedSubscription, error: updateError } = await supabaseAdmin
+          .from("subscriptions")
+          .update({
+            status: "canceled",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", user.id)
+          .select();
+          
+        if (updateError) {
+          console.error("Error updating subscription status:", updateError);
+          throw new Error(`Database error: ${updateError.message}`);
+        }
+        
+        subscriptionData = updatedSubscription[0];
       }
     }
 
     return new Response(JSON.stringify({ 
-      hasActiveSubscription: !!subscriptionData,
+      hasActiveSubscription: subscriptionData?.status === "active",
       subscription: subscriptionData
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

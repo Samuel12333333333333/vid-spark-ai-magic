@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import Stripe from "https://esm.sh/stripe@12.0.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,128 +15,110 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Create checkout function called");
-    
     // Parse request body
-    let requestBody;
-    try {
-      requestBody = await req.json();
-      console.log("Received checkout request with:", requestBody);
-    } catch (error) {
-      console.error("Error parsing request body:", error.message);
-      throw new Error("Invalid request body");
-    }
-    
-    const { priceId, plan } = requestBody;
+    const { priceId, plan } = await req.json();
     
     if (!priceId) {
-      console.error("Missing priceId in request");
-      throw new Error("Price ID is required");
+      return new Response(
+        JSON.stringify({ error: "Price ID is required" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
-    // Initialize Stripe with the secret key
-    const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeSecretKey) {
-      console.error("STRIPE_SECRET_KEY is not set");
-      throw new Error("Stripe secret key is not configured");
-    }
-    
-    const stripe = new Stripe(stripeSecretKey, {
+    // Initialize Stripe
+    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2023-10-16",
     });
 
-    // Create Supabase client to get user information
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error("Supabase environment variables are not set");
-      throw new Error("Supabase configuration is missing");
-    }
-    
+    // Create Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Get user from auth header
+    // Get the user from the auth header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      console.error("Missing Authorization header");
-      throw new Error("Missing Authorization header");
+      return new Response(
+        JSON.stringify({ error: "Missing auth header" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error } = await supabaseClient.auth.getUser(token);
-
-    if (error || !user) {
-      console.error("Auth error:", error);
-      throw new Error("User not authenticated");
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+    
+    if (userError || !userData.user) {
+      return new Response(
+        JSON.stringify({ error: "Authentication failed" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
+    const user = userData.user;
     console.log("Creating checkout for user:", user.id);
 
-    // Check if this user already has a Stripe customer ID
+    // Check if user already has a Stripe customer ID
     let customerId;
-    try {
-      const { data: customers } = await stripe.customers.list({
+    const customers = await stripe.customers.list({
+      email: user.email,
+      limit: 1,
+    });
+
+    if (customers.data.length > 0) {
+      customerId = customers.data[0].id;
+      console.log("Found existing customer:", customerId);
+    } else {
+      // Create a new customer
+      const customer = await stripe.customers.create({
         email: user.email,
-        limit: 1,
+        metadata: { userId: user.id },
       });
-
-      if (customers && customers.length > 0) {
-        customerId = customers[0].id;
-        console.log("Found existing customer:", customerId);
-      } else {
-        // Create a new customer if one doesn't exist
-        const customer = await stripe.customers.create({
-          email: user.email,
-          metadata: {
-            userId: user.id,
-          },
-        });
-        customerId = customer.id;
-        console.log("Created new customer:", customerId);
-      }
-    } catch (stripeError) {
-      console.error("Stripe customer error:", stripeError);
-      throw new Error(`Stripe customer error: ${stripeError.message}`);
+      customerId = customer.id;
+      console.log("Created new customer:", customerId);
     }
 
-    const origin = req.headers.get("origin") || "https://vid-spark-ai-magic.lovable.app";
-    
-    // Create checkout session
-    try {
-      const session = await stripe.checkout.sessions.create({
-        customer: customerId,
-        payment_method_types: ["card"],
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
-        mode: "subscription",
-        success_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/dashboard/upgrade`,
-        metadata: {
-          userId: user.id,
-          plan: plan,
-        },
-      });
+    // Get the origin for success/cancel URLs
+    const origin = req.headers.get("origin") || "http://localhost:5173";
 
-      console.log("Checkout session created:", session.id);
-      
-      return new Response(JSON.stringify({ url: session.url }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Create a checkout session
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      mode: "subscription",
+      success_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/dashboard/upgrade`,
+      metadata: {
+        userId: user.id,
+        plan: plan || "pro",
+      },
+    });
+
+    console.log("Checkout session created:", session.id, "URL:", session.url);
+
+    return new Response(
+      JSON.stringify({ url: session.url }),
+      {
         status: 200,
-      });
-    } catch (checkoutError) {
-      console.error("Error creating checkout session:", checkoutError);
-      throw new Error(`Stripe checkout error: ${checkoutError.message}`);
-    }
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   } catch (error) {
     console.error("Error creating checkout session:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });

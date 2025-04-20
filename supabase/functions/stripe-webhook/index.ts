@@ -58,6 +58,13 @@ serve(async (req) => {
         
         // Create a subscription record in your database
         if (session.metadata?.userId) {
+          // First check if user already has a subscription
+          const { data: existingSubscription } = await supabaseAdmin
+            .from("subscriptions")
+            .select("*")
+            .eq("user_id", session.metadata.userId)
+            .single();
+          
           const subscriptionData = {
             user_id: session.metadata.userId,
             stripe_customer_id: session.customer,
@@ -67,17 +74,31 @@ serve(async (req) => {
             current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days until we get the actual info
           };
           
-          console.log("Inserting subscription data:", subscriptionData);
+          console.log("Processing subscription data:", subscriptionData);
           
-          // Insert the subscription data
-          const { error } = await supabaseAdmin
-            .from("subscriptions")
-            .upsert(subscriptionData, { onConflict: "user_id" });
-            
-          if (error) {
-            console.error("Error inserting subscription:", error);
+          if (existingSubscription) {
+            // Update existing subscription
+            const { error } = await supabaseAdmin
+              .from("subscriptions")
+              .update(subscriptionData)
+              .eq("user_id", session.metadata.userId);
+              
+            if (error) {
+              console.error("Error updating subscription:", error);
+            } else {
+              console.log("Subscription updated successfully");
+            }
           } else {
-            console.log("Subscription created successfully");
+            // Insert new subscription
+            const { error } = await supabaseAdmin
+              .from("subscriptions")
+              .insert(subscriptionData);
+              
+            if (error) {
+              console.error("Error inserting subscription:", error);
+            } else {
+              console.log("Subscription created successfully");
+            }
           }
         }
         break;
@@ -88,11 +109,16 @@ serve(async (req) => {
         console.log("Subscription updated/created:", subscription.id);
         
         // Find the user by Stripe customer ID
-        const { data: customers } = await supabaseAdmin
+        const { data: customers, error: customerError } = await supabaseAdmin
           .from("subscriptions")
           .select("user_id")
           .eq("stripe_customer_id", subscription.customer)
           .limit(1);
+          
+        if (customerError) {
+          console.error("Error finding customer:", customerError);
+          break;
+        }
           
         if (customers && customers.length > 0) {
           const userId = customers[0].user_id;
@@ -113,6 +139,8 @@ serve(async (req) => {
           } else {
             console.log("Subscription updated successfully");
           }
+        } else {
+          console.error("No user found for customer:", subscription.customer);
         }
         break;
         
@@ -120,16 +148,35 @@ serve(async (req) => {
         const canceledSubscription = event.data.object;
         console.log("Subscription canceled:", canceledSubscription.id);
         
-        // Mark the subscription as inactive
-        const { error } = await supabaseAdmin
+        // Find the user by subscription ID
+        const { data: subUsers, error: subUserError } = await supabaseAdmin
           .from("subscriptions")
-          .update({ status: "canceled" })
-          .eq("stripe_subscription_id", canceledSubscription.id);
+          .select("user_id")
+          .eq("stripe_subscription_id", canceledSubscription.id)
+          .limit(1);
           
-        if (error) {
-          console.error("Error canceling subscription:", error);
+        if (subUserError) {
+          console.error("Error finding subscription user:", subUserError);
+          break;
+        }
+        
+        if (subUsers && subUsers.length > 0) {
+          const userId = subUsers[0].user_id;
+          console.log("Found user for canceled subscription:", userId);
+          
+          // Mark the subscription as inactive
+          const { error } = await supabaseAdmin
+            .from("subscriptions")
+            .update({ status: "canceled" })
+            .eq("user_id", userId);
+            
+          if (error) {
+            console.error("Error canceling subscription:", error);
+          } else {
+            console.log("Subscription canceled successfully");
+          }
         } else {
-          console.log("Subscription canceled successfully");
+          console.error("No user found for subscription:", canceledSubscription.id);
         }
         break;
       
