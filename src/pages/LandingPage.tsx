@@ -1,3 +1,4 @@
+
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -28,6 +29,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-tl from-[#fdfbfb] via-[#ebedee] to-[#dfe9f3] dark:from-gray-900 dark:via-gray-950 dark:to-black">
+      {/* Header remains at the top */}
       <motion.header
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -149,12 +151,15 @@ export default function LandingPage() {
         )}
       </motion.header>
 
+      {/* Main content area */}
       <main className="flex-1">
         <HeroSection />
         <FeaturesSection />
         <TestimonialsSection />
         <PricingSection />
         <FAQSection />
+        
+        {/* Move CTA and Help Button to the bottom */}
         <CTASection />
         <FloatingHelpButton />
       </main>
