@@ -1,4 +1,3 @@
-
 import { Outlet, useNavigate } from "react-router-dom";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -10,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ChatBubble } from "@/components/landing/ChatBubble";
 
 export function DashboardLayout() {
   const { user, signOut } = useAuth();
@@ -61,10 +61,9 @@ export function DashboardLayout() {
     .toUpperCase();
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="min-h-screen flex flex-col lg:flex-row">
       <DashboardSidebar />
-      <div className="flex-1 md:ml-64">
-        {/* Top navigation bar */}
+      <div className="flex-1 flex flex-col">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 shadow-sm">
           <div className="flex flex-1 items-center justify-end md:justify-between">
             <div className="hidden md:flex">
@@ -103,11 +102,11 @@ export function DashboardLayout() {
             </div>
           </div>
         </header>
-        {/* Main content area */}
         <div className="p-4 md:p-6">
           <Outlet />
         </div>
       </div>
+      <ChatBubble />
     </div>
   );
 }
