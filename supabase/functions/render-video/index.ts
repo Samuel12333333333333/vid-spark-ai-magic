@@ -65,12 +65,18 @@ serve(async (req) => {
       includeCaptions, 
       narrationScript,
       has_audio: hasAudioFlag,
-      has_captions: hasCaptionsFlag
+      has_captions: hasCaptionsFlag,
+      audioUrl,
+      captionsFile
     } = requestData;
     
     // Use explicit flags from request or fall back to derived values
-    const hasAudio = hasAudioFlag === true || (!!audioBase64 && audioBase64.length > 100);
-    const hasCaptions = hasCaptionsFlag === true || includeCaptions === true;
+    const hasAudio = hasAudioFlag === true || (!!audioBase64 && audioBase64.length > 100) || !!audioUrl;
+    const hasCaptions = hasCaptionsFlag === true || includeCaptions === true || !!captionsFile;
+    
+    // Log audio and caption information
+    console.log(`Audio status: hasAudio=${hasAudio}, audioUrl=${audioUrl || "none"}`);
+    console.log(`Captions status: hasCaptions=${hasCaptions}, captionsFile=${captionsFile || "none"}`);
     
     // Validate required fields
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
@@ -200,18 +206,99 @@ serve(async (req) => {
       };
 
       // Add audio track if provided
-      if (audioBase64 && audioBase64.length > 100) {
-        // We'd need to upload the audio to a storage location first
+      if (hasAudio) {
+        console.log("Adding audio to timeline");
+        
+        let audioAssetUrl = audioUrl;
+        
+        // If we have base64 audio but no URL, we'd need to upload it first
         // This would typically be handled by another function
-        console.log("Audio provided, but direct base64 audio is not supported by Shotstack");
-        // Would need an additional step to convert base64 to URL
+        if (!audioAssetUrl && audioBase64 && audioBase64.length > 100) {
+          console.log("Audio provided as base64 but no URL is available - audio may not be included");
+          // Would need an additional step to convert base64 to URL
+        }
+        
+        if (audioAssetUrl) {
+          console.log(`Using audio URL: ${audioAssetUrl}`);
+          
+          // Add soundtrack to the timeline
+          timeline.soundtrack = {
+            src: audioAssetUrl,
+            effect: "fadeOut"
+          };
+        }
       }
 
       // Add text overlays for captions if enabled
-      if (hasCaptions && narrationScript) {
-        console.log("Captions enabled, adding text overlays");
-        // Would need to split narrationScript into segments and add as text overlays
-        // This would be a more complex implementation
+      if (hasCaptions && captionsFile) {
+        console.log(`Adding captions from file: ${captionsFile}`);
+        
+        // Add a dedicated track for captions
+        timeline.tracks.push({
+          clips: [
+            {
+              asset: {
+                type: "html",
+                html: `<div id="captions"></div>`,
+                css: `
+                  #captions {
+                    position: absolute;
+                    bottom: 80px;
+                    left: 0;
+                    right: 0;
+                    text-align: center;
+                    font-size: 24px;
+                    color: white;
+                    text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.5);
+                    background: rgba(0, 0, 0, 0.5);
+                    padding: 10px;
+                  }
+                `,
+                width: 1280,
+                height: 720
+              },
+              start: 0,
+              length: totalDuration,
+              effect: "zoomIn"
+            }
+          ]
+        });
+        
+        // Add the VTT file directly as a subtitle asset
+        timeline.subtitles = {
+          src: captionsFile,
+          type: "vtt"
+        };
+      } else if (hasCaptions && narrationScript) {
+        console.log("Captions enabled but no caption file provided. Using simple text overlay.");
+        
+        // Split narration into segments
+        const segments = narrationScript.split(/[.!?]/).filter(s => s.trim() !== "");
+        const segmentDuration = totalDuration / Math.max(segments.length, 1);
+        
+        // Add text overlays for each segment
+        const captionClips = segments.map((segment, index) => {
+          return {
+            asset: {
+              type: "title",
+              text: segment.trim(),
+              style: "minimal",
+              size: "medium",
+              color: "#ffffff",
+              background: "#00000099"
+            },
+            start: index * segmentDuration,
+            length: segmentDuration,
+            position: "bottom"
+          };
+        });
+        
+        // Add a dedicated track for captions
+        if (captionClips.length > 0) {
+          timeline.tracks.push({
+            clips: captionClips
+          });
+        }
       }
 
       const output = {
@@ -222,10 +309,11 @@ serve(async (req) => {
 
       const shotstackPayload = { 
         timeline, 
-        output 
+        output,
+        callback: requestData.callbackUrl // Optional callback URL if provided
       };
 
-      console.log("Sending request to Shotstack API");
+      console.log("Sending request to Shotstack API with payload:", JSON.stringify(shotstackPayload));
       
       // First check credits by making a GET request to the account endpoint
       try {

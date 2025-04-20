@@ -25,24 +25,43 @@ serve(async (req) => {
       );
     }
 
-    console.log("Testing Shotstack API connection with new key...");
+    console.log("Testing Shotstack API connection...");
     
-    // Test creating a minimal valid timeline
+    // Test creating a timeline with audio and captions
     const testTimeline = {
       timeline: {
         background: "#000000",
+        soundtrack: {
+          src: "https://shotstack-assets.s3.ap-southeast-2.amazonaws.com/music/unminus/lit.mp3",
+          effect: "fadeOut"
+        },
         tracks: [
           {
             clips: [
               {
                 asset: {
                   type: "title",
-                  text: "API Test",
+                  text: "Testing Audio",
                   style: "minimal",
                   size: "medium"
                 },
                 start: 0,
-                length: 2
+                length: 5
+              }
+            ]
+          },
+          {
+            clips: [
+              {
+                asset: {
+                  type: "title",
+                  text: "Testing Captions",
+                  style: "minimal",
+                  size: "small",
+                  position: "bottom"
+                },
+                start: 0,
+                length: 5
               }
             ]
           }
@@ -83,6 +102,53 @@ serve(async (req) => {
 
       const renderData = await renderResponse.json();
       console.log("Shotstack API render test successful:", JSON.stringify(renderData));
+      
+      // If render was successful, try to check the status to ensure complete API functionality
+      if (renderData.response && renderData.response.id) {
+        const renderId = renderData.response.id;
+        
+        // Wait a short time before checking status to allow processing to begin
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const statusResponse = await fetch(`https://api.shotstack.io/v1/render/${renderId}`, {
+          method: "GET",
+          headers: {
+            "x-api-key": API_KEY
+          }
+        });
+        
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json();
+          console.log("Shotstack status check successful:", JSON.stringify(statusData));
+          
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              message: "Shotstack API is configured correctly and can render videos",
+              data: { 
+                renderTest: renderData,
+                statusTest: statusData
+              }
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        } else {
+          const statusError = await statusResponse.text();
+          console.error("Shotstack status check failed:", statusError);
+          
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              message: "Shotstack render API is working, but status check failed",
+              data: { 
+                renderTest: renderData
+              },
+              statusError
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
       
       return new Response(
         JSON.stringify({ 

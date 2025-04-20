@@ -126,7 +126,7 @@ export const mediaService = {
     }
   },
 
-  async generateAudio(script: string, voiceId: string, userId: string, projectId: string, scenes?: any[]): Promise<{audioBase64: string, narrationScript: string}> {
+  async generateAudio(script: string, voiceId: string, userId: string, projectId: string, scenes?: any[]): Promise<{audioBase64: string, narrationScript: string, audioUrl?: string}> {
     try {
       console.log(`Generating audio with voice ${voiceId} for project ${projectId}`);
       
@@ -205,12 +205,159 @@ export const mediaService = {
       console.log("Audio generation successful - audioBase64 length:", data.audioBase64.length);
       console.log("Narration script used:", data.narrationScript || finalScript);
       
+      // Create a blob URL from the base64 audio for playback in browser
+      const audioBlob = this.base64ToBlob(data.audioBase64, 'audio/mp3');
+      const audioUrl = URL.createObjectURL(audioBlob);
+      console.log("Created blob URL for audio playback:", audioUrl);
+      
       return {
         audioBase64: data.audioBase64,
-        narrationScript: data.narrationScript || finalScript
+        narrationScript: data.narrationScript || finalScript,
+        audioUrl
       };
     } catch (error) {
       console.error('Error in generateAudio:', error);
+      throw error;
+    }
+  },
+  
+  // Helper to convert base64 to Blob
+  base64ToBlob(base64: string, mimeType: string): Blob {
+    const byteCharacters = atob(base64);
+    const byteArrays = [];
+    
+    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+      const slice = byteCharacters.slice(offset, offset + 512);
+      
+      const byteNumbers = new Array(slice.length);
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      
+      const byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+    
+    return new Blob(byteArrays, { type: mimeType });
+  },
+
+  // Create a publicly accessible URL for audio
+  async uploadAudioForShotstack(audioBase64: string, userId: string, projectId: string): Promise<string> {
+    try {
+      console.log(`Uploading audio for project ${projectId}`);
+      
+      if (!audioBase64 || audioBase64.length < 100) {
+        throw new Error("Invalid audio data provided");
+      }
+      
+      // Create a blob from the base64 audio
+      const audioBlob = this.base64ToBlob(audioBase64, 'audio/mp3');
+      
+      // Generate a unique filename for this audio
+      const timestamp = new Date().getTime();
+      const filename = `${userId}/${projectId}/audio-${timestamp}.mp3`;
+      
+      console.log(`Uploading audio file as ${filename}`);
+      
+      // Upload to Supabase storage
+      const { data, error } = await supabase.storage
+        .from('media')
+        .upload(filename, audioBlob, {
+          contentType: 'audio/mp3',
+          cacheControl: '3600',
+          upsert: true
+        });
+      
+      if (error) {
+        console.error("Error uploading audio to storage:", error);
+        throw error;
+      }
+      
+      // Get the public URL for the uploaded audio
+      const { data: urlData } = supabase.storage
+        .from('media')
+        .getPublicUrl(filename);
+      
+      if (!urlData || !urlData.publicUrl) {
+        throw new Error("Failed to get public URL for uploaded audio");
+      }
+      
+      console.log(`Audio uploaded successfully. Public URL: ${urlData.publicUrl}`);
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error("Error uploading audio for Shotstack:", error);
+      throw error;
+    }
+  },
+  
+  // Generate a captions file (VTT) from narration text
+  async generateCaptionsFile(narrationScript: string, userId: string, projectId: string): Promise<string> {
+    try {
+      console.log(`Generating captions file for project ${projectId}`);
+      
+      if (!narrationScript || narrationScript.trim() === "") {
+        throw new Error("No narration script provided for captions");
+      }
+      
+      // Split the narration into caption segments
+      const captionSegments = this.splitNarrationIntoChunks(narrationScript);
+      
+      // Create a WebVTT format caption file
+      let vttContent = "WEBVTT\n\n";
+      
+      // Calculate approximate timing (rough estimate - 1 caption every 3 seconds)
+      captionSegments.forEach((segment, index) => {
+        const startTime = index * 3;
+        const endTime = startTime + 3;
+        
+        // Format time as HH:MM:SS.mmm
+        const formatTime = (seconds: number) => {
+          const hrs = Math.floor(seconds / 3600);
+          const mins = Math.floor((seconds % 3600) / 60);
+          const secs = Math.floor(seconds % 60);
+          const ms = Math.floor((seconds % 1) * 1000);
+          return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+        };
+        
+        vttContent += `${formatTime(startTime)} --> ${formatTime(endTime)}\n${segment}\n\n`;
+      });
+      
+      // Generate a unique filename for this caption file
+      const timestamp = new Date().getTime();
+      const filename = `${userId}/${projectId}/captions-${timestamp}.vtt`;
+      
+      console.log(`Uploading captions file as ${filename}`);
+      
+      // Create a blob from the VTT content
+      const vttBlob = new Blob([vttContent], { type: 'text/vtt' });
+      
+      // Upload to Supabase storage
+      const { data, error } = await supabase.storage
+        .from('media')
+        .upload(filename, vttBlob, {
+          contentType: 'text/vtt',
+          cacheControl: '3600',
+          upsert: true
+        });
+      
+      if (error) {
+        console.error("Error uploading captions to storage:", error);
+        throw error;
+      }
+      
+      // Get the public URL for the uploaded captions
+      const { data: urlData } = supabase.storage
+        .from('media')
+        .getPublicUrl(filename);
+      
+      if (!urlData || !urlData.publicUrl) {
+        throw new Error("Failed to get public URL for uploaded captions");
+      }
+      
+      console.log(`Captions uploaded successfully. Public URL: ${urlData.publicUrl}`);
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error("Error generating captions file:", error);
       throw error;
     }
   },
@@ -233,6 +380,32 @@ export const mediaService = {
         throw new Error(`Some scenes are missing video URLs (${invalidScenes.length} of ${scenes.length})`);
       }
       
+      let audioUrl;
+      let captionsFile;
+      
+      // If audio is provided, upload it for Shotstack to access
+      if (audioBase64 && audioBase64.length > 100) {
+        try {
+          console.log("Uploading audio for Shotstack...");
+          audioUrl = await this.uploadAudioForShotstack(audioBase64, userId, projectId);
+          console.log(`Audio uploaded successfully: ${audioUrl}`);
+        } catch (audioError) {
+          console.error("Error uploading audio, continuing without audio:", audioError);
+        }
+      }
+      
+      // If captions are requested and we have a narration script, generate captions file
+      if (includeCaptions && narrationScript) {
+        try {
+          console.log("Generating captions file...");
+          captionsFile = await this.generateCaptionsFile(narrationScript, userId, projectId);
+          console.log(`Captions file generated successfully: ${captionsFile}`);
+        } catch (captionsError) {
+          console.error("Error generating captions, continuing without captions:", captionsError);
+        }
+      }
+      
+      // Now call the render-video function with all available assets
       const { data, error } = await supabase.functions.invoke("render-video", {
         body: {
           scenes,
@@ -241,8 +414,10 @@ export const mediaService = {
           audioBase64,
           includeCaptions,
           narrationScript,
-          has_audio: !!audioBase64,
-          has_captions: !!includeCaptions
+          has_audio: !!audioBase64 || !!audioUrl,
+          has_captions: !!includeCaptions || !!captionsFile,
+          audioUrl,
+          captionsFile
         }
       });
       
@@ -264,12 +439,12 @@ export const mediaService = {
     }
   },
   
-  async checkRenderStatus(renderId: string): Promise<RenderStatus> {
+  async checkRenderStatus(renderId: string, projectId?: string): Promise<RenderStatus> {
     try {
-      console.log(`Checking render status for: ${renderId}`);
+      console.log(`Checking render status for: ${renderId}, project: ${projectId || 'unknown'}`);
       
       const { data, error } = await supabase.functions.invoke("check-render-status", {
-        body: { renderId }
+        body: { renderId, projectId }
       });
       
       if (error) {

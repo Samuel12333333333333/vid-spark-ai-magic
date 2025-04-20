@@ -16,8 +16,8 @@ serve(async (req) => {
   }
 
   try {
-    const { renderId } = await req.json();
-    console.log(`Received check-render-status request for renderId: ${renderId}`);
+    const { renderId, projectId } = await req.json();
+    console.log(`Received check-render-status request for renderId: ${renderId}, projectId: ${projectId || 'not provided'}`);
 
     if (!renderId) {
       return new Response(
@@ -104,9 +104,72 @@ serve(async (req) => {
         );
       }
 
+      // If the status is 'done', update the project in the database if projectId is provided
+      if (data.response.status === 'done' && projectId) {
+        try {
+          const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+          const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+          
+          if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+            const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+            
+            console.log(`Updating project ${projectId} with completed render URL: ${data.response.url}`);
+            
+            const { error: updateError } = await supabase
+              .from("video_projects")
+              .update({
+                status: "completed",
+                video_url: data.response.url,
+                completed_at: new Date().toISOString()
+              })
+              .eq("id", projectId);
+              
+            if (updateError) {
+              console.error("Error updating project status:", updateError);
+            } else {
+              console.log(`Successfully updated project ${projectId} status to completed`);
+            }
+          }
+        } catch (dbError) {
+          console.error("Database error when updating project status:", dbError);
+          // Continue as this is not critical to the response
+        }
+      }
+      
       // Check for error status
       if (data.response.status === 'failed') {
         console.error("Shotstack render failed:", data.response.error || "Unknown error");
+        
+        // Update the project in the database if projectId is provided
+        if (projectId) {
+          try {
+            const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+            const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+            
+            if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+              const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+              
+              console.log(`Updating project ${projectId} with failed status`);
+              
+              const { error: updateError } = await supabase
+                .from("video_projects")
+                .update({
+                  status: "failed",
+                  error_message: data.response.error || "Video rendering failed"
+                })
+                .eq("id", projectId);
+                
+              if (updateError) {
+                console.error("Error updating project status:", updateError);
+              } else {
+                console.log(`Successfully updated project ${projectId} status to failed`);
+              }
+            }
+          } catch (dbError) {
+            console.error("Database error when updating project status:", dbError);
+          }
+        }
+        
         return new Response(
           JSON.stringify({
             status: "failed",
@@ -116,11 +179,41 @@ serve(async (req) => {
         );
       }
 
+      // Check for "processing" status that's taking too long
+      if (data.response.status === 'queued' || data.response.status === 'fetching' || data.response.status === 'rendering') {
+        // Check if created timestamp is available
+        if (data.response.created && projectId) {
+          const created = new Date(data.response.created);
+          const now = new Date();
+          const timeDiff = now.getTime() - created.getTime();
+          const minutesPassed = Math.floor(timeDiff / (1000 * 60));
+          
+          console.log(`Render has been processing for ${minutesPassed} minutes`);
+          
+          // If processing for more than 15 minutes, add a warning to the response
+          if (minutesPassed > 15) {
+            console.log("Warning: Render is taking longer than expected");
+            
+            return new Response(
+              JSON.stringify({
+                status: data.response.status,
+                url: data.response.url,
+                warning: "This render is taking longer than expected. It may be due to high server load or complexity."
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+      }
+
       // Return the render status and URL if available
       return new Response(
         JSON.stringify({
           status: data.response.status,
           url: data.response.url,
+          poster: data.response.poster,
+          thumbnails: data.response.thumbnails,
+          data: data.response.data
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
