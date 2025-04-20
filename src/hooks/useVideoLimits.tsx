@@ -32,8 +32,7 @@ export function useVideoLimits() {
       setIsLoading(true);
       
       const { data, error } = await supabase
-        .rpc<UsageData>('get_video_usage')
-        .single();
+        .rpc<VideoUsageResponse>('get_video_usage');
       
       if (error) {
         console.error("Usage error:", error);
@@ -73,8 +72,7 @@ export function useVideoLimits() {
 
     try {
       const { data, error } = await supabase
-        .rpc<UsageData>('increment_video_usage')
-        .single();
+        .rpc<VideoUsageResponse>('increment_video_usage');
       
       if (error) {
         console.error("Error incrementing video usage:", error);
