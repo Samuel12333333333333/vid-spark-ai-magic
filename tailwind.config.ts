@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -100,13 +101,53 @@ export default {
             "background-size": "200% 200%",
             "background-position": "right center"
           }
+        },
+        float: {
+          "0%, 100%": {
+            transform: "translateY(0) translateX(0)"
+          },
+          "50%": {
+            transform: "translateY(-20px) translateX(10px)"
+          }
+        },
+        "pulse-glow": {
+          "0%, 100%": {
+            opacity: "0.6",
+            transform: "scale(1)"
+          },
+          "50%": {
+            opacity: "1",
+            transform: "scale(1.05)"
+          }
+        },
+        shimmer: {
+          "0%": {
+            backgroundPosition: "-200% 0"
+          },
+          "100%": {
+            backgroundPosition: "200% 0"
+          }
+        },
+        typing: {
+          from: { width: "0" },
+          to: { width: "100%" }
+        },
+        "blink-caret": {
+          from: { borderColor: "transparent" },
+          "50%": { borderColor: "currentColor" },
+          to: { borderColor: "transparent" }
         }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         shine: "shine 8s ease-in-out infinite",
-        "gradient-xy": "gradient-xy 15s ease infinite"
+        "gradient-xy": "gradient-xy 15s ease infinite",
+        float: "float 6s ease-in-out infinite",
+        "pulse-glow": "pulse-glow 3s ease-in-out infinite",
+        shimmer: "shimmer 3s infinite",
+        typing: "typing 3.5s steps(40, end)",
+        "blink-caret": "blink-caret 0.75s step-end infinite"
       }
     }
   },
