@@ -29,28 +29,7 @@ serve(async (req) => {
 
     // Simple test request to Shotstack - just to check if the API key is valid
     try {
-      // First check if the API key is valid by using the /me endpoint
-      const meResponse = await fetch("https://api.shotstack.io/v1/me", {
-        method: "GET",
-        headers: {
-          "x-api-key": API_KEY
-        }
-      });
-
-      if (!meResponse.ok) {
-        const errorText = await meResponse.text();
-        console.error(`Shotstack API error: ${meResponse.status}`, errorText);
-        return new Response(
-          JSON.stringify({ 
-            error: "Error connecting to Shotstack API",
-            status: meResponse.status,
-            details: errorText
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-        );
-      }
-
-      // Now test creating a minimal valid timeline to ensure we can render videos
+      // Test creating a minimal valid timeline to ensure we can render videos
       const testTimeline = {
         timeline: {
           background: "#000000",
@@ -99,7 +78,6 @@ serve(async (req) => {
         );
       }
 
-      const data = await meResponse.json();
       const renderData = await renderResponse.json();
       
       return new Response(
@@ -107,7 +85,6 @@ serve(async (req) => {
           success: true, 
           message: "Shotstack API is configured correctly and can render videos",
           data: { 
-            account: data,
             renderTest: renderData
           }
         }),

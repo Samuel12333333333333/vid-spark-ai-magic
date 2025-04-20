@@ -8,38 +8,25 @@ schemas = ["public", "storage", "graphql_public"]
 
 [db]
 port = 54322
-
-[studio]
-port = 54323
-
-[storage]
-enabled = true
-
-[auth]
-enabled = true
+shadow_port = 54320
+major_version = 15
 
 [realtime]
 enabled = true
 
-[functions.customer-portal]
-verify_jwt = true
+[studio]
+enabled = true
+port = 54323
 
-[functions.check-subscription]
-verify_jwt = true
+# Disable JWT verification for the webhook function since it's called by Stripe
+[functions.stripe-webhook]
+verify_jwt = false
 
-[functions.create-checkout]
+# Ensure proper JWT verification for other functions
+[functions.generate-scenes]
 verify_jwt = true
 
 [functions.generate-audio]
-verify_jwt = true
-
-[functions.generate-scenes]
-verify_jwt = true 
-
-[functions.check-render-status]
-verify_jwt = true
-
-[functions.render-video] 
 verify_jwt = true
 
 [functions.search-videos]
@@ -48,5 +35,8 @@ verify_jwt = true
 [functions.test-shotstack]
 verify_jwt = true
 
-[functions.stripe-webhook]
-verify_jwt = false
+[functions.render-video]
+verify_jwt = true
+
+[functions.check-render-status]
+verify_jwt = true
