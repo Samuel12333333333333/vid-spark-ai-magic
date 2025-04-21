@@ -1,11 +1,9 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Send, X } from "lucide-react";
 import { aiService } from "@/services/aiService";
 import { useToast } from "@/components/ui/use-toast";
 
-// Define FAQ responses for quick matching
 const FAQ_RESPONSES: Record<string, string> = {
   "what is smartvid": "SmartVid is a short-form video generation platform that turns your text prompts into visually engaging videos using AI and stock video clips. Perfect for creators, marketers, educators, and startups!",
   "how does it work": "SmartVid works in 3 simple steps: 1) You enter a text prompt describing your video idea, 2) Our AI breaks it down into scenes and finds matching stock footage, 3) Everything is assembled into a professional video ready to download or share!",
@@ -15,18 +13,15 @@ const FAQ_RESPONSES: Record<string, string> = {
   "where does the footage come from": "We use high-quality stock videos from Pexels that our AI automatically selects based on your prompt.",
 };
 
-// Helper function to find the best matching FAQ response
 const findFAQResponse = (message: string): string | null => {
   const normalizedMessage = message.toLowerCase();
   
-  // Check for direct matches first
   for (const [key, response] of Object.entries(FAQ_RESPONSES)) {
     if (normalizedMessage.includes(key)) {
       return response;
     }
   }
   
-  // Check for partial keyword matches
   if (normalizedMessage.includes("pricing") || normalizedMessage.includes("cost") || normalizedMessage.includes("price")) {
     return FAQ_RESPONSES["how much does it cost"];
   }
@@ -48,38 +43,30 @@ type Message = {
 };
 
 export function ChatBubble() {
-  // Get session storage key
   const STORAGE_KEY = "smartvid-chat-history";
   
-  // States
   const [isExpanded, setIsExpanded] = useState(false);
   const [message, setMessage] = useState('');
   const [conversation, setConversation] = useState<Message[]>(() => {
-    // Try to load conversation from sessionStorage
     const saved = sessionStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : [];
   });
   const [isLoading, setIsLoading] = useState(false);
   
-  // Refs
   const chatWindowRef = useRef<HTMLDivElement>(null);
   const messageEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  // Hooks
   const { toast } = useToast();
   
-  // Save conversation to sessionStorage whenever it changes
   useEffect(() => {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(conversation));
   }, [conversation]);
   
-  // Scroll to bottom whenever conversation updates
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation]);
   
-  // Handle clicking outside to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -87,7 +74,6 @@ export function ChatBubble() {
         chatWindowRef.current && 
         !chatWindowRef.current.contains(event.target as Node)
       ) {
-        // Check if the click is on the toggle button (don't close if it is)
         const toggleButton = document.getElementById('chat-toggle-button');
         if (!toggleButton?.contains(event.target as Node)) {
           setIsExpanded(false);
@@ -95,7 +81,6 @@ export function ChatBubble() {
       }
     };
     
-    // Handle escape key to close
     const handleEscKey = (event: KeyboardEvent) => {
       if (isExpanded && event.key === 'Escape') {
         setIsExpanded(false);
@@ -111,7 +96,6 @@ export function ChatBubble() {
     };
   }, [isExpanded]);
   
-  // Focus input when chat window opens
   useEffect(() => {
     if (isExpanded) {
       setTimeout(() => {
@@ -120,7 +104,6 @@ export function ChatBubble() {
     }
   }, [isExpanded]);
   
-  // Greeting message when opening empty chat
   useEffect(() => {
     if (isExpanded && conversation.length === 0) {
       setConversation([
@@ -138,48 +121,42 @@ export function ChatBubble() {
     
     const userMessage = message.trim();
     setMessage('');
-    setConversation(prev => [...prev, { text: userMessage, isUser: true }]);
+    setConversation((prev) => [...prev, { text: userMessage, isUser: true }]);
     setIsLoading(true);
     
     try {
-      // First check if we have a FAQ match
-      const faqResponse = findFAQResponse(userMessage);
-      
-      if (faqResponse) {
-        // Use the FAQ response
-        setTimeout(() => {
-          setConversation(prev => [...prev, { text: faqResponse, isUser: false }]);
-          setIsLoading(false);
-        }, 500); // Small delay to make it feel more natural
-      } else {
-        // Fallback to AI service
-        try {
-          const response = await aiService.generateScenes(userMessage);
-          const aiResponse = response[0]?.description || 
-            "I'm here to help you with any questions about SmartVid! Feel free to ask about how our video generator works, pricing, or features.";
-          setConversation(prev => [...prev, { text: aiResponse, isUser: false }]);
-        } catch (error) {
-          console.error("Error from AI service:", error);
-          setConversation(prev => [...prev, { 
-            text: "I apologize, I'm having trouble responding right now. Please try asking about our main features or pricing instead.",
-            isUser: false 
-          }]);
+      const res = await fetch(
+        "https://smartvid.app.n8n.cloud/webhook/f406671e-c954-4691-b39a-66c90aa2f103/chat",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: userMessage }),
         }
-        setIsLoading(false);
+      );
+      if (!res.ok) {
+        throw new Error("Failed to get response");
       }
+      const data = await res.json();
+      const responseText =
+        typeof data === "string"
+          ? data
+          : data.reply || data.message || "Sorry, I didn't quite get that. Try again!";
+      
+      setConversation((prev) => [
+        ...prev,
+        { text: responseText, isUser: false },
+      ]);
     } catch (error) {
-      console.error("Chat assistant error:", error);
-      setConversation(prev => [...prev, { 
-        text: "I apologize, I'm having trouble responding right now. Please try again.",
-        isUser: false 
-      }]);
-      toast({
-        title: "Chat Error",
-        description: "There was a problem with the chat service. Please try again later.",
-        variant: "destructive",
-      });
-      setIsLoading(false);
+      console.error("ChatBubble webhook error:", error);
+      setConversation((prev) => [
+        ...prev,
+        {
+          text: "Sorry, we couldn’t contact our support assistant just now. Try again shortly.",
+          isUser: false,
+        },
+      ]);
     }
+    setIsLoading(false);
   };
   
   const clearConversation = () => {
@@ -193,10 +170,10 @@ export function ChatBubble() {
 
   return (
     <>
-      {/* Chat Window */}
       <div 
         ref={chatWindowRef}
         className={`
+          fixed bottom-4 right-4 z-[99]
           transition-all duration-300 ease-in-out transform origin-bottom-right
           ${isExpanded 
             ? 'scale-100 opacity-100 translate-y-0' 
@@ -204,10 +181,10 @@ export function ChatBubble() {
           }
           bg-white dark:bg-gray-900 backdrop-blur-lg
           border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl
-          p-4 mb-4 w-[350px] sm:w-[380px] max-h-[500px] flex flex-col
+          p-4 w-[350px] sm:w-[380px] max-h-[500px] flex flex-col
         `}
+        style={{ boxShadow: "0 2px 24px 0 rgba(30,24,63,.11)" }}
       >
-        {/* Chat Header */}
         <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
@@ -225,7 +202,6 @@ export function ChatBubble() {
           </Button>
         </div>
         
-        {/* Chat Messages */}
         <div className="flex-1 overflow-y-auto mb-4 space-y-4 pr-2">
           {conversation.map((msg, i) => (
             <div
@@ -244,7 +220,6 @@ export function ChatBubble() {
             </div>
           ))}
           
-          {/* Loading indicator */}
           {isLoading && (
             <div className="flex justify-start">
               <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg flex items-center space-x-2">
@@ -258,11 +233,9 @@ export function ChatBubble() {
             </div>
           )}
           
-          {/* Invisible element to scroll to */}
           <div ref={messageEndRef} />
         </div>
         
-        {/* Chat Input */}
         <form onSubmit={handleSubmit} className="flex gap-2 items-center">
           <input
             ref={inputRef}
@@ -285,28 +258,27 @@ export function ChatBubble() {
         </form>
       </div>
       
-      {/* Chat Button */}
-      <Button
+      <button
         id="chat-toggle-button"
-        size="lg"
+        type="button"
+        aria-label={isExpanded ? "Close chat" : "Open chat"}
         className={`
-          rounded-full w-14 h-14
+          fixed bottom-4 right-4 z-[100]
+          rounded-full w-14 h-14 flex items-center justify-center
           transition-all duration-300 ease-in-out
-          hover:scale-110 active:scale-95
           shadow-lg
           ${isExpanded 
             ? 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700' 
             : 'bg-primary hover:bg-primary/90'}
         `}
         onClick={() => setIsExpanded(!isExpanded)}
-        aria-label={isExpanded ? "Close chat" : "Open chat"}
       >
         {isExpanded ? (
           <X className="h-6 w-6 text-gray-900 dark:text-gray-100" />
         ) : (
           <MessageCircle className="h-6 w-6 text-white" />
         )}
-      </Button>
+      </button>
     </>
   );
 }
