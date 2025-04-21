@@ -38,19 +38,36 @@
             },
             branding: {
                 logo: '/favicon.ico',
-                name: 'SmartVid', 
-                welcomeText: '👋 Hi there! How can I help you today?',
-                responseTimeText: 'We typically respond right away'
+                name: 'SmartVid Assistant', 
+                welcomeText: '✨ Hi! I'm your SmartVid AI assistant. How can I help you create amazing videos today?',
+                responseTimeText: 'Usually responds in seconds'
             },
             style: {
-                primaryColor: '#854fff',
-                secondaryColor: '#6b3fd4',
+                primaryColor: '#6366F1',       // Matches our primary color
+                secondaryColor: '#818CF8',     // Matches our primary-light
                 position: 'right',
                 backgroundColor: '#ffffff',
-                fontColor: '#333333'
+                fontColor: '#1F2937',          // Matches our dark gray
+                borderRadius: '1rem',          // Rounded corners
+                buttonStyle: 'modern',         // Modern look
+                shadow: '0 4px 12px rgba(0, 0, 0, 0.1)', // Subtle shadow
+                widgetWidth: '380px',          // Slightly wider
+                widgetHeight: '600px',         // Taller widget
+                headerHeight: '80px',          // Taller header
+                messageMaxWidth: '85%',        // Wider messages
+                fontSize: '1rem',              // Base font size
+                spacing: '16px',               // Consistent spacing
+                animation: 'slide-in',         // Smooth entry
+                bubbleStyle: {
+                    background: '#6366F1',     // Primary color for bubble
+                    size: '60px',              // Larger bubble
+                    iconSize: '28px',          // Larger icon
+                    shadow: '0 4px 12px rgba(99, 102, 241, 0.3)' // Branded shadow
+                }
             }
         };
     </script>
     <script src="https://cdn.jsdelivr.net/gh/WayneSimpson/n8n-chatbot-template@ba944c3/chat-widget.js"></script>
   </body>
 </html>
+
