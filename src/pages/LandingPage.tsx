@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -134,11 +133,6 @@ export default function LandingPage() {
         <PricingSection />
         <FAQSection />
         <CTASection />
-
-        {/* ChatBubble is ONLY visible on landing page */}
-        <div className="fixed bottom-4 right-4 z-[99]">
-          <ChatBubble />
-        </div>
       </main>
 
       <Footer />

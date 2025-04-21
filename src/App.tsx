@@ -1,12 +1,12 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { HelmetProvider } from "react-helmet-async";
+import { useEffect } from "react";
 
 // Layouts
 import MainLayout from "@/components/layout/MainLayout";
@@ -44,6 +44,25 @@ import BrandKitPage from "./pages/dashboard/BrandKitPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 import UpgradePage from "./pages/dashboard/UpgradePage";
 
+// Chat widget visibility controller
+const ChatWidgetController = () => {
+  const location = useLocation();
+  
+  useEffect(() => {
+    // Only show chat widget on landing page
+    const chatWidget = document.getElementById('n8n-chat-widget');
+    if (chatWidget) {
+      if (location.pathname === '/') {
+        chatWidget.style.display = 'block';
+      } else {
+        chatWidget.style.display = 'none';
+      }
+    }
+  }, [location]);
+  
+  return null;
+};
+
 // Protected Route component
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { session, isLoading } = useAuth();
@@ -69,6 +88,7 @@ const App = () => {
           <SubscriptionProvider>
             <HelmetProvider>
               <TooltipProvider>
+                <ChatWidgetController />
                 <Toaster />
                 <Sonner />
                 <Routes>

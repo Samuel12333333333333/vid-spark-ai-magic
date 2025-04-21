@@ -1,8 +1,13 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Send, X } from "lucide-react";
 import { toast } from "sonner";
+
+// NOTE: This component is not in use anymore.
+// We've switched to using the external chat widget script
+// that connects directly to the n8n webhook.
+// Keeping this file for reference in case we want to switch back
+// to a custom implementation in the future.
 
 type Message = {
   text: string;
