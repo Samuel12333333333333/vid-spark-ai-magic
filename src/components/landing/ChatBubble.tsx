@@ -1,41 +1,8 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Send, X } from "lucide-react";
-import { aiService } from "@/services/aiService";
-import { useToast } from "@/components/ui/use-toast";
-
-const FAQ_RESPONSES: Record<string, string> = {
-  "what is smartvid": "SmartVid is a short-form video generation platform that turns your text prompts into visually engaging videos using AI and stock video clips. Perfect for creators, marketers, educators, and startups!",
-  "how does it work": "SmartVid works in 3 simple steps: 1) You enter a text prompt describing your video idea, 2) Our AI breaks it down into scenes and finds matching stock footage, 3) Everything is assembled into a professional video ready to download or share!",
-  "how much does it cost": "SmartVid offers a free tier with 1 video per day. For more videos and premium features, we have subscription plans starting at $9.99/month. Check out our Pricing page for details!",
-  "what can i create": "You can create explainer videos, social media content, educational clips, product demos, testimonials, advertisements, and much more! Our platform is versatile for various video needs.",
-  "how long are the videos": "SmartVid generates short-form videos typically ranging from 15 seconds to 2 minutes, perfect for social media and quick content consumption.",
-  "where does the footage come from": "We use high-quality stock videos from Pexels that our AI automatically selects based on your prompt.",
-};
-
-const findFAQResponse = (message: string): string | null => {
-  const normalizedMessage = message.toLowerCase();
-  
-  for (const [key, response] of Object.entries(FAQ_RESPONSES)) {
-    if (normalizedMessage.includes(key)) {
-      return response;
-    }
-  }
-  
-  if (normalizedMessage.includes("pricing") || normalizedMessage.includes("cost") || normalizedMessage.includes("price")) {
-    return FAQ_RESPONSES["how much does it cost"];
-  }
-  
-  if (normalizedMessage.includes("create") || normalizedMessage.includes("make") || normalizedMessage.includes("generate")) {
-    return FAQ_RESPONSES["what can i create"];
-  }
-  
-  if (normalizedMessage.includes("video length") || normalizedMessage.includes("duration")) {
-    return FAQ_RESPONSES["how long are the videos"];
-  }
-  
-  return null;
-};
+import { toast } from "sonner";
 
 type Message = {
   text: string;
@@ -44,6 +11,7 @@ type Message = {
 
 export function ChatBubble() {
   const STORAGE_KEY = "smartvid-chat-history";
+  const WEBHOOK_URL = "https://smartvid.app.n8n.cloud/webhook/f406671e-c954-4691-b39a-66c90aa2f103/chat";
   
   const [isExpanded, setIsExpanded] = useState(false);
   const [message, setMessage] = useState('');
@@ -56,8 +24,6 @@ export function ChatBubble() {
   const chatWindowRef = useRef<HTMLDivElement>(null);
   const messageEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  
-  const { toast } = useToast();
   
   useEffect(() => {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(conversation));
@@ -125,22 +91,35 @@ export function ChatBubble() {
     setIsLoading(true);
     
     try {
-      const res = await fetch(
-        "https://smartvid.app.n8n.cloud/webhook/f406671e-c954-4691-b39a-66c90aa2f103/chat",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: userMessage }),
-        }
-      );
-      if (!res.ok) {
-        throw new Error("Failed to get response");
+      // For mock testing, you can use a condition to bypass the actual API call
+      const isMock = false; // Set to true for mocking during development/testing
+      
+      if (isMock) {
+        // Mock response for testing
+        setTimeout(() => {
+          setConversation((prev) => [
+            ...prev,
+            { text: "This is a mock response for testing purposes.", isUser: false },
+          ]);
+          setIsLoading(false);
+        }, 1000);
+        return;
       }
-      const data = await res.json();
-      const responseText =
-        typeof data === "string"
-          ? data
-          : data.reply || data.message || "Sorry, I didn't quite get that. Try again!";
+      
+      const response = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const responseText = typeof data === "string" 
+        ? data 
+        : data.reply || data.message || "I didn't understand that. Could you try again?";
       
       setConversation((prev) => [
         ...prev,
@@ -148,15 +127,21 @@ export function ChatBubble() {
       ]);
     } catch (error) {
       console.error("ChatBubble webhook error:", error);
+      
+      // Show error in UI
       setConversation((prev) => [
         ...prev,
         {
-          text: "Sorry, we couldn’t contact our support assistant just now. Try again shortly.",
+          text: "Sorry, I'm having trouble connecting right now. Please try again in a moment.",
           isUser: false,
         },
       ]);
+      
+      // Also show a toast notification
+      toast.error("Chat connection failed. Please try again later.");
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
   
   const clearConversation = () => {
