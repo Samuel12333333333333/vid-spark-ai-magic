@@ -17,5 +17,5 @@ Allow: /contact
 Allow: /cookies
 
 # Sitemap location
-Sitemap: https://smartvid.ai/sitemap.xml
+Sitemap: https://smartvideofy.com/sitemap.xml
 

@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -32,6 +33,8 @@ import PrivacyPage from "./pages/PrivacyPage";
 import TermsPage from "./pages/TermsPage";
 import CookiesPage from "./pages/CookiesPage";
 import PricingPage from "./pages/PricingPage";
+import SitemapPage from "./pages/SitemapPage";
+import SitemapXML from "./pages/SitemapXML";
 
 // Dashboard Pages
 import DashboardHome from "./pages/dashboard/DashboardHome";
@@ -43,6 +46,33 @@ import GeneratorPage from "./pages/dashboard/GeneratorPage";
 import BrandKitPage from "./pages/dashboard/BrandKitPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 import UpgradePage from "./pages/dashboard/UpgradePage";
+
+// Special XML route handler
+const XMLRoute = ({ xml }: { xml: string }) => {
+  useEffect(() => {
+    // Create a Blob with the XML content and the correct MIME type
+    const blob = new Blob([xml], { type: 'application/xml' });
+    
+    // Create a URL for the Blob
+    const url = URL.createObjectURL(blob);
+    
+    // Download the file
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sitemap.xml';
+    document.body.appendChild(a);
+    a.click();
+    
+    // Clean up
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    // Redirect to HTML sitemap
+    window.location.href = '/sitemap';
+  }, [xml]);
+  
+  return null;
+};
 
 // Chat widget visibility controller
 const ChatWidgetController = () => {
@@ -96,6 +126,10 @@ const App = () => {
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/login" element={<AuthPage />} />
                   <Route path="/register" element={<AuthPage />} />
+                  
+                  {/* XML Sitemap special route */}
+                  <Route path="/sitemap.xml" element={<SitemapXML />} />
+                  <Route path="/sitemap" element={<SitemapPage />} />
                   
                   {/* New marketing pages with MainLayout */}
                   <Route element={<MainLayout />}>
