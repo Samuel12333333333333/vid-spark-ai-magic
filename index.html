@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SmartVideofy - AI-Powered Video Generator</title>
-    <meta name="description" content="Transform text into stunning videos with AI. SmartVideofy helps creators, marketers, and educators bring their ideas to life with professional quality videos." />
+    <meta name="description" content="Transform text into stunning videos with AI. SmartVideofy helps creators, marketers, educators, and startups bring their ideas to life with professional quality videos." />
     <meta name="author" content="SmartVideofy" />
 
     <!-- Open Graph / Facebook -->
@@ -58,7 +58,7 @@
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
     <script type="module" src="/src/main.tsx"></script>
     
-    <!-- Simple Custom Chat Widget -->
+    <!-- Chat Widget -->
     <div id="chat-widget-container" style="display:none; position:fixed; bottom:20px; right:20px; z-index:9999;">
       <div id="chat-popup" style="display:none; width:300px; max-height:400px; background:white; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.2); overflow:hidden; margin-bottom:10px;">
         <div style="background:#6366F1; color:white; padding:10px; display:flex; justify-content:space-between; align-items:center;">
@@ -157,17 +157,7 @@
           chatMessages.appendChild(typingIndicator);
           chatMessages.scrollTop = chatMessages.scrollHeight;
           
-          // Send to webhook (mock response for now due to 404)
-          setTimeout(() => {
-            // Remove typing indicator
-            document.getElementById('typing-indicator').remove();
-            
-            // Add bot response (placeholder since webhook is down)
-            addMessage('Thanks for your message! Our webhook is currently being updated. Please check back soon or contact support for immediate assistance.', false);
-          }, 1000);
-          
-          // Actual webhook call - commented out until the webhook is fixed
-          /*
+          // Send to webhook
           fetch('https://smartvid.app.n8n.cloud/webhook/f406671e-c954-4691-b39a-66c90aa2f103/chat', {
             method: 'POST',
             headers: {
@@ -175,7 +165,12 @@
             },
             body: JSON.stringify({ message: message }),
           })
-          .then(response => response.json())
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Server responded with status: ${response.status}`);
+            }
+            return response.json();
+          })
           .then(data => {
             // Remove typing indicator
             document.getElementById('typing-indicator').remove();
@@ -185,13 +180,14 @@
           })
           .catch(error => {
             // Remove typing indicator
-            document.getElementById('typing-indicator').remove();
+            if (document.getElementById('typing-indicator')) {
+              document.getElementById('typing-indicator').remove();
+            }
             
             // Add error message
             addMessage('Sorry, I\'m having trouble connecting right now. Please try again later.', false);
             console.error('Chat error:', error);
           });
-          */
         }
         
         function addMessage(text, isUser) {
