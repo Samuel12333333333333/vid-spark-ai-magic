@@ -1,15 +1,14 @@
 
 import { Helmet } from 'react-helmet-async';
-import { Footer } from '@/components/landing/Footer';
 import { BlogPost } from '@/components/blog/BlogPost';
 import { useBlogPosts } from '@/hooks/useBlogPosts';
-import SEOMetadata from '@/components/SEOMetadata';
+import { MainLayout } from '@/components/layout/MainLayout';
 
 export default function BlogPage() {
   const { posts, loading, error } = useBlogPosts();
 
   return (
-    <div className="min-h-screen bg-background">
+    <MainLayout>
       <Helmet>
         <title>Blog | SmartVid AI Video Generator</title>
         <meta 
@@ -49,7 +48,6 @@ export default function BlogPage() {
           ))}
         </div>
       </div>
-      <Footer />
-    </div>
+    </MainLayout>
   );
 }
