@@ -52,13 +52,23 @@ const ChatWidgetController = () => {
   const location = useLocation();
   
   useEffect(() => {
-    // Only show chat widget on landing page
+    // Only show chat widget on landing page and marketing pages, not on dashboard
     const chatWidget = document.getElementById('n8n-chat-widget');
-    if (chatWidget) {
-      if (location.pathname === '/') {
+    const chatBubble = document.getElementById('n8n-chat-bubble');
+    
+    if (chatWidget && chatBubble) {
+      // Check if we're on the landing page or a marketing page
+      const isMarketingPage = location.pathname === '/' || 
+                             !location.pathname.startsWith('/dashboard') && 
+                             !location.pathname.startsWith('/login') && 
+                             !location.pathname.startsWith('/register');
+      
+      if (isMarketingPage) {
         chatWidget.style.display = 'block';
+        chatBubble.style.display = 'flex';
       } else {
         chatWidget.style.display = 'none';
+        chatBubble.style.display = 'none';
       }
     }
   }, [location]);

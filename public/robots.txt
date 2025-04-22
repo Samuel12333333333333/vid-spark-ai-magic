@@ -18,4 +18,3 @@ Allow: /cookies
 
 # Sitemap location
 Sitemap: https://smartvideofy.com/sitemap.xml
-
