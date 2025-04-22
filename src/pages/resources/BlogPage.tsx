@@ -2,13 +2,11 @@
 import { Helmet } from 'react-helmet-async';
 import { BlogPost } from '@/components/blog/BlogPost';
 import { useBlogPosts } from '@/hooks/useBlogPosts';
-import MainLayout from '@/components/layout/MainLayout';
 
 export default function BlogPage() {
   const { posts, loading, error } = useBlogPosts();
 
   return (
-    <div>
       <Helmet>
         <title>Blog | SmartVid AI Video Generator</title>
         <meta 
@@ -49,7 +47,7 @@ export default function BlogPage() {
             ))}
           </div>
         </div>
-      </MainLayout>
-    </div>
+      </div>
+
   );
 }
