@@ -47,9 +47,6 @@ export default function BlogPage() {
             <BlogPost key={post.id} {...post} />
           ))}
         </div>
-      </div>
-      
-      <Footer />
     </div>
   );
 }
