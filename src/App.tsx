@@ -7,7 +7,6 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { HelmetProvider } from "react-helmet-async";
-import { useEffect } from "react";
 
 // Layouts
 import MainLayout from "@/components/layout/MainLayout";
@@ -34,7 +33,6 @@ import TermsPage from "./pages/TermsPage";
 import CookiesPage from "./pages/CookiesPage";
 import PricingPage from "./pages/PricingPage";
 import SitemapPage from "./pages/SitemapPage";
-// Remove the SitemapXML import as we'll use a static file now
 
 // Dashboard Pages
 import DashboardHome from "./pages/dashboard/DashboardHome";
@@ -46,35 +44,6 @@ import GeneratorPage from "./pages/dashboard/GeneratorPage";
 import BrandKitPage from "./pages/dashboard/BrandKitPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 import UpgradePage from "./pages/dashboard/UpgradePage";
-
-// Chat widget visibility controller
-const ChatWidgetController = () => {
-  const location = useLocation();
-  
-  useEffect(() => {
-    // Only show chat widget on landing page and marketing pages, not on dashboard
-    const chatWidget = document.getElementById('n8n-chat-widget');
-    const chatBubble = document.getElementById('n8n-chat-bubble');
-    
-    if (chatWidget && chatBubble) {
-      // Check if we're on the landing page or a marketing page
-      const isMarketingPage = location.pathname === '/' || 
-                             !location.pathname.startsWith('/dashboard') && 
-                             !location.pathname.startsWith('/login') && 
-                             !location.pathname.startsWith('/register');
-      
-      if (isMarketingPage) {
-        chatWidget.style.display = 'block';
-        chatBubble.style.display = 'flex';
-      } else {
-        chatWidget.style.display = 'none';
-        chatBubble.style.display = 'none';
-      }
-    }
-  }, [location]);
-  
-  return null;
-};
 
 // Protected Route component
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
@@ -101,7 +70,6 @@ const App = () => {
           <SubscriptionProvider>
             <HelmetProvider>
               <TooltipProvider>
-                <ChatWidgetController />
                 <Toaster />
                 <Sonner />
                 <Routes>

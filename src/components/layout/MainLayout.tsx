@@ -22,7 +22,7 @@ export default function MainLayout() {
         }
       };
       
-      // Submit sitemap
+      // Submit sitemap on mount
       submitSitemapToGSC();
       
       // Set up a weekly resubmission
