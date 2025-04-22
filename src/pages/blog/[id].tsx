@@ -24,41 +24,35 @@ export default function BlogPostPage() {
 
   if (isLoading) {
     return (
-      <>
-        <div className="container px-4 md:px-6 py-12 max-w-4xl mx-auto">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-200 rounded"></div>
-              <div className="h-4 bg-gray-200 rounded"></div>
-              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-            </div>
+      <div className="container px-4 md:px-6 py-12 max-w-4xl mx-auto">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+          <div className="space-y-2">
+            <div className="h-4 bg-gray-200 rounded"></div>
+            <div className="h-4 bg-gray-200 rounded"></div>
+            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <>
-        <div className="container px-4 md:px-6 py-12 max-w-4xl mx-auto">
-          <div className="text-center text-red-500">
-            Error loading blog post. Please try again later.
-          </div>
+      <div className="container px-4 md:px-6 py-12 max-w-4xl mx-auto">
+        <div className="text-center text-red-500">
+          Error loading blog post. Please try again later.
         </div>
-      </>
+      </div>
     );
   }
 
   if (!post) {
     return (
-      <>
-        <div className="container px-4 md:px-6 py-12 max-w-4xl mx-auto">
-          <div className="text-center">Blog post not found.</div>
-        </div>
-      </>
+      <div className="container px-4 md:px-6 py-12 max-w-4xl mx-auto">
+        <div className="text-center">Blog post not found.</div>
+      </div>
     );
   }
 
@@ -77,13 +71,11 @@ export default function BlogPostPage() {
           </time>
         </header>
 
-        <div className="prose dark:prose-invert max-w-none">
+        <div className="prose dark:prose-invert max-w-none lg:prose-lg prose-headings:font-bold prose-a:text-primary hover:prose-a:text-primary-dark prose-a:underline">
           <p className="text-lg text-muted-foreground mb-8">{post.summary}</p>
           <div
-            className="prose dark:prose-invert max-w-none"
             dangerouslySetInnerHTML={{ __html: post.content }}
           ></div>
-
         </div>
       </article>
     </>

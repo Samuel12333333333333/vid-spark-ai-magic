@@ -171,8 +171,36 @@ export default {
         slideLeftAndFade: 'slideLeftAndFade 400ms cubic-bezier(0.16, 1, 0.3, 1)',
         slideUpAndFade: 'slideUpAndFade 400ms cubic-bezier(0.16, 1, 0.3, 1)',
         slideRightAndFade: 'slideRightAndFade 400ms cubic-bezier(0.16, 1, 0.3, 1)',
-      }
+      },
+      typography: {
+        DEFAULT: {
+          css: {
+            a: {
+              color: '#6366F1', // Primary color for links
+              '&:hover': {
+                color: '#4F46E5', // Darker shade on hover
+              },
+              textDecoration: 'underline',
+            },
+            h1: {
+              fontWeight: 700,
+            },
+            h2: {
+              fontWeight: 700,
+            },
+            h3: {
+              fontWeight: 600,
+            },
+            h4: {
+              fontWeight: 600,
+            },
+          },
+        },
+      },
     }
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    require("@tailwindcss/typography")
+  ],
 } satisfies Config;
