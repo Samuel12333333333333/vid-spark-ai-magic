@@ -2,7 +2,7 @@
 import { Helmet } from 'react-helmet-async';
 import { BlogPost } from '@/components/blog/BlogPost';
 import { useBlogPosts } from '@/hooks/useBlogPosts';
-import { MainLayout } from '@/components/layout/MainLayout';
+import MainLayout from '@/components/layout/MainLayout';
 
 export default function BlogPage() {
   const { posts, loading, error } = useBlogPosts();
