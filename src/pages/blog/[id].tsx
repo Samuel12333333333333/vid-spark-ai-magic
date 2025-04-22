@@ -79,7 +79,11 @@ export default function BlogPostPage() {
 
         <div className="prose dark:prose-invert max-w-none">
           <p className="text-lg text-muted-foreground mb-8">{post.summary}</p>
-          <div className="whitespace-pre-wrap">{post.content}</div>
+          <div
+            className="prose dark:prose-invert max-w-none"
+            dangerouslySetInnerHTML={{ __html: post.content }}
+          ></div>
+
         </div>
       </article>
     </>
