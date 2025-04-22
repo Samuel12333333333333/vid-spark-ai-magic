@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Footer } from '@/components/landing/Footer';
 import { BlogPost } from '@/components/blog/BlogPost';
 import { useBlogPosts } from '@/hooks/useBlogPosts';
+import SEOMetadata from '@/components/SEOMetadata';
 
 export default function BlogPage() {
   const { posts, loading, error } = useBlogPosts();
@@ -47,6 +48,8 @@ export default function BlogPage() {
             <BlogPost key={post.id} {...post} />
           ))}
         </div>
+      </div>
+      <Footer />
     </div>
   );
 }
