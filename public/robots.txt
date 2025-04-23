@@ -3,14 +3,27 @@ User-agent: *
 Allow: /
 
 # Allow search engines to crawl all pages
+Allow: /
+Allow: /features
+Allow: /pricing
+Allow: /product
+Allow: /templates
+Allow: /integrations
+Allow: /use-cases
+Allow: /blog
+Allow: /help
+Allow: /community
+Allow: /api-docs
+Allow: /about
+Allow: /careers
+Allow: /contact
 Allow: /terms
 Allow: /privacy
-Allow: /about
-Allow: /contact
 Allow: /cookies
 Allow: /dashboard/
 Allow: /admin/
 Allow: /login/
+Allow: /register/
 Allow: /logout/
 Allow: /api/
 

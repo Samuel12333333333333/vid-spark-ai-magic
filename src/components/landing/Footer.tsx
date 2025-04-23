@@ -1,9 +1,13 @@
+
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
+  const [email, setEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     // Add Mailchimp validation script
@@ -44,6 +48,35 @@ export function Footer() {
       document.body.removeChild(script);
     };
   }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      toast.error("Please enter your email address");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Simulating form submission to Mailchimp
+      // In reality, this would be handled by the Mailchimp form action
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast.success("Thank you for subscribing to our newsletter!");
+      setEmail("");
+      
+      // Submit the actual form
+      const form = document.getElementById('mc-embedded-subscribe-form') as HTMLFormElement;
+      if (form) {
+        form.submit();
+      }
+    } catch (error) {
+      toast.error("Failed to subscribe. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   
   return (
     <footer className="border-t bg-white dark:bg-gray-950">
@@ -183,6 +216,7 @@ export function Footer() {
               name="mc-embedded-subscribe-form"
               className="validate"
               target="_blank"
+              onSubmit={handleSubmit}
             >
               <div className="flex flex-col space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -196,12 +230,18 @@ export function Footer() {
                     type="email"
                     name="EMAIL"
                     id="mce-EMAIL"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                     className="flex-1 min-w-0 px-4 py-2 text-base border rounded-md focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:border-gray-700"
                     placeholder="Enter your email"
                   />
-                  <Button type="submit" className="bg-primary hover:bg-primary-dark">
-                    Subscribe
+                  <Button 
+                    type="submit" 
+                    className="bg-primary hover:bg-primary-dark" 
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Subscribing..." : "Subscribe"}
                   </Button>
                 </div>
                 {/* Hidden field for bot protection */}

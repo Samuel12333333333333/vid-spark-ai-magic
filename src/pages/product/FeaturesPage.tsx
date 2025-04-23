@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Footer } from '@/components/landing/Footer';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 
@@ -40,8 +39,6 @@ export default function FeaturesPage() {
           </Button>
         </div>
       </div>
-      
-      <Footer />
     </div>
   );
 }
