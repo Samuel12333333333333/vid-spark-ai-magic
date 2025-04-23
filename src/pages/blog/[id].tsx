@@ -1,36 +1,81 @@
 
-import { Link } from "react-router-dom";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { Helmet } from 'react-helmet-async';
+import { Card, CardContent } from "@/components/ui/card";
 import { formatDistanceToNow } from "date-fns";
+import { useBlogPosts } from "@/hooks/useBlogPosts";
 
-interface BlogPostProps {
-  id: string;
-  title: string;
-  summary: string;
-  content: string;
-  created_at: string;
-}
+export default function BlogPostPage() {
+  const { id } = useParams();
+  const { posts, loading, error } = useBlogPosts();
+  const [post, setPost] = useState<any>(null);
 
-export function BlogPost({ id, title, summary, created_at }: BlogPostProps) {
+  useEffect(() => {
+    if (!loading && posts.length > 0) {
+      const foundPost = posts.find(p => p.id === id);
+      if (foundPost) {
+        setPost(foundPost);
+      }
+    }
+  }, [id, posts, loading]);
+
+  if (loading) {
+    return (
+      <div className="container px-4 md:px-6 py-12 max-w-6xl mx-auto">
+        <div className="text-center">
+          <p className="text-xl text-muted-foreground">Loading post...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container px-4 md:px-6 py-12 max-w-6xl mx-auto">
+        <div className="text-center text-red-500">
+          <p className="text-xl">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!post) {
+    return (
+      <div className="container px-4 md:px-6 py-12 max-w-6xl mx-auto">
+        <div className="text-center">
+          <p className="text-xl text-muted-foreground">Post not found.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <Card className="mb-6">
-      <CardHeader>
-        <div className="space-y-1">
-          <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
+    <>
+      <Helmet>
+        <title>{post.title} | SmartVid Blog</title>
+        <meta 
+          name="description" 
+          content={post.summary} 
+        />
+      </Helmet>
+      
+      <div className="container px-4 md:px-6 py-12 max-w-4xl mx-auto">
+        <div className="space-y-2 mb-8">
+          <h1 className="text-3xl md:text-5xl font-bold tracking-tight">{post.title}</h1>
           <p className="text-sm text-muted-foreground">
-            Posted {formatDistanceToNow(new Date(created_at))} ago
+            Posted {formatDistanceToNow(new Date(post.created_at))} ago
           </p>
         </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-gray-600 dark:text-gray-300">{summary}</p>
-        <Link 
-          to={`/blog/${id}`}
-          className="inline-block text-primary hover:underline mt-4"
-        >
-          Read more...
-        </Link>
-      </CardContent>
-    </Card>
+        
+        <Card className="mb-8">
+          <CardContent className="pt-6">
+            <div className="prose dark:prose-invert max-w-none">
+              <div dangerouslySetInnerHTML={{ __html: post.content }} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 }
