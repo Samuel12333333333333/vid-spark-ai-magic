@@ -56,6 +56,15 @@ export function DashboardLayout() {
     }
   };
 
+  // Function to handle navigation clicks - will be passed to both mobile and desktop sidebars
+  const handleNavClick = () => {
+    // For mobile, we want to close the sheet when navigation occurs
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+    // Could add additional navigation handling here if needed in the future
+  };
+
   const userName = profile?.username || user?.email?.split('@')[0] || "User";
   const userEmail = user?.email || "";
   const userInitials = userName
@@ -131,7 +140,7 @@ export function DashboardLayout() {
       </header>
       <div className="flex flex-1 overflow-hidden">
         <div className="hidden md:flex h-full">
-          <DashboardSidebar />
+          <DashboardSidebar onNavClick={handleNavClick} />
         </div>
         <main className="flex-1 overflow-y-auto">
           <div className="p-4 md:p-6">
