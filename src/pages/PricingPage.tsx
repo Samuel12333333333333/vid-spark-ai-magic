@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Footer } from '@/components/landing/Footer';
 import { PricingSection } from '@/components/landing/PricingSection';
 
 export default function PricingPage() {
@@ -23,8 +22,6 @@ export default function PricingPage() {
 
         <PricingSection />
       </div>
-      
-      <Footer />
     </div>
   );
 }

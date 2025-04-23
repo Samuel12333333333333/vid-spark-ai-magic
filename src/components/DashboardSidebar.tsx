@@ -1,4 +1,3 @@
-
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -17,7 +16,7 @@ import { useState, useEffect } from "react";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { Button } from "@/components/ui/button";
 
-export function DashboardSidebar() {
+export function DashboardSidebar({ onNavClick }) {
   const [isOpen, setIsOpen] = useState(false);
   const { hasActiveSubscription, isPro, isBusiness } = useSubscription();
   
@@ -94,7 +93,10 @@ export function DashboardSidebar() {
             <NavLink
               key={link.href}
               to={link.href}
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                setIsOpen(false);
+                onNavClick();
+              }}
               className={({ isActive }) =>
                 cn(
                   "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",

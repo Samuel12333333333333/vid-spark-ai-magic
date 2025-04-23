@@ -11,6 +11,7 @@ Allow: /templates
 Allow: /integrations
 Allow: /use-cases
 Allow: /blog
+Allow: /blog/*
 Allow: /help
 Allow: /community
 Allow: /api-docs
@@ -20,12 +21,13 @@ Allow: /contact
 Allow: /terms
 Allow: /privacy
 Allow: /cookies
+Allow: /sitemap
+
+# Admin and auth pages are allowed but won't appear in search results
 Allow: /dashboard/
-Allow: /admin/
 Allow: /login/
 Allow: /register/
 Allow: /logout/
-Allow: /api/
 
 # Sitemap location
 Sitemap: https://smartvideofy.com/sitemap.xml

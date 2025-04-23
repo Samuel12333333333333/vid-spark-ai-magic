@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Footer } from '@/components/landing/Footer';
 
 export default function UseCasesPage() {
   return (
@@ -22,8 +21,6 @@ export default function UseCasesPage() {
           </p>
         </div>
       </div>
-      
-      <Footer />
     </div>
   );
 }
