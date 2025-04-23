@@ -12,6 +12,18 @@ interface TemplateCardProps {
   category: string;
 }
 
+const getPlaceholderImage = (category: string) => {
+  const images = {
+    marketing: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b",
+    social: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158",
+    education: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6",
+    business: "https://images.unsplash.com/photo-1487058792275-0ad4aaf24ca7",
+    default: "https://images.unsplash.com/photo-1506744038136-46273834b3fb",
+  };
+  
+  return `${images[category as keyof typeof images] || images.default}?w=600&h=400&fit=crop&auto=format`;
+};
+
 export function TemplateCard({ id, name, description, thumbnail, category }: TemplateCardProps) {
   const navigate = useNavigate();
   
@@ -22,11 +34,12 @@ export function TemplateCard({ id, name, description, thumbnail, category }: Tem
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg border border-border/40 hover:border-primary/20 bg-card">
       <div className="relative">
-        {thumbnail ? (
+        {thumbnail || getPlaceholderImage(category) ? (
           <img
-            src={thumbnail}
+            src={thumbnail || getPlaceholderImage(category)}
             alt={name}
             className="w-full aspect-video object-cover"
+            loading="lazy"
           />
         ) : (
           <div className="w-full aspect-video bg-gradient-to-br from-secondary/10 to-primary/10 flex items-center justify-center">

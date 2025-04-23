@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -6,6 +5,11 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export function MainHeader() {
   const { session } = useAuth();
+  
+  const openChatbot = () => {
+    // This will trigger the chatbot to open
+    window.postMessage({ type: 'OPEN_CHATBOT' }, '*');
+  };
   
   return (
     <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -46,9 +50,12 @@ export function MainHeader() {
           <Link to="/integrations" className="text-sm font-medium hover:text-primary transition-colors">
             Integrations
           </Link>
-          <Link to="/blog" className="text-sm font-medium hover:text-primary transition-colors">
-            Blog
-          </Link>
+          <button 
+            onClick={openChatbot}
+            className="text-sm font-medium hover:text-primary transition-colors"
+          >
+            Help Center
+          </button>
         </nav>
         
         <div className="flex items-center gap-2">
