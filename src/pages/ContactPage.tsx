@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Footer } from '@/components/landing/Footer';
@@ -67,7 +66,7 @@ export default function ContactPage() {
               <Mail size={24} />
             </div>
             <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">Email</h3>
-            <p className="text-gray-700 dark:text-gray-300">support@smartvid.ai</p>
+            <p className="text-gray-700 dark:text-gray-300">support@smartvideofy.com</p>
             <p className="text-gray-700 dark:text-gray-300">partnerships@smartvid.ai</p>
           </div>
           

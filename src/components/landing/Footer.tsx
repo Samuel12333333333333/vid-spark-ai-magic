@@ -1,8 +1,49 @@
-
 import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
+
+  useEffect(() => {
+    // Add Mailchimp validation script
+    const script = document.createElement('script');
+    script.src = "//s3.amazonaws.com/downloads.mailchimp.com/js/mc-validate.js";
+    script.async = true;
+    document.body.appendChild(script);
+
+    script.onload = () => {
+      // Initialize Mailchimp
+      const mailchimpInit = `
+        (function($) {
+          window.fnames = new Array();
+          window.ftypes = new Array();
+          fnames[0]='EMAIL';
+          ftypes[0]='email';
+          fnames[1]='FNAME';
+          ftypes[1]='text';
+          fnames[2]='LNAME';
+          ftypes[2]='text';
+          fnames[3]='ADDRESS';
+          ftypes[3]='address';
+          fnames[4]='PHONE';
+          ftypes[4]='phone';
+          fnames[5]='BIRTHDAY';
+          ftypes[5]='birthday';
+          fnames[6]='COMPANY';
+          ftypes[6]='text';
+        }(jQuery));
+        var $mcj = jQuery.noConflict(true);
+      `;
+      const initScript = document.createElement('script');
+      initScript.textContent = mailchimpInit;
+      document.body.appendChild(initScript);
+    };
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
   
   return (
     <footer className="border-t bg-white dark:bg-gray-950">
@@ -133,24 +174,50 @@ export function Footer() {
           </div>
         </div>
         
-        <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-800 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-800">
+          <div className="mb-8 max-w-md mx-auto">
+            <form
+              action="https://smartvideofy.us5.list-manage.com/subscribe/post?u=a1ad332cee875c675a8b94332&amp;id=c3c1ff047e&amp;f_id=001946edf0"
+              method="post"
+              id="mc-embedded-subscribe-form"
+              name="mc-embedded-subscribe-form"
+              className="validate"
+              target="_blank"
+            >
+              <div className="flex flex-col space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Subscribe to our newsletter
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Get the latest news and updates delivered to your inbox.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="email"
+                    name="EMAIL"
+                    id="mce-EMAIL"
+                    required
+                    className="flex-1 min-w-0 px-4 py-2 text-base border rounded-md focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:border-gray-700"
+                    placeholder="Enter your email"
+                  />
+                  <Button type="submit" className="bg-primary hover:bg-primary-dark">
+                    Subscribe
+                  </Button>
+                </div>
+                {/* Hidden field for bot protection */}
+                <div aria-hidden="true" style={{ position: 'absolute', left: '-5000px' }}>
+                  <input
+                    type="text"
+                    name="b_a1ad332cee875c675a8b94332_c3c1ff047e"
+                    tabIndex={-1}
+                  />
+                </div>
+              </div>
+            </form>
+          </div>
+          <p className="text-sm text-center text-gray-500 dark:text-gray-400">
             © {currentYear} SmartVid. All rights reserved.
           </p>
-          <div className="mt-4 md:mt-0 flex items-center space-x-6">
-            <Link to="/privacy" className="text-sm text-gray-500 hover:text-smartvid-600 dark:text-gray-400 dark:hover:text-smartvid-500 transition-colors">
-              Privacy
-            </Link>
-            <Link to="/terms" className="text-sm text-gray-500 hover:text-smartvid-600 dark:text-gray-400 dark:hover:text-smartvid-500 transition-colors">
-              Terms
-            </Link>
-            <Link to="/cookies" className="text-sm text-gray-500 hover:text-smartvid-600 dark:text-gray-400 dark:hover:text-smartvid-500 transition-colors">
-              Cookies
-            </Link>
-            <Link to="/sitemap" className="text-sm text-gray-500 hover:text-smartvid-600 dark:text-gray-400 dark:hover:text-smartvid-500 transition-colors">
-              Sitemap
-            </Link>
-          </div>
         </div>
       </div>
     </footer>
