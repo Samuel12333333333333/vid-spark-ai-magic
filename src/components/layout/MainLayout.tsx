@@ -1,7 +1,7 @@
 
 import { Outlet } from "react-router-dom";
 import { MainHeader } from "@/components/layout/MainHeader";
-import Footer from "@/components/layout/Footer";
+import { Footer } from "@/components/landing/Footer";
 import { useEffect } from "react";
 
 export default function MainLayout() {
@@ -38,6 +38,7 @@ export default function MainLayout() {
       <div className="flex-1">
         <Outlet />
       </div>
+      {/* Only one footer here, remove it from individual pages */}
       <Footer />
     </div>
   );

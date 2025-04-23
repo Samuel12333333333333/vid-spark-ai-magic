@@ -2,19 +2,17 @@
 User-agent: *
 Allow: /
 
-# Disallow certain pages
-Disallow: /dashboard/
-Disallow: /admin/
-Disallow: /login/
-Disallow: /logout/
-Disallow: /api/
-
-# Allow search engines to crawl these specific pages
+# Allow search engines to crawl all pages
 Allow: /terms
 Allow: /privacy
 Allow: /about
 Allow: /contact
 Allow: /cookies
+Allow: /dashboard/
+Allow: /admin/
+Allow: /login/
+Allow: /logout/
+Allow: /api/
 
 # Sitemap location
 Sitemap: https://smartvideofy.com/sitemap.xml
