@@ -54,7 +54,7 @@ export const authService = {
 
       if (error) {
         console.error('Error updating password:', error);
-        throw error;
+        throw new Error(error.message || 'Error updating password');
       }
     } catch (error) {
       console.error('Error in updatePassword:', error);
@@ -64,13 +64,19 @@ export const authService = {
   
   async resetPassword(email: string): Promise<void> {
     try {
+      if (!email || !email.includes('@')) {
+        throw new Error('Please provide a valid email address');
+      }
+      
+      console.log('Sending password reset email to:', email);
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/dashboard/settings?tab=security`,
       });
 
       if (error) {
         console.error('Error sending reset password email:', error);
-        throw error;
+        throw new Error(error.message || 'Error sending reset password email');
       }
     } catch (error) {
       console.error('Error in resetPassword:', error);

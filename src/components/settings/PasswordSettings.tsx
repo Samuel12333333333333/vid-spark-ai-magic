@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -11,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { authService } from "@/services/authService";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAuth } from "@/contexts/AuthContext";
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
@@ -29,6 +29,7 @@ export function PasswordSettings() {
     isValid: true,
     errors: []
   });
+  const { user } = useAuth();
 
   const form = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordSchema),
@@ -48,6 +49,7 @@ export function PasswordSettings() {
       setPasswordValidation(validation);
       
       if (!validation.isValid) {
+        setIsLoading(false);
         return;
       }
 
@@ -58,7 +60,7 @@ export function PasswordSettings() {
       console.error("Error updating password:", error);
       
       if (error instanceof Error) {
-        toast.error(error.message);
+        toast.error(`Failed to update password: ${error.message}`);
       } else {
         toast.error("Failed to update password");
       }
@@ -172,10 +174,6 @@ export function PasswordSettings() {
         <h3 className="text-lg font-medium">Forgot Password</h3>
         <p className="text-sm text-muted-foreground">
           If you've forgotten your password, you can request a password reset email.
-          <br />
-          <span className="text-destructive">
-            Note: The application must be deployed to a production URL with proper authentication settings for this feature to work.
-          </span>
         </p>
         <ForgotPasswordForm />
       </div>
@@ -186,26 +184,33 @@ export function PasswordSettings() {
 function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
   
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    if (!email) {
-      toast.error("Please enter your email address");
-      return;
-    }
-    
     try {
       setIsLoading(true);
-      // In development, let's just show a success message since password reset emails won't work in a local environment
-      toast.success("In production, a password reset email would be sent to " + email);
-
-      // Uncomment this in production after configuring proper redirect URLs in Supabase
-      // await authService.resetPassword(email);
-      // toast.success("Password reset email sent. Please check your inbox.");
+      
+      if (!email) {
+        toast.error("Please enter your email address");
+        return;
+      }
+      
+      // Use current user's email if available
+      const emailToUse = user?.email || email;
+      
+      await authService.resetPassword(emailToUse);
+      toast.success("Password reset email sent. Please check your inbox.");
+      setEmail("");
     } catch (error) {
       console.error("Error resetting password:", error);
-      toast.error("Password reset is only available in production environments. Please try logging in with your credentials.");
+      
+      if (error instanceof Error) {
+        toast.error(`Password reset failed: ${error.message}`);
+      } else {
+        toast.error("Password reset failed. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -220,7 +225,7 @@ function ForgotPasswordForm() {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="Enter your email"
+          placeholder={user?.email || "Enter your email"}
           className="mt-1"
         />
       </div>

@@ -1,8 +1,6 @@
 
-import { CheckCircle2, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -13,13 +11,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { PricingCard, PricingPlan } from "./PricingCard";
 
 export function PricingSection() {
   const { session } = useAuth();
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
 
-  const pricingPlans = [
+  const pricingPlans: PricingPlan[] = [
     {
       name: "Free",
       price: "$0",
@@ -78,7 +78,7 @@ export function PricingSection() {
     },
   ];
 
-  const handleSubscription = async (plan) => {
+  const handleSubscription = async (plan: PricingPlan) => {
     if (!session) {
       setShowLoginDialog(true);
       return;
@@ -140,58 +140,12 @@ export function PricingSection() {
         </div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:gap-8 mt-12">
           {pricingPlans.map((plan) => (
-            <div
+            <PricingCard
               key={plan.name}
-              className={`flex flex-col rounded-lg border bg-white p-6 shadow-lg dark:bg-gray-950 dark:border-gray-800 ${
-                plan.popular
-                  ? "border-smartvid-600 dark:border-smartvid-600 ring-2 ring-smartvid-600"
-                  : "border-gray-200 dark:border-gray-800"
-              }`}
-            >
-              {plan.popular && (
-                <div className="px-3 py-1 text-sm font-medium text-white bg-smartvid-600 rounded-full inline-block self-start mb-4">
-                  Most Popular
-                </div>
-              )}
-              <div className="space-y-2">
-                <h3 className="text-2xl font-bold">{plan.name}</h3>
-                <div className="flex items-baseline">
-                  <span className="text-3xl font-bold">{plan.price}</span>
-                  {plan.period && (
-                    <span className="ml-1 text-gray-500 dark:text-gray-400">{plan.period}</span>
-                  )}
-                </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{plan.description}</p>
-              </div>
-              <ul className="mt-6 mb-6 space-y-2 flex-1">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-center">
-                    <CheckCircle2 className="mr-2 h-4 w-4 text-smartvid-600" />
-                    <span className="text-sm">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                className={
-                  plan.popular
-                    ? "bg-smartvid-600 hover:bg-smartvid-700"
-                    : plan.name === "Free"
-                    ? "bg-smartvid-600 hover:bg-smartvid-700"
-                    : "bg-gray-900 hover:bg-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700"
-                }
-                onClick={() => handleSubscription(plan)}
-                disabled={isLoading !== null}
-              >
-                {isLoading === plan.name ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  plan.cta
-                )}
-              </Button>
-            </div>
+              plan={plan}
+              isLoading={isLoading}
+              onSubscribe={handleSubscription}
+            />
           ))}
         </div>
       </div>

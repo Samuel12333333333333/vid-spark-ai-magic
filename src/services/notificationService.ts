@@ -28,7 +28,7 @@ export const notificationService = {
         throw error;
       }
       
-      // Cast the data to ensure type compatibility
+      // Cast and validate the data to ensure type compatibility
       return (data || []).map(notification => ({
         ...notification,
         // Ensure type is one of our expected values or default to 'account'
@@ -76,7 +76,7 @@ export const notificationService = {
       
       toast.success(`New notification: ${title}`);
       
-      // Cast the returned data to ensure type compatibility
+      // Cast the returned data and validate the type
       return {
         ...data,
         type: this.validateNotificationType(data.type)
