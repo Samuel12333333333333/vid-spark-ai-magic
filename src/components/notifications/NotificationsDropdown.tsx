@@ -37,7 +37,6 @@ export function NotificationsDropdown() {
         }
         
         const data = await notificationService.getUserNotifications(user.id);
-        console.log("Fetched notifications:", data);
         setNotifications(data);
       } catch (error) {
         console.error("Error fetching notifications:", error);
