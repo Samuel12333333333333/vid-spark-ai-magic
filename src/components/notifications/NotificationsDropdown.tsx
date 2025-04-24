@@ -124,6 +124,7 @@ export function NotificationsDropdown() {
               size="sm"
               className="text-xs h-7 px-2"
               onClick={handleMarkAllAsRead}
+              disabled={isLoading}
             >
               <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
               Mark all as read

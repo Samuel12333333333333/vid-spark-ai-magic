@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Json } from "@/integrations/supabase/types";
 
 export interface Notification {
   id: string;
@@ -27,7 +28,12 @@ export const notificationService = {
         throw error;
       }
       
-      return data || [];
+      // Cast the data to ensure type compatibility
+      return (data || []).map(notification => ({
+        ...notification,
+        // Ensure type is one of our expected values or default to 'account'
+        type: this.validateNotificationType(notification.type)
+      })) as Notification[];
     } catch (error) {
       console.error("Error fetching notifications:", error);
       return [];
@@ -69,11 +75,24 @@ export const notificationService = {
       }
       
       toast.success(`New notification: ${title}`);
-      return data;
+      
+      // Cast the returned data to ensure type compatibility
+      return {
+        ...data,
+        type: this.validateNotificationType(data.type)
+      } as Notification;
     } catch (error) {
       console.error("Error creating notification:", error);
       return null;
     }
+  },
+  
+  // Helper method to validate notification types
+  validateNotificationType(type: string): 'video' | 'payment' | 'account' | 'newsletter' {
+    const validTypes = ['video', 'payment', 'account', 'newsletter'];
+    return validTypes.includes(type) 
+      ? type as 'video' | 'payment' | 'account' | 'newsletter'
+      : 'account'; // Default fallback type
   },
   
   async markAsRead(notificationId: string): Promise<void> {

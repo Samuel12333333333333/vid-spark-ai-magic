@@ -3,7 +3,7 @@ import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Bell, CreditCard, Settings, Mail, Video, Check, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Notification, notificationService } from "@/services/notificationService";
+import { Notification } from "@/services/notificationService";
 
 interface NotificationItemProps {
   notification: Notification;
