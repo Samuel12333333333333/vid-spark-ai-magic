@@ -1,8 +1,42 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+export interface VideoClip {
+  id: string;
+  url: string;
+  image: string;
+  width: number;
+  height: number;
+  duration: number;
+  user: {
+    name: string;
+    url: string;
+  };
+}
+
+export interface VoiceOption {
+  id: string;
+  name: string;
+  language: string;
+  gender: 'male' | 'female';
+}
+
+const availableVoices: VoiceOption[] = [
+  {
+    id: "21m00Tcm4TlvDq8ikWAM",
+    name: "Rachel",
+    language: "English",
+    gender: "female"
+  },
+  {
+    id: "AZnzlk1XvdvUeBnXmlld",
+    name: "Adam",
+    language: "English",
+    gender: "male"
+  }
+];
+
 export const mediaService = {
-  // Make sure this method exists and works correctly
   validateVideoUrl(url?: string | null): string | undefined {
     if (!url) return undefined;
     
@@ -16,7 +50,6 @@ export const mediaService = {
     }
   },
   
-  // Add or update these methods for better storage handling
   async getVideoCaption(filePath: string): Promise<string | null> {
     try {
       if (!filePath) {
@@ -122,6 +155,112 @@ export const mediaService = {
       }
       
       return null;
+    }
+  },
+
+  getAvailableVoices(): VoiceOption[] {
+    return availableVoices;
+  },
+
+  async searchVideos(keywords: string[]): Promise<VideoClip[]> {
+    try {
+      const { data, error } = await supabase.functions.invoke("search-videos", {
+        body: { keywords }
+      });
+
+      if (error) {
+        console.error("Error searching videos:", error);
+        throw error;
+      }
+
+      return data.videos || [];
+    } catch (error) {
+      console.error("Error in searchVideos:", error);
+      toast.error("Failed to search for videos. Please try again.");
+      return [];
+    }
+  },
+
+  async generateAudio(
+    script: string,
+    voiceId: string,
+    userId: string,
+    projectId: string,
+    scenes?: { id: string; scene: string; description: string }[]
+  ): Promise<{ audioBase64: string; narrationScript: string }> {
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-audio", {
+        body: { script, voiceId, userId, projectId, scenes }
+      });
+
+      if (error) {
+        console.error("Error generating audio:", error);
+        throw error;
+      }
+
+      return {
+        audioBase64: data.audioBase64,
+        narrationScript: data.narrationScript
+      };
+    } catch (error) {
+      console.error("Error in generateAudio:", error);
+      toast.error("Failed to generate audio. Please try again.");
+      throw error;
+    }
+  },
+
+  async renderVideo(
+    scenes: any[],
+    userId: string,
+    projectId: string,
+    audioBase64?: string,
+    enableCaptions?: boolean,
+    narrationScript?: string
+  ): Promise<string> {
+    try {
+      const { data, error } = await supabase.functions.invoke("render-video", {
+        body: {
+          scenes,
+          userId,
+          projectId,
+          audioBase64,
+          enableCaptions,
+          narrationScript
+        }
+      });
+
+      if (error) {
+        console.error("Error rendering video:", error);
+        throw error;
+      }
+
+      return data.renderId;
+    } catch (error) {
+      console.error("Error in renderVideo:", error);
+      toast.error("Failed to start video rendering. Please try again.");
+      throw error;
+    }
+  },
+
+  async checkRenderStatus(renderId: string): Promise<{ status: string; url?: string }> {
+    try {
+      const { data, error } = await supabase.functions.invoke("check-render-status", {
+        body: { renderId }
+      });
+
+      if (error) {
+        console.error("Error checking render status:", error);
+        throw error;
+      }
+
+      return {
+        status: data.status,
+        url: data.url
+      };
+    } catch (error) {
+      console.error("Error in checkRenderStatus:", error);
+      toast.error("Failed to check video render status. Please try again.");
+      throw error;
     }
   }
 };
