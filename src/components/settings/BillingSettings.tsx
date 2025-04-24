@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { CreditCard, ExternalLink, Loader2, Tag, Clock, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -106,7 +105,7 @@ export function BillingSettings() {
   const formatPaymentStatus = (status: string) => {
     switch(status) {
       case "succeeded":
-        return <Badge variant="success">Paid</Badge>;
+        return <Badge variant="outline" className="text-green-500 border-green-500">Paid</Badge>;
       case "processing":
         return <Badge variant="outline">Processing</Badge>;
       case "failed":

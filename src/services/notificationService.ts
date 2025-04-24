@@ -20,7 +20,7 @@ export const notificationService = {
         .from('notifications')
         .select('*')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }) as { data: Notification[] | null, error: Error | null };
       
       if (error) {
         throw error;
@@ -60,7 +60,7 @@ export const notificationService = {
           }
         ])
         .select()
-        .single();
+        .single() as { data: Notification | null, error: Error | null };
         
       if (error) {
         throw error;
