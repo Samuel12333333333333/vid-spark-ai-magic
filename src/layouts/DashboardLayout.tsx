@@ -2,7 +2,7 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Bell, LogOut, Menu } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { NotificationsDropdown } from "@/components/notifications/NotificationsDropdown";
 
 export function DashboardLayout() {
   const { user, signOut } = useAuth();
@@ -98,16 +99,7 @@ export function DashboardLayout() {
           </div>
           
           <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              aria-label="Notifications"
-              className="relative"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full" aria-hidden="true"></span>
-              <span className="sr-only">View notifications</span>
-            </Button>
+            <NotificationsDropdown />
             <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

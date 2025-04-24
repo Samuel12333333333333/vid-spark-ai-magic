@@ -61,4 +61,20 @@ export const authService = {
       throw error;
     }
   },
+  
+  async resetPassword(email: string): Promise<void> {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/dashboard/settings?tab=security`,
+      });
+
+      if (error) {
+        console.error('Error sending reset password email:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in resetPassword:', error);
+      throw error;
+    }
+  }
 };
