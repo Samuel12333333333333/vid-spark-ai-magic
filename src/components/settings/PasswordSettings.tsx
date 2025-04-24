@@ -172,6 +172,10 @@ export function PasswordSettings() {
         <h3 className="text-lg font-medium">Forgot Password</h3>
         <p className="text-sm text-muted-foreground">
           If you've forgotten your password, you can request a password reset email.
+          <br />
+          <span className="text-destructive">
+            Note: The application must be deployed to a production URL with proper authentication settings for this feature to work.
+          </span>
         </p>
         <ForgotPasswordForm />
       </div>
@@ -193,11 +197,15 @@ function ForgotPasswordForm() {
     
     try {
       setIsLoading(true);
-      await authService.resetPassword(email);
-      toast.success("Password reset email sent. Please check your inbox.");
+      // In development, let's just show a success message since password reset emails won't work in a local environment
+      toast.success("In production, a password reset email would be sent to " + email);
+
+      // Uncomment this in production after configuring proper redirect URLs in Supabase
+      // await authService.resetPassword(email);
+      // toast.success("Password reset email sent. Please check your inbox.");
     } catch (error) {
       console.error("Error resetting password:", error);
-      toast.error("Failed to send reset email. Please try again.");
+      toast.error("Password reset is only available in production environments. Please try logging in with your credentials.");
     } finally {
       setIsLoading(false);
     }

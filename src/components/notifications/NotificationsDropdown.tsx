@@ -14,6 +14,7 @@ import { Notification, notificationService } from "@/services/notificationServic
 import { NotificationItem } from "./NotificationItem";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 export function NotificationsDropdown() {
   const { user } = useAuth();
@@ -29,36 +30,73 @@ export function NotificationsDropdown() {
     
     const fetchNotifications = async () => {
       setIsLoading(true);
-      const data = await notificationService.getUserNotifications(user.id);
-      setNotifications(data);
-      setIsLoading(false);
+      try {
+        if (!user.id) {
+          console.error("User ID is undefined");
+          return;
+        }
+        
+        const data = await notificationService.getUserNotifications(user.id);
+        console.log("Fetched notifications:", data);
+        setNotifications(data);
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+        toast.error("Failed to load notifications");
+      } finally {
+        setIsLoading(false);
+      }
     };
     
     fetchNotifications();
   }, [user, isOpen]);
   
   const handleMarkAsRead = async (id: string) => {
-    await notificationService.markAsRead(id);
-    setNotifications(notifications.map(n => 
-      n.id === id ? { ...n, is_read: true } : n
-    ));
+    try {
+      await notificationService.markAsRead(id);
+      setNotifications(notifications.map(n => 
+        n.id === id ? { ...n, is_read: true } : n
+      ));
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      toast.error("Failed to update notification");
+    }
   };
   
   const handleMarkAllAsRead = async () => {
-    if (!user) return;
-    await notificationService.markAllAsRead(user.id);
-    setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+    if (!user?.id) return;
+    
+    try {
+      setIsLoading(true);
+      await notificationService.markAllAsRead(user.id);
+      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+      toast.success("All notifications marked as read");
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      toast.error("Failed to update notifications");
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const handleDelete = async (id: string) => {
-    await notificationService.deleteNotification(id);
-    setNotifications(notifications.filter(n => n.id !== id));
+    try {
+      await notificationService.deleteNotification(id);
+      setNotifications(notifications.filter(n => n.id !== id));
+      toast.success("Notification deleted");
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      toast.error("Failed to delete notification");
+    }
   };
   
   const handleViewAll = () => {
     navigate('/dashboard/settings?tab=notifications');
     setIsOpen(false);
   };
+
+  if (!user) {
+    return null;
+  }
   
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>

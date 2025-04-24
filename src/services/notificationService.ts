@@ -20,9 +20,10 @@ export const notificationService = {
         .from('notifications')
         .select('*')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false }) as { data: Notification[] | null, error: Error | null };
+        .order('created_at', { ascending: false });
       
       if (error) {
+        console.error("Supabase error fetching notifications:", error);
         throw error;
       }
       
@@ -47,22 +48,23 @@ export const notificationService = {
     metadata?: Record<string, any>;
   }): Promise<Notification | null> {
     try {
+      const notification = {
+        user_id: userId,
+        title,
+        message,
+        type,
+        is_read: false,
+        metadata
+      };
+      
       const { data, error } = await supabase
         .from('notifications')
-        .insert([
-          {
-            user_id: userId,
-            title,
-            message,
-            type,
-            is_read: false,
-            metadata
-          }
-        ])
+        .insert([notification])
         .select()
-        .single() as { data: Notification | null, error: Error | null };
+        .single();
         
       if (error) {
+        console.error("Supabase error creating notification:", error);
         throw error;
       }
       
@@ -82,6 +84,7 @@ export const notificationService = {
         .eq('id', notificationId);
         
       if (error) {
+        console.error("Supabase error marking notification as read:", error);
         throw error;
       }
     } catch (error) {
@@ -98,6 +101,7 @@ export const notificationService = {
         .eq('is_read', false);
         
       if (error) {
+        console.error("Supabase error marking all notifications as read:", error);
         throw error;
       }
     } catch (error) {
@@ -113,6 +117,7 @@ export const notificationService = {
         .eq('id', notificationId);
         
       if (error) {
+        console.error("Supabase error deleting notification:", error);
         throw error;
       }
     } catch (error) {
