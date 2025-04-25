@@ -4,7 +4,7 @@ import { Play, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const DEMO_VIDEO_URL = "https://dijjaulwbvdcnjbqrjdw.supabase.co/storage/v1/object/public/demo-videos//SmartVideofy%20-%20AI-Powered%20Video%20Generator.mp4";
-const DEMO_THUMBNAIL_URL = "/lovable-uploads/53d616b6-9d69-4e9b-8f19-32becc22e534.png";
+const DEMO_THUMBNAIL_URL = "/lovable-uploads/41e5161f-9671-4119-b3c6-2ac2b15d7071.png";
 
 export function DemoVideo() {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -49,3 +49,4 @@ export function DemoVideo() {
     </div>
   );
 }
+
