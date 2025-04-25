@@ -5,12 +5,23 @@ import { MainHeader } from './MainHeader';
 import Footer from './Footer';
 
 export default function MainLayout() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
 
-  // Scroll to top on route change
+  // Scroll to top on route change unless there's a hash
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
+    if (!hash) {
+      window.scrollTo(0, 0);
+    } else {
+      // If there's a hash, scroll to that element after a short delay
+      // to ensure the DOM has been fully updated
+      setTimeout(() => {
+        const element = document.getElementById(hash.slice(1));
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  }, [pathname, hash]);
 
   return (
     <div className="min-h-screen flex flex-col">

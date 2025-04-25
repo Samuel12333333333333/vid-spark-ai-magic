@@ -4,6 +4,7 @@ import { Play, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const DEMO_VIDEO_URL = "https://dijjaulwbvdcnjbqrjdw.supabase.co/storage/v1/object/public/demo-videos//SmartVideofy%20-%20AI-Powered%20Video%20Generator.mp4";
+const DEMO_THUMBNAIL_URL = "/lovable-uploads/53d616b6-9d69-4e9b-8f19-32becc22e534.png";
 
 export function DemoVideo() {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -27,7 +28,7 @@ export function DemoVideo() {
           id="demo-video"
           className="w-full h-full object-cover"
           src={DEMO_VIDEO_URL}
-          poster="/placeholder.svg"
+          poster={DEMO_THUMBNAIL_URL}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           controls

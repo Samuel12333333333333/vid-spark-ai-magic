@@ -4,6 +4,22 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Play, Sparkles } from "lucide-react";
 
 export function HeroSection() {
+  // Function to handle demo button click - scrolls to demo section or navigates to product page
+  const handleWatchDemoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    // Try to find demo section on current page
+    const demoSection = document.getElementById('demo-section');
+    
+    if (demoSection) {
+      // If we're on the page with demo section, scroll to it
+      demoSection.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      // If we're not on a page with the demo, navigate to product page with demo section
+      window.location.href = '/product#demo-section';
+    }
+  };
+
   return (
     <section className="py-20 md:py-28 lg:py-32 relative overflow-hidden bg-gradient-to-b from-background to-background/80">
       {/* Animated Gradient Orbs */}
@@ -49,12 +65,10 @@ export function HeroSection() {
               size="lg" 
               variant="outline" 
               className="h-12 px-8 hover:scale-105 transition-all duration-300 group" 
-              asChild
+              onClick={handleWatchDemoClick}
             >
-              <Link to="#how-it-works">
-                <Play className="mr-2 h-5 w-5 group-hover:animate-pulse" />
-                Watch Demo
-              </Link>
+              <Play className="mr-2 h-5 w-5 group-hover:animate-pulse" />
+              Watch Demo
             </Button>
           </div>
 
