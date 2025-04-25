@@ -1,9 +1,11 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollReveal } from '@/components/ui/scroll-reveal';
 import { Link } from 'react-router-dom';
+import { DemoVideo } from '@/components/product/DemoVideo'; // Add this import
 
 // Animation variants
 const fadeIn = {
