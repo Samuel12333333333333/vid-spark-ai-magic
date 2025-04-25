@@ -1,11 +1,12 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollReveal } from '@/components/ui/scroll-reveal';
 import { Link } from 'react-router-dom';
-import { DemoVideo } from '@/components/product/DemoVideo'; // Add this import
+import { DemoVideo } from '@/components/product/DemoVideo';
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 // Animation variants
 const fadeIn = {
@@ -28,6 +29,13 @@ const staggerContainer = {
 };
 
 export default function ProductOverviewPage() {
+  const { pathname } = useLocation();
+
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
   // Benefits data
   const benefits = [
     {
@@ -155,8 +163,17 @@ export default function ProductOverviewPage() {
                 <Button asChild size="lg" className="bg-primary hover:bg-primary-dark text-white font-semibold px-8 py-3 rounded-lg transition-all duration-300 transform hover:scale-105">
                   <Link to="/register">Try for Free</Link>
                 </Button>
-                <Button asChild variant="outline" size="lg" className="border-primary text-primary hover:bg-primary/10 font-semibold px-8 py-3 rounded-lg transition-all duration-300">
-                  <Link to="/product/demo">Watch Demo</Link>
+                <Button 
+                  asChild 
+                  variant="outline" 
+                  size="lg" 
+                  className="border-primary text-primary hover:bg-primary/10 font-semibold px-8 py-3 rounded-lg transition-all duration-300"
+                  onClick={() => {
+                    const demoSection = document.getElementById('demo-section');
+                    demoSection?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  <a href="#demo-section">Watch Demo</a>
                 </Button>
               </div>
             </motion.div>
@@ -165,7 +182,7 @@ export default function ProductOverviewPage() {
       </section>
 
       {/* Video Demo Section */}
-      <section className="py-20 bg-white dark:bg-gray-900">
+      <section id="demo-section" className="py-20 bg-white dark:bg-gray-900">
         <ScrollReveal>
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
