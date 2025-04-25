@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -26,7 +25,7 @@ const staggerContainer = {
   }
 };
 
-const ProductOverviewPage = () => {
+export default function ProductOverviewPage() {
   // Benefits data
   const benefits = [
     {
@@ -55,7 +54,7 @@ const ProductOverviewPage = () => {
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="9 11 12 14 22 4"></polyline>
-          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+          <path d="M21 12v7a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path>
         </svg>
       )
     },
@@ -173,19 +172,7 @@ const ProductOverviewPage = () => {
                 Watch how quickly and easily you can create professional videos with just text input.
               </p>
             </div>
-            <div className="max-w-5xl mx-auto bg-gray-900 rounded-xl overflow-hidden shadow-2xl">
-              <div className="aspect-video relative flex items-center justify-center bg-gray-800">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Button size="lg" className="bg-primary/90 hover:bg-primary text-white rounded-full w-20 h-20 flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                    </svg>
-                  </Button>
-                </div>
-                {/* This would be replaced with an actual video player */}
-                <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900"></div>
-              </div>
-            </div>
+            <DemoVideo />
           </div>
         </ScrollReveal>
       </section>
@@ -385,6 +372,4 @@ const ProductOverviewPage = () => {
       </section>
     </div>
   );
-};
-
-export default ProductOverviewPage;
+}
