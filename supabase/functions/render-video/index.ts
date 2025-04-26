@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 
@@ -230,6 +229,7 @@ serve(async (req) => {
       }
 
       // Add text overlays for captions if enabled
+      let captionClips = [];
       if (hasCaptions && captionsFile) {
         console.log(`Adding captions from file: ${captionsFile}`);
         
@@ -277,7 +277,7 @@ serve(async (req) => {
         const segmentDuration = totalDuration / Math.max(segments.length, 1);
         
         // Add text overlays for each segment
-        const captionClips = segments.map((segment, index) => {
+        captionClips = segments.map((segment, index) => {
           return {
             asset: {
               type: "title",
@@ -292,13 +292,6 @@ serve(async (req) => {
             position: "bottom"
           };
         });
-        
-        // Add a dedicated track for captions
-        if (captionClips.length > 0) {
-          timeline.tracks.push({
-            clips: captionClips
-          });
-        }
       }
 
       const output = {
@@ -312,6 +305,9 @@ serve(async (req) => {
         output,
         callback: requestData.callbackUrl // Optional callback URL if provided
       };
+
+      // Remove the subtitles property entirely
+      delete shotstackPayload.timeline.subtitles;
 
       console.log("Sending request to Shotstack API with payload:", JSON.stringify(shotstackPayload));
       
@@ -534,11 +530,28 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error("Error in render-video function:", error);
+    
+    // Ensure we update the project status with a clear error message
+    try {
+      await supabase
+        .from("video_projects")
+        .update({
+          status: "failed",
+          error_message: error instanceof Error ? error.message : "Unexpected error during video rendering"
+        })
+        .eq("id", actualProjectId);
+    } catch (dbError) {
+      console.error("Error updating project status:", dbError);
+    }
+
     return new Response(
       JSON.stringify({ 
-        error: error.message
+        error: error instanceof Error ? error.message : "Unexpected error"
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, 
+        status: 500 
+      }
     );
   }
 });

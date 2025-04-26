@@ -227,6 +227,7 @@ export type Database = {
           brand_colors: string | null
           created_at: string
           duration: number | null
+          error_message: string | null
           has_audio: boolean | null
           has_captions: boolean | null
           id: string
@@ -247,6 +248,7 @@ export type Database = {
           brand_colors?: string | null
           created_at?: string
           duration?: number | null
+          error_message?: string | null
           has_audio?: boolean | null
           has_captions?: boolean | null
           id?: string
@@ -267,6 +269,7 @@ export type Database = {
           brand_colors?: string | null
           created_at?: string
           duration?: number | null
+          error_message?: string | null
           has_audio?: boolean | null
           has_captions?: boolean | null
           id?: string
