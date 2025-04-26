@@ -95,19 +95,26 @@ serve(async (req) => {
         
         try {
           // Get the project to fetch the user_id (for notifications)
-          const { data: projectData } = await supabase
+          const { data: projectData, error: projectError } = await supabase
             .from('video_projects')
             .select('user_id, title')
             .eq('id', projectId)
             .single();
           
+          if (projectError) {
+            console.error("Error fetching project data:", projectError);
+            throw projectError;
+          }
+          
           if (projectData?.user_id) {
+            console.log(`Creating notification for user ${projectData.user_id} about completed video "${projectData.title || 'Untitled'}"`);
+            
             // Create a notification directly in the database
             const notification = {
               user_id: projectData.user_id,
               title: "Video Rendering Complete",
               message: `Your video "${projectData.title || 'Untitled'}" is ready to view!`,
-              type: 'video',
+              type: 'video', // Using exact type 'video' to match the constraint
               is_read: false,
               metadata: { 
                 projectId, 
@@ -116,18 +123,103 @@ serve(async (req) => {
               }
             };
             
-            const { error: notificationError } = await supabase
+            // First try inserting with returning
+            const { error: insertError, data: insertData } = await supabase
+              .from('notifications')
+              .insert([notification])
+              .select();
+              
+            if (insertError) {
+              console.error("Error creating notification:", insertError);
+              console.error("Error details:", JSON.stringify(insertError));
+              
+              // Second attempt: Just insert without returning
+              const { error: fallbackError } = await supabase
+                .from('notifications')
+                .insert([notification]);
+                
+              if (fallbackError) {
+                console.error("Fallback insert also failed:", fallbackError);
+                console.error("Fallback error details:", JSON.stringify(fallbackError));
+                throw fallbackError;
+              } else {
+                console.log("Notification created successfully via fallback method");
+              }
+            } else {
+              console.log("Notification created successfully:", insertData);
+            }
+            
+            // Update project status and URLs
+            const { error: updateError } = await supabase
+              .from('video_projects')
+              .update({
+                status: 'completed',
+                video_url: data.response.url,
+                thumbnail_url: data.response.thumbnail || null
+              })
+              .eq('id', projectId);
+              
+            if (updateError) {
+              console.error("Error updating project:", updateError);
+              throw updateError;
+            }
+            
+            console.log(`Project ${projectId} updated successfully with video URL and status`);
+          } else {
+            console.error("Cannot create notification: user_id not found in project data");
+          }
+        } catch (supabaseError) {
+          console.error("Error working with Supabase:", supabaseError);
+        }
+      } else {
+        console.error("Missing Supabase credentials, cannot create notification");
+      }
+    } else if (projectId && data.response.status === "failed") {
+      // Handle failed render status
+      // Initialize Supabase client
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+      const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      
+      if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+        
+        try {
+          // Update project status
+          await supabase
+            .from('video_projects')
+            .update({ 
+              status: 'failed',
+              error_message: data.response.error || "Unknown error" 
+            })
+            .eq('id', projectId);
+            
+          // Get the project to fetch the user_id
+          const { data: projectData } = await supabase
+            .from('video_projects')
+            .select('user_id, title')
+            .eq('id', projectId)
+            .single();
+            
+          if (projectData?.user_id) {
+            // Create a notification for failed rendering
+            const notification = {
+              user_id: projectData.user_id,
+              title: "Video Rendering Failed",
+              message: `Your video "${projectData.title || 'Untitled'}" could not be rendered. Please try again.`,
+              type: 'video', // Using exact type 'video' to match the constraint
+              is_read: false,
+              metadata: { projectId, error: data.response.error || "Unknown error" }
+            };
+            
+            // Try to create notification
+            await supabase
               .from('notifications')
               .insert([notification]);
               
-            if (notificationError) {
-              console.error("Error creating notification:", notificationError);
-            } else {
-              console.log("Successfully created notification in database");
-            }
+            console.log(`Failure notification created for project ${projectId}`);
           }
-        } catch (error) {
-          console.error("Error working with Supabase:", error);
+        } catch (supabaseError) {
+          console.error("Error working with Supabase for failed render:", supabaseError);
         }
       }
     }
