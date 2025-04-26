@@ -46,7 +46,6 @@ export const renderStatusService = {
     }
   },
 
-  // Removed 'private' keyword as it's not valid in this context
   async updateProjectStatus(projectId: string, status: RenderStatus, data: RenderResponse) {
     console.log(`Updating project ${projectId} status to ${status}`);
     
@@ -65,6 +64,7 @@ export const renderStatusService = {
 
     if (status === 'completed' && data.url) {
       console.log(`Video complete, URL: ${data.url}`);
+      
       // First update the project
       await supabase
         .from('video_projects')
