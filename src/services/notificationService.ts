@@ -68,14 +68,16 @@ export const notificationService = {
       const safeMetadata = metadata || {};
       
       const notification = {
+        id: crypto.randomUUID(),   // ✅ generate a UUID
         user_id: userId,
         title,
         message,
         type,
         is_read: false,
+        created_at: new Date().toISOString(),  // ✅ add created_at
         metadata: safeMetadata
       };
-      
+  
       console.log("Notification payload:", JSON.stringify(notification));
       
       // First attempt: Try direct database insertion
