@@ -82,40 +82,50 @@ export const notificationService = {
       const { data: directData, error: directError } = await supabase
         .from('notifications')
         .insert([notification])
-        .select('*')
-        .single();
+        .select();
         
       if (directError) {
         console.error("❌ Direct notification insert failed:", directError);
         console.error("Error details:", JSON.stringify(directError));
         
-        // Try fallback insert method without select
-        const { error: fallbackError } = await supabase
+        // Try fallback insert method without metadata
+        const simplifiedNotification = {
+          user_id: userId,
+          title,
+          message,
+          type,
+          is_read: false
+        };
+        
+        const { data: fallbackData, error: fallbackError } = await supabase
           .from('notifications')
-          .insert([notification]);
+          .insert([simplifiedNotification])
+          .select();
           
         if (fallbackError) {
           console.error("❌ Fallback insert also failed:", fallbackError);
-          throw fallbackError;
+          return null;
         }
         
-        // If fallback succeeded but no data returned, create a placeholder
+        // If fallback succeeded, return the result
+        if (fallbackData && fallbackData.length > 0) {
+          console.log("✅ Fallback insert succeeded:", fallbackData[0].id);
+          return fallbackData[0] as Notification;
+        }
+        
+        // If no data returned but no error, create a placeholder
         console.log("✅ Fallback insert succeeded but no data returned");
         return {
-          ...notification,
+          ...simplifiedNotification,
           id: 'temp-' + new Date().getTime(),
           created_at: new Date().toISOString(),
-          type: this.validateNotificationType(notification.type),
+          type: this.validateNotificationType(type),
         } as Notification;
       }
       
-      if (directData) {
-        console.log("✅ Notification created successfully:", directData.id);
-        
-        return {
-          ...directData,
-          type: this.validateNotificationType(directData.type)
-        } as Notification;
+      if (directData && directData.length > 0) {
+        console.log("✅ Notification created successfully:", directData[0].id);
+        return directData[0] as Notification;
       } else {
         console.error("❌ No data returned from notification insert");
         return null;
