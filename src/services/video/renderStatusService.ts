@@ -46,7 +46,8 @@ export const renderStatusService = {
     }
   },
 
-  private async updateProjectStatus(projectId: string, status: RenderStatus, data: RenderResponse) {
+  // Removed 'private' keyword as it's not valid in this context
+  async updateProjectStatus(projectId: string, status: RenderStatus, data: RenderResponse) {
     const { data: projectData } = await supabase
       .from('video_projects')
       .select('user_id, title')
