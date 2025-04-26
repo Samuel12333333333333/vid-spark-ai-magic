@@ -21,6 +21,9 @@ export interface VideoProject {
   has_audio?: boolean;
   has_captions?: boolean;
   narration_script?: string;
+  scenes?: any[]; // Add missing property for scenes
+  audio_data?: string; // Add missing property for audio data
+  error_message?: string; // Add property for error messages
 }
 
 export const videoService = {

@@ -146,8 +146,8 @@ export const videoRenderService = {
           narrationScript: project.narration_script,
           brandColors: project.brand_colors,
           includeCaptions: project.has_captions,
-          scenes: project.scenes || [],
-          audioBase64: project.audio_data
+          scenes: project.scenes || [], // Use the scenes property, default to empty array if undefined
+          audioBase64: project.audio_data // Use the audio_data property
         }
       });
       
