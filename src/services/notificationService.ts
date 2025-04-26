@@ -57,7 +57,7 @@ export const notificationService = {
     metadata?: Record<string, any>;
   }): Promise<Notification | null> {
     try {
-      console.log(`Creating notification for user ${userId}: ${title}`);
+      console.log(`⏳ Creating notification for user ${userId}: ${title}`);
       
       const notification = {
         user_id: userId,
@@ -68,6 +68,8 @@ export const notificationService = {
         metadata
       };
       
+      console.log("Notification payload:", notification);
+      
       const { data, error } = await supabase
         .from('notifications')
         .insert([notification])
@@ -75,13 +77,11 @@ export const notificationService = {
         .single();
         
       if (error) {
-        console.error("Supabase error creating notification:", error);
+        console.error("❌ Supabase error creating notification:", error);
         throw error;
       }
       
-      console.log("Notification created successfully:", data?.id);
-      
-      toast.success(`New notification: ${title}`);
+      console.log("✅ Notification created successfully:", data?.id);
       
       // Cast the returned data and validate the type
       return {
@@ -89,7 +89,7 @@ export const notificationService = {
         type: this.validateNotificationType(data.type)
       } as Notification;
     } catch (error) {
-      console.error("Error creating notification:", error);
+      console.error("❌ Error creating notification:", error);
       return null;
     }
   },

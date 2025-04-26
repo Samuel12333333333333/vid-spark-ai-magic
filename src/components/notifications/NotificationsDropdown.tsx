@@ -28,7 +28,9 @@ export function NotificationsDropdown() {
     
     try {
       setIsLoading(true);
+      console.log("Fetching notifications for user:", user.id);
       const notifications = await notificationService.getUserNotifications(user.id);
+      console.log("Fetched notifications:", notifications);
       setNotifications(notifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -48,14 +50,19 @@ export function NotificationsDropdown() {
   useEffect(() => {
     if (!user?.id) return;
     
+    console.log("Setting up real-time notifications for user:", user.id);
+    
+    // Create filter for user's notifications
+    const userFilter = `user_id=eq.${user.id}`;
+    
     const channel = supabase
-      .channel('public:notifications')
+      .channel('notifications-changes')
       .on('postgres_changes', 
         { 
           event: 'INSERT', 
           schema: 'public', 
           table: 'notifications',
-          filter: `user_id=eq.${user.id}` 
+          filter: userFilter
         }, 
         (payload) => {
           console.log('New notification received:', payload);
@@ -71,9 +78,13 @@ export function NotificationsDropdown() {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Realtime subscription status:", status);
+      });
       
+    // Cleanup
     return () => {
+      console.log("Cleaning up notification subscription");
       supabase.removeChannel(channel);
     };
   }, [user?.id]);
@@ -142,6 +153,12 @@ export function NotificationsDropdown() {
       <DropdownMenuContent 
         align="end" 
         className="w-80 max-h-[70vh] overflow-hidden flex flex-col p-0"
+        onCloseAutoFocus={() => {
+          // Re-fetch notifications when dropdown is closed
+          if (!isOpen) {
+            fetchNotifications();
+          }
+        }}
       >
         <div className="p-2 font-medium border-b flex justify-between items-center">
           <span>Notifications</span>

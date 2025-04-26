@@ -44,6 +44,8 @@ export const videoRenderService = {
       const newStatus = statusMap[data.status] || 'processing';
       
       if (newStatus === 'completed' && data.url) {
+        console.log(`Video render completed for project ${projectId}. URL: ${data.url}`);
+        
         // Get user ID for notifications
         const { data: projectData } = await supabase
           .from('video_projects')
@@ -66,15 +68,23 @@ export const videoRenderService = {
           console.log("Creating notification for completed video:", projectData.title);
           
           try {
-            const notification = await notificationService.createNotification({
+            const notificationData = {
               userId: projectData.user_id,
               title: "Video Rendering Complete",
               message: `Your video "${projectData.title || 'Untitled'}" is ready to view!`,
-              type: 'video',
+              type: 'video' as const,
               metadata: { projectId, videoUrl: data.url }
-            });
+            };
             
-            console.log("Notification created successfully:", notification?.id || "No ID returned");
+            console.log("Notification data:", notificationData);
+            
+            const notification = await notificationService.createNotification(notificationData);
+            
+            if (notification) {
+              console.log("✅ Notification created successfully:", notification.id);
+            } else {
+              console.error("⚠️ Notification creation returned null");
+            }
             
             // Show toast notification
             toast.success("Video rendering complete!", {
