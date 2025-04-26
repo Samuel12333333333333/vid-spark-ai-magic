@@ -64,64 +64,60 @@ export const notificationService = {
         return null;
       }
       
+      // Ensure metadata is an object
+      const safeMetadata = metadata || {};
+      
       const notification = {
         user_id: userId,
         title,
         message,
         type,
         is_read: false,
-        metadata
+        metadata: safeMetadata
       };
       
       console.log("Notification payload:", JSON.stringify(notification));
       
+      // First method: Using insert with single returning
       const { data, error } = await supabase
         .from('notifications')
         .insert([notification])
-        .select()
-        .single();
+        .select();
         
       if (error) {
         console.error("❌ Supabase error creating notification:", error);
-        console.error("Error details:", JSON.stringify(error));
         
-        // Try a simplified insert as fallback
-        try {
-          console.log("Attempting simplified insert without select...");
-          const { error: insertError } = await supabase
-            .from('notifications')
-            .insert([notification]);
-            
-          if (insertError) {
-            console.error("❌ Fallback insert also failed:", insertError);
-            throw insertError;
-          } else {
-            console.log("✅ Fallback insert succeeded but no data returned");
-            // Return a placeholder since we didn't get the inserted object back
-            return {
-              ...notification,
-              id: 'unknown-id',
-              created_at: new Date().toISOString(),
-              type: this.validateNotificationType(notification.type),
-            } as Notification;
-          }
-        } catch (fallbackError) {
-          console.error("❌ Fallback insert attempt failed:", fallbackError);
+        // Try fallback insert method without select
+        const { error: fallbackError } = await supabase
+          .from('notifications')
+          .insert([notification]);
+          
+        if (fallbackError) {
+          console.error("❌ Fallback insert also failed:", fallbackError);
           throw fallbackError;
         }
+        
+        // If fallback succeeded but no data returned, create a placeholder
+        console.log("✅ Fallback insert succeeded but no data returned");
+        return {
+          ...notification,
+          id: 'temp-' + new Date().getTime(),
+          created_at: new Date().toISOString(),
+          type: this.validateNotificationType(notification.type),
+        } as Notification;
       }
       
-      if (!data) {
+      if (!data || data.length === 0) {
         console.error("❌ No data returned from notification insert");
         return null;
       }
       
-      console.log("✅ Notification created successfully:", data?.id);
+      console.log("✅ Notification created successfully:", data[0]?.id);
       
       // Cast the returned data and validate the type
       return {
-        ...data,
-        type: this.validateNotificationType(data.type)
+        ...data[0],
+        type: this.validateNotificationType(data[0].type)
       } as Notification;
     } catch (error) {
       console.error("❌ Error creating notification:", error);
@@ -148,6 +144,8 @@ export const notificationService = {
         console.error("Supabase error marking notification as read:", error);
         throw error;
       }
+      
+      console.log(`Notification ${notificationId} marked as read`);
     } catch (error) {
       console.error("Error marking notification as read:", error);
     }
@@ -165,6 +163,8 @@ export const notificationService = {
         console.error("Supabase error marking all notifications as read:", error);
         throw error;
       }
+      
+      console.log(`All notifications for user ${userId} marked as read`);
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
     }
@@ -181,6 +181,8 @@ export const notificationService = {
         console.error("Supabase error deleting notification:", error);
         throw error;
       }
+      
+      console.log(`Notification ${notificationId} deleted`);
     } catch (error) {
       console.error("Error deleting notification:", error);
     }
