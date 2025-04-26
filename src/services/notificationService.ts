@@ -59,6 +59,11 @@ export const notificationService = {
     try {
       console.log(`⏳ Creating notification for user ${userId}: ${title}`);
       
+      if (!userId) {
+        console.error("❌ Cannot create notification: user_id is missing");
+        return null;
+      }
+      
       const notification = {
         user_id: userId,
         title,
@@ -68,7 +73,7 @@ export const notificationService = {
         metadata
       };
       
-      console.log("Notification payload:", notification);
+      console.log("Notification payload:", JSON.stringify(notification));
       
       const { data, error } = await supabase
         .from('notifications')
@@ -78,7 +83,37 @@ export const notificationService = {
         
       if (error) {
         console.error("❌ Supabase error creating notification:", error);
-        throw error;
+        console.error("Error details:", JSON.stringify(error));
+        
+        // Try a simplified insert as fallback
+        try {
+          console.log("Attempting simplified insert without select...");
+          const { error: insertError } = await supabase
+            .from('notifications')
+            .insert([notification]);
+            
+          if (insertError) {
+            console.error("❌ Fallback insert also failed:", insertError);
+            throw insertError;
+          } else {
+            console.log("✅ Fallback insert succeeded but no data returned");
+            // Return a placeholder since we didn't get the inserted object back
+            return {
+              ...notification,
+              id: 'unknown-id',
+              created_at: new Date().toISOString(),
+              type: this.validateNotificationType(notification.type),
+            } as Notification;
+          }
+        } catch (fallbackError) {
+          console.error("❌ Fallback insert attempt failed:", fallbackError);
+          throw fallbackError;
+        }
+      }
+      
+      if (!data) {
+        console.error("❌ No data returned from notification insert");
+        return null;
       }
       
       console.log("✅ Notification created successfully:", data?.id);

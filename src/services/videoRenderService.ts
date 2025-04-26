@@ -77,38 +77,50 @@ export const videoRenderService = {
               metadata: { projectId, videoUrl: data.url }
             };
             
-            console.log("Notification data being sent:", notificationData);
+            console.log("Notification data being sent:", JSON.stringify(notificationData));
             
-            // Direct database insertion as a fallback to ensure notification is created
-            const { error: directInsertError, data: directInsertData } = await supabase
-              .from('notifications')
-              .insert([{
-                user_id: projectData.user_id,
-                title: notificationData.title,
-                message: notificationData.message,
-                type: notificationData.type,
-                is_read: false,
-                metadata: notificationData.metadata
-              }])
-              .select()
-              .single();
+            // Try both notification creation methods for redundancy
+            
+            // Method 1: Direct database insertion - provides better guarantee
+            console.log("Attempting direct insertion to notifications table");
+            try {
+              const { error: directInsertError, data: directInsertData } = await supabase
+                .from('notifications')
+                .insert([{
+                  user_id: projectData.user_id,
+                  title: notificationData.title,
+                  message: notificationData.message,
+                  type: notificationData.type,
+                  is_read: false,
+                  metadata: notificationData.metadata
+                }])
+                .select();
+                
+              if (directInsertError) {
+                console.error("❌ Direct notification insert failed:", directInsertError);
+                console.error("Error details:", JSON.stringify(directInsertError));
+              } else {
+                console.log("✅ Notification created directly:", directInsertData);
+              }
+            } catch (directInsertCatchError) {
+              console.error("❌ Exception in direct insert:", directInsertCatchError);
+            }
+            
+            // Method 2: Using notification service - for consistency with other code
+            console.log("Attempting creation using notificationService");
+            try {
+              const notification = await notificationService.createNotification(notificationData);
               
-            if (directInsertError) {
-              console.error("❌ Direct notification insert failed:", directInsertError);
-            } else {
-              console.log("✅ Notification created directly:", directInsertData.id);
+              if (notification) {
+                console.log("✅ Notification service created notification:", notification.id);
+              } else {
+                console.error("⚠️ Notification service returned null");
+              }
+            } catch (serviceError) {
+              console.error("❌ Exception in notification service:", serviceError);
             }
             
-            // Also try using the notification service for completeness
-            const notification = await notificationService.createNotification(notificationData);
-            
-            if (notification) {
-              console.log("✅ Notification service created notification:", notification.id);
-            } else {
-              console.error("⚠️ Notification service returned null");
-            }
-            
-            // Show toast notification
+            // Show toast notification regardless of database success
             toast.success("Video rendering complete!", {
               description: "Your video is now ready to view.",
               action: {
@@ -249,6 +261,7 @@ export const videoRenderService = {
       
       // Create a notification that rendering has started
       try {
+        console.log("Creating notification for render start - direct insert");
         const { data: directInsertData, error: directInsertError } = await supabase
           .from('notifications')
           .insert([{
@@ -263,8 +276,25 @@ export const videoRenderService = {
           
         if (directInsertError) {
           console.error("❌ Render started notification failed:", directInsertError);
+          console.error("Error details:", JSON.stringify(directInsertError));
         } else {
           console.log("✅ Render started notification created:", directInsertData);
+        }
+        
+        // Also try using notification service as backup
+        console.log("Creating notification for render start - service");
+        const notification = await notificationService.createNotification({
+          userId: project.user_id,
+          title: "Video Rendering Started",
+          message: `Your video "${project.title || 'Untitled'}" has started rendering.`,
+          type: 'video',
+          metadata: { projectId: project.id, status: 'processing' }
+        });
+        
+        if (notification) {
+          console.log("✅ Notification service created start notification:", notification.id);
+        } else {
+          console.error("⚠️ Notification service returned null for start notification");
         }
       } catch (notificationError) {
         console.error("Error creating render started notification:", notificationError);
