@@ -67,8 +67,9 @@ async function generateNarrationScript(scenes) {
     
     console.log("Generating narration script with prompt:", prompt.substring(0, 100) + "...");
     
+    // Update the URL to use the correct Gemini API endpoint
     try {
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent", {
+      const response = await fetch("https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -200,8 +201,8 @@ serve(async (req) => {
       text: narrationScript,
       model_id: "eleven_monolingual_v1",
       voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.75
+        stability: 0.75, // Increased stability for clearer audio
+        similarity_boost: 0.85 // Increased similarity boost for better voice match
       }
     };
 
