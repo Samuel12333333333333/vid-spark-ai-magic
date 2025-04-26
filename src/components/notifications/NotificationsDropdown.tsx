@@ -65,7 +65,7 @@ export function NotificationsDropdown() {
           filter: userFilter
         }, 
         (payload) => {
-          console.log('New notification received:', payload);
+          console.log('New notification received via realtime:', payload);
           // Add the new notification to the list
           if (payload.new) {
             setNotifications(prev => [

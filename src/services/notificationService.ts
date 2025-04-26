@@ -58,6 +58,7 @@ export const notificationService = {
   }): Promise<Notification | null> {
     try {
       console.log(`⏳ Creating notification for user ${userId}: ${title}`);
+      console.log(`Type: ${type}, Message: ${message}`);
       
       if (!userId) {
         console.error("❌ Cannot create notification: user_id is missing");
@@ -78,7 +79,7 @@ export const notificationService = {
   
       console.log("Notification payload:", JSON.stringify(notification));
       
-      // First attempt: Try direct database insertion
+      // First attempt: Try direct database insertion with full error capture
       const { data: directData, error: directError } = await supabase
         .from('notifications')
         .insert([notification])
@@ -87,8 +88,10 @@ export const notificationService = {
       if (directError) {
         console.error("❌ Direct notification insert failed:", directError);
         console.error("Error details:", JSON.stringify(directError));
+        console.error("Table constraints may prevent insertion with this metadata");
         
         // Try fallback insert method without metadata
+        console.log("Attempting fallback insert without metadata");
         const simplifiedNotification = {
           user_id: userId,
           title,
@@ -104,6 +107,34 @@ export const notificationService = {
           
         if (fallbackError) {
           console.error("❌ Fallback insert also failed:", fallbackError);
+          console.error("Error details:", JSON.stringify(fallbackError));
+          
+          // Try ultra simplified version with just mandatory fields
+          console.log("Attempting ultra-simplified insert as last resort");
+          const bareMinimumNotification = {
+            user_id: userId,
+            title: title.substring(0, 50), // Truncate if too long
+            message: message.substring(0, 100), // Truncate if too long
+            type: 'video', // Use known working type
+            is_read: false
+          };
+          
+          const { data: lastResortData, error: lastResortError } = await supabase
+            .from('notifications')
+            .insert([bareMinimumNotification])
+            .select();
+            
+          if (lastResortError) {
+            console.error("❌ All notification insert attempts failed");
+            return null;
+          }
+          
+          // If last resort succeeded, return the result
+          if (lastResortData && lastResortData.length > 0) {
+            console.log("✅ Last resort insert succeeded:", lastResortData[0].id);
+            return lastResortData[0] as Notification;
+          }
+          
           return null;
         }
         

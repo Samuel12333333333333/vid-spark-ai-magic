@@ -109,12 +109,12 @@ serve(async (req) => {
           if (projectData?.user_id) {
             console.log(`Creating notification for user ${projectData.user_id} about completed video "${projectData.title || 'Untitled'}"`);
             
-            // Create a notification directly in the database
+            // Create a notification directly in the database with better error logging
             const notification = {
               user_id: projectData.user_id,
               title: "Video Rendering Complete",
               message: `Your video "${projectData.title || 'Untitled'}" is ready to view!`,
-              type: 'video', // CRITICAL FIX: Use 'video' instead of 'video_completed' to match the constraint
+              type: 'video', // CRITICAL: Use 'video' to match the constraint
               is_read: false,
               metadata: { 
                 projectId, 
@@ -126,9 +126,10 @@ serve(async (req) => {
             console.log("Attempting to create notification with payload:", JSON.stringify(notification));
             
             // First attempt: Direct database insertion
-            const { error: insertError } = await supabase
+            const { data: notificationData, error: insertError } = await supabase
               .from('notifications')
-              .insert([notification]);
+              .insert([notification])
+              .select();
               
             if (insertError) {
               console.error("Error creating notification:", insertError);
@@ -145,18 +146,19 @@ serve(async (req) => {
               
               console.log("Trying simplified notification insert:", JSON.stringify(simplifiedNotification));
               
-              const { error: fallbackError } = await supabase
+              const { data: fallbackData, error: fallbackError } = await supabase
                 .from('notifications')
-                .insert([simplifiedNotification]);
+                .insert([simplifiedNotification])
+                .select();
                 
               if (fallbackError) {
                 console.error("Fallback insert also failed:", fallbackError);
                 console.error("Fallback error details:", JSON.stringify(fallbackError));
               } else {
-                console.log("✅ Simplified notification created successfully");
+                console.log("✅ Simplified notification created successfully:", fallbackData);
               }
             } else {
-              console.log("✅ Notification created successfully");
+              console.log("✅ Notification created successfully:", notificationData);
             }
             
             // Update project status and URLs
@@ -216,7 +218,7 @@ serve(async (req) => {
               user_id: projectData.user_id,
               title: "Video Rendering Failed",
               message: `Your video "${projectData.title || 'Untitled'}" could not be rendered. Please try again.`,
-              type: 'video', // CRITICAL FIX: Use 'video' instead of 'video_failed'
+              type: 'video', // CRITICAL: Use 'video' instead of 'video_failed'
               is_read: false,
               metadata: { projectId, error: data.response.error || "Unknown error" }
             };
@@ -224,9 +226,10 @@ serve(async (req) => {
             console.log("Attempting to create failure notification:", JSON.stringify(notification));
             
             // Try to create notification
-            const { error: notificationError } = await supabase
+            const { data: notificationData, error: notificationError } = await supabase
               .from('notifications')
-              .insert([notification]);
+              .insert([notification])
+              .select();
               
             if (notificationError) {
               console.error("Error creating failure notification:", notificationError);
@@ -241,17 +244,18 @@ serve(async (req) => {
                 is_read: false
               };
               
-              const { error: fallbackError } = await supabase
+              const { data: fallbackData, error: fallbackError } = await supabase
                 .from('notifications')
-                .insert([simplifiedNotification]);
+                .insert([simplifiedNotification])
+                .select();
               
               if (fallbackError) {
                 console.error("Simplified failure notification also failed:", fallbackError);
               } else {
-                console.log("✅ Simplified failure notification created successfully");
+                console.log("✅ Simplified failure notification created successfully:", fallbackData);
               }
             } else {
-              console.log(`✅ Failure notification created for project ${projectId}`);
+              console.log(`✅ Failure notification created for project ${projectId}:`, notificationData);
             }
           }
         } catch (supabaseError) {

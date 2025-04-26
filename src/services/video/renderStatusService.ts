@@ -48,6 +48,8 @@ export const renderStatusService = {
 
   // Removed 'private' keyword as it's not valid in this context
   async updateProjectStatus(projectId: string, status: RenderStatus, data: RenderResponse) {
+    console.log(`Updating project ${projectId} status to ${status}`);
+    
     const { data: projectData } = await supabase
       .from('video_projects')
       .select('user_id, title')
@@ -59,7 +61,11 @@ export const renderStatusService = {
       return;
     }
 
+    console.log(`Project belongs to user ${projectData.user_id}, title: "${projectData.title}"`);
+
     if (status === 'completed' && data.url) {
+      console.log(`Video complete, URL: ${data.url}`);
+      // First update the project
       await supabase
         .from('video_projects')
         .update({
@@ -68,13 +74,17 @@ export const renderStatusService = {
           thumbnail_url: data.thumbnail || null
         })
         .eq('id', projectId);
-
+      
+      // Then create notification with full debug logging
+      console.log(`Creating completion notification for user ${projectData.user_id}`);
       await renderNotifications.createRenderCompleteNotification(
         projectData.user_id,
         projectData.title,
         projectId,
         data.url
       );
+      console.log("Notification creation process completed");
+      
     } else if (status === 'failed') {
       await supabase
         .from('video_projects')
