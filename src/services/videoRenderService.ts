@@ -18,7 +18,7 @@ export const videoRenderService = {
       
       // Call the edge function to check render status
       const { data, error } = await supabase.functions.invoke("check-render-status", {
-        body: { renderId }
+        body: { renderId, projectId }
       });
       
       if (error) {
@@ -69,7 +69,7 @@ export const videoRenderService = {
           console.log("Creating notification for completed video:", projectData.title);
           
           try {
-            // Create a guaranteed notification using direct database insertion
+            // Method 1: Direct database insertion with full error handling
             const directNotification = {
               user_id: projectData.user_id,
               title: "Video Rendering Complete",
@@ -81,10 +81,10 @@ export const videoRenderService = {
             
             console.log("Inserting notification directly to database:", JSON.stringify(directNotification));
             
-            // Method 1: Direct database insertion with full error handling
-            const { error: insertError } = await supabase
+            const { error: insertError, data: insertData } = await supabase
               .from('notifications')
-              .insert([directNotification]);
+              .insert([directNotification])
+              .select();
               
             if (insertError) {
               console.error("❌ Direct notification insert failed:", insertError);
@@ -97,7 +97,7 @@ export const videoRenderService = {
                 console.error("This appears to be an RLS policy violation");
               }
             } else {
-              console.log("✅ Notification created directly in database");
+              console.log("✅ Notification created directly in database:", insertData);
             }
             
             // Method 2: Using notification service as backup
@@ -170,15 +170,16 @@ export const videoRenderService = {
             
             console.log("Inserting failure notification directly:", JSON.stringify(failureNotification));
             
-            const { error: directInsertError } = await supabase
+            const { error: directInsertError, data: directInsertData } = await supabase
               .from('notifications')
-              .insert([failureNotification]);
+              .insert([failureNotification])
+              .select();
               
             if (directInsertError) {
               console.error("❌ Direct notification insert failed:", directInsertError);
               console.error("Failure notification error details:", JSON.stringify(directInsertError));
             } else {
-              console.log("✅ Failure notification created directly");
+              console.log("✅ Failure notification created directly:", directInsertData);
             }
             
             // Also try the notification service
@@ -275,15 +276,16 @@ export const videoRenderService = {
           metadata: { projectId: project.id, status: 'processing' }
         };
         
-        const { error: directError } = await supabase
+        const { error: directError, data: directData } = await supabase
           .from('notifications')
-          .insert([startNotification]);
+          .insert([startNotification])
+          .select();
           
         if (directError) {
           console.error("❌ Direct render start notification failed:", directError);
           console.error("Error details:", JSON.stringify(directError));
         } else {
-          console.log("✅ Render start notification created in database");
+          console.log("✅ Render start notification created in database:", directData);
         }
         
         // Also use service method as backup

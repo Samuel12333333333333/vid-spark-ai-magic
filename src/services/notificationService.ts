@@ -78,14 +78,16 @@ export const notificationService = {
       
       console.log("Notification payload:", JSON.stringify(notification));
       
-      // First method: Using insert with single returning
-      const { data, error } = await supabase
+      // First attempt: Try direct database insertion
+      const { data: directData, error: directError } = await supabase
         .from('notifications')
         .insert([notification])
-        .select();
+        .select('*')
+        .single();
         
-      if (error) {
-        console.error("❌ Supabase error creating notification:", error);
+      if (directError) {
+        console.error("❌ Direct notification insert failed:", directError);
+        console.error("Error details:", JSON.stringify(directError));
         
         // Try fallback insert method without select
         const { error: fallbackError } = await supabase
@@ -107,18 +109,17 @@ export const notificationService = {
         } as Notification;
       }
       
-      if (!data || data.length === 0) {
+      if (directData) {
+        console.log("✅ Notification created successfully:", directData.id);
+        
+        return {
+          ...directData,
+          type: this.validateNotificationType(directData.type)
+        } as Notification;
+      } else {
         console.error("❌ No data returned from notification insert");
         return null;
       }
-      
-      console.log("✅ Notification created successfully:", data[0]?.id);
-      
-      // Cast the returned data and validate the type
-      return {
-        ...data[0],
-        type: this.validateNotificationType(data[0].type)
-      } as Notification;
     } catch (error) {
       console.error("❌ Error creating notification:", error);
       return null;

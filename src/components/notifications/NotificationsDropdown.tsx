@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
@@ -28,9 +29,9 @@ export function NotificationsDropdown() {
     try {
       setIsLoading(true);
       console.log("Fetching notifications for user:", user.id);
-      const notifications = await notificationService.getUserNotifications(user.id);
-      console.log("Fetched notifications:", notifications);
-      setNotifications(notifications);
+      const fetchedNotifications = await notificationService.getUserNotifications(user.id);
+      console.log("Fetched notifications:", fetchedNotifications);
+      setNotifications(fetchedNotifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);
     } finally {
