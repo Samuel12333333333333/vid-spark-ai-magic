@@ -1,49 +1,45 @@
 
+# This file contains the configuration for your Supabase project
+
+# Project ID for your Supabase project
 project_id = "dijjaulwbvdcnjbqrjdw"
 
 [api]
-enabled = true
+# Port for the API
 port = 54321
-schemas = ["public", "storage", "graphql_public"]
+# Schemas to expose in your API
+schemas = ["public", "storage"]
+# Extra schemas to add to the search_path of every request
+extra_search_path = ["extensions"]
+# Maximum rows returns from a view, table, or stored procedure
+max_rows = 1000
 
 [db]
-port = 54322
-shadow_port = 54320
+# Port for the database
+port = 5432
+# Database major version. Must be the same as your remote database's version.
 major_version = 15
+
+[studio]
+# Port for Supabase Studio
+port = 54323
+# External URL of the API server that Studio should use. Used when the API is behind a reverse proxy or in a staging environment.
+# api_url = "https://your-project.supabase.co"
+
+[auth]
+# Prevent automatic enabling of Row Level Security on created tables
+disable_auto_enable_rls = false
+
+[inbucket]
+# Port for the inbucket mock SMTP server
+port = 54324
+
+[storage]
+# Enable or disable Storage specific features
+file_size_limit = "50MiB"
 
 [realtime]
 enabled = true
 
-[studio]
-enabled = true
-port = 54323
-
-# Disable JWT verification for the webhook function since it's called by Stripe
-[functions.stripe-webhook]
-verify_jwt = false
-
-# Create two new functions for video usage tracking
-[functions.get_video_usage]
-verify_jwt = true
-
-[functions.increment_video_usage]
-verify_jwt = true
-
-# Ensure proper JWT verification for other functions
-[functions.generate-scenes]
-verify_jwt = true
-
-[functions.generate-audio]
-verify_jwt = true
-
-[functions.search-videos]
-verify_jwt = true
-
-[functions.test-shotstack]
-verify_jwt = true
-
-[functions.render-video]
-verify_jwt = true
-
-[functions.check-render-status]
-verify_jwt = true
+[realtime.tables.public.notifications]
+type = "broadcast"

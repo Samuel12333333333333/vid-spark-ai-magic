@@ -17,6 +17,7 @@ export interface Notification {
 export const notificationService = {
   async getUserNotifications(userId: string): Promise<Notification[]> {
     try {
+      console.log("Fetching notifications for user:", userId);
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -27,6 +28,8 @@ export const notificationService = {
         console.error("Supabase error fetching notifications:", error);
         throw error;
       }
+      
+      console.log(`Found ${data?.length || 0} notifications for user`);
       
       // Cast and validate the data to ensure type compatibility
       return (data || []).map(notification => ({
@@ -54,6 +57,8 @@ export const notificationService = {
     metadata?: Record<string, any>;
   }): Promise<Notification | null> {
     try {
+      console.log(`Creating notification for user ${userId}: ${title}`);
+      
       const notification = {
         user_id: userId,
         title,
@@ -73,6 +78,8 @@ export const notificationService = {
         console.error("Supabase error creating notification:", error);
         throw error;
       }
+      
+      console.log("Notification created successfully:", data?.id);
       
       toast.success(`New notification: ${title}`);
       

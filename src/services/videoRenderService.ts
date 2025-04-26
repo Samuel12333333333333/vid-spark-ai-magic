@@ -63,22 +63,41 @@ export const videoRenderService = {
           
         // Create notification for completed video
         if (projectData?.user_id) {
-          await notificationService.createNotification({
-            userId: projectData.user_id,
-            title: "Video Rendering Complete",
-            message: `Your video "${projectData.title || 'Untitled'}" is ready to view!`,
-            type: 'video',
-            metadata: { projectId, videoUrl: data.url }
-          });
+          console.log("Creating notification for completed video:", projectData.title);
           
-          // Show toast notification
-          toast.success("Video rendering complete!", {
-            description: "Your video is now ready to view.",
-            action: {
-              label: "View",
-              onClick: () => window.location.href = `/dashboard/videos/${projectId}`
-            }
-          });
+          try {
+            const notification = await notificationService.createNotification({
+              userId: projectData.user_id,
+              title: "Video Rendering Complete",
+              message: `Your video "${projectData.title || 'Untitled'}" is ready to view!`,
+              type: 'video',
+              metadata: { projectId, videoUrl: data.url }
+            });
+            
+            console.log("Notification created successfully:", notification?.id || "No ID returned");
+            
+            // Show toast notification
+            toast.success("Video rendering complete!", {
+              description: "Your video is now ready to view.",
+              action: {
+                label: "View",
+                onClick: () => window.location.href = `/dashboard/videos/${projectId}`
+              }
+            });
+          } catch (notificationError) {
+            console.error("Error creating notification:", notificationError);
+            
+            // Show toast even if notification creation fails
+            toast.success("Video rendering complete!", {
+              description: "Your video is now ready to view.",
+              action: {
+                label: "View",
+                onClick: () => window.location.href = `/dashboard/videos/${projectId}`
+              }
+            });
+          }
+        } else {
+          console.error("Cannot create notification: user_id not found in project data");
         }
       } else if (newStatus === 'failed') {
         // Get user ID for notifications
@@ -99,13 +118,17 @@ export const videoRenderService = {
           
         // Create notification for failed video
         if (projectData?.user_id) {
-          await notificationService.createNotification({
-            userId: projectData.user_id,
-            title: "Video Rendering Failed",
-            message: `Your video "${projectData.title || 'Untitled'}" could not be rendered. Please try again.`,
-            type: 'video',
-            metadata: { projectId, error: data.error || "Unknown error" }
-          });
+          try {
+            await notificationService.createNotification({
+              userId: projectData.user_id,
+              title: "Video Rendering Failed",
+              message: `Your video "${projectData.title || 'Untitled'}" could not be rendered. Please try again.`,
+              type: 'video',
+              metadata: { projectId, error: data.error || "Unknown error" }
+            });
+          } catch (notificationError) {
+            console.error("Error creating notification for failed rendering:", notificationError);
+          }
           
           // Show error toast
           toast.error("Video rendering failed", {
