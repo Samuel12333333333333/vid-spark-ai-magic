@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { MainHeader } from './MainHeader';
 import Footer from './Footer';
+import { Toaster } from "@/components/ui/toaster";
 
 export default function MainLayout() {
   const { pathname, hash } = useLocation();
@@ -30,6 +31,7 @@ export default function MainLayout() {
         <Outlet />
       </main>
       <Footer />
+      <Toaster />
     </div>
   );
 }

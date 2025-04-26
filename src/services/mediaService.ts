@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -30,7 +31,31 @@ const availableVoices: VoiceOption[] = [
   },
   {
     id: "AZnzlk1XvdvUeBnXmlld",
+    name: "Domi",
+    language: "English",
+    gender: "female"
+  },
+  {
+    id: "EXAVITQu4vr4xnSDxMaL",
+    name: "Sarah",
+    language: "English",
+    gender: "female"
+  },
+  {
+    id: "MF3mGyEYCl7XYWbV9V6O",
+    name: "Elli",
+    language: "English",
+    gender: "female"
+  },
+  {
+    id: "pNInz6obpgDQGcFmaJgB",
     name: "Adam",
+    language: "English",
+    gender: "male"
+  },
+  {
+    id: "yoZ06aMxZJJ28mfd3POQ",
+    name: "Josh",
     language: "English",
     gender: "male"
   }
@@ -189,14 +214,23 @@ export const mediaService = {
     scenes?: { id: string; scene: string; description: string }[]
   ): Promise<{ audioBase64: string; narrationScript: string }> {
     try {
+      toast.info("Generating voiceover...", {
+        duration: 10000,
+        id: "generating-voiceover"
+      });
+      
       const { data, error } = await supabase.functions.invoke("generate-audio", {
         body: { script, voiceId, userId, projectId, scenes }
       });
 
       if (error) {
         console.error("Error generating audio:", error);
+        toast.dismiss("generating-voiceover");
         throw error;
       }
+      
+      toast.dismiss("generating-voiceover");
+      toast.success("Voiceover generated successfully!");
 
       return {
         audioBase64: data.audioBase64,
@@ -209,6 +243,80 @@ export const mediaService = {
     }
   },
 
+  async generateCaptions(
+    script: string,
+    projectId: string
+  ): Promise<string | null> {
+    try {
+      toast.info("Generating captions...", {
+        duration: 10000,
+        id: "generating-captions"
+      });
+      
+      // Create a WebVTT file from the script
+      const vttContent = this.createWebVTT(script);
+      
+      // Create a blob from the WebVTT content
+      const blob = new Blob([vttContent], { type: 'text/vtt' });
+      const file = new File([blob], `captions-${projectId}.vtt`, { type: 'text/vtt' });
+      
+      // Upload the VTT file to Supabase storage
+      const captionsUrl = await this.uploadMediaFile('video-assets', `captions/${projectId}.vtt`, file);
+      
+      toast.dismiss("generating-captions");
+      
+      if (captionsUrl) {
+        toast.success("Captions generated successfully!");
+      }
+      
+      return captionsUrl;
+    } catch (error) {
+      console.error("Error generating captions:", error);
+      toast.error("Failed to generate captions. Please try again.");
+      return null;
+    }
+  },
+  
+  // Helper method to create WebVTT file from script
+  createWebVTT(script: string): string {
+    // Basic WebVTT file format
+    let vttContent = "WEBVTT\n\n";
+    
+    // Split the script into sentences
+    const sentences = script.split(/[.!?]/).filter(s => s.trim().length > 0);
+    
+    // Generate cues for each sentence
+    // Assuming roughly 15 chars per second for reading speed
+    let startTime = 0;
+    
+    sentences.forEach((sentence, index) => {
+      const trimmedSentence = sentence.trim();
+      // Calculate duration based on character count (rough estimate)
+      const duration = Math.max(2, Math.min(10, trimmedSentence.length / 15));
+      
+      const startTimeFormatted = this.formatVTTTime(startTime);
+      const endTimeFormatted = this.formatVTTTime(startTime + duration);
+      
+      vttContent += `${index + 1}\n`;
+      vttContent += `${startTimeFormatted} --> ${endTimeFormatted}\n`;
+      vttContent += `${trimmedSentence}\n\n`;
+      
+      startTime += duration;
+    });
+    
+    return vttContent;
+  },
+  
+  // Helper to format time for VTT (00:00:00.000)
+  formatVTTTime(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    const millis = Math.floor((seconds % 1) * 1000);
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${millis.toString().padStart(3, '0')}`;
+  },
+
   async renderVideo(
     scenes: any[],
     userId: string,
@@ -218,13 +326,48 @@ export const mediaService = {
     narrationScript?: string
   ): Promise<string> {
     try {
+      // Generate captions if enabled
+      let captionsFile = null;
+      if (enableCaptions && narrationScript) {
+        captionsFile = await this.generateCaptions(narrationScript, projectId);
+      }
+      
+      // Generate audio URL if we have base64 audio
+      let audioUrl = null;
+      if (audioBase64) {
+        // Convert base64 to blob
+        const byteCharacters = atob(audioBase64);
+        const byteArrays = [];
+        for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+          const slice = byteCharacters.slice(offset, offset + 512);
+          const byteNumbers = new Array(slice.length);
+          for (let i = 0; i < slice.length; i++) {
+            byteNumbers[i] = slice.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          byteArrays.push(byteArray);
+        }
+        
+        const blob = new Blob(byteArrays, {type: 'audio/mp3'});
+        const file = new File([blob], `audio-${projectId}.mp3`, {type: 'audio/mp3'});
+        
+        // Upload the audio file
+        audioUrl = await this.uploadMediaFile('video-assets', `audio/${projectId}.mp3`, file);
+      }
+      
+      toast.info("Starting video render...");
+      
       const { data, error } = await supabase.functions.invoke("render-video", {
         body: {
           scenes,
           userId,
           projectId,
           audioBase64,
-          enableCaptions,
+          audioUrl,
+          has_audio: !!audioBase64 || !!audioUrl,
+          has_captions: enableCaptions,
+          includeCaptions: enableCaptions,
+          captionsFile,
           narrationScript
         }
       });
