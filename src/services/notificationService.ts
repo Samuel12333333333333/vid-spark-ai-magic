@@ -67,14 +67,12 @@ export const notificationService = {
       // Ensure metadata is an object
       const safeMetadata = metadata || {};
       
-      const notification = {
-        id: crypto.randomUUID(),   // ✅ generate a UUID
+      const notification = {     
         user_id: userId,
         title,
         message,
         type,
         is_read: false,
-        created_at: new Date().toISOString(),  // ✅ add created_at
         metadata: safeMetadata
       };
   
