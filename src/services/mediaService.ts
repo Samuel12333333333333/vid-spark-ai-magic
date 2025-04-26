@@ -151,9 +151,12 @@ export const mediaService = {
         throw new Error("File size exceeds 50MB limit");
       }
       
+      // Ensure we're using the correct bucket name
+      const bucket = 'video-assets';
+      
       // Upload the file
       const { data, error } = await supabase.storage
-        .from(bucketName)
+        .from(bucket)
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true
@@ -166,7 +169,7 @@ export const mediaService = {
       
       // Get the public URL
       const { data: { publicUrl } } = supabase.storage
-        .from(bucketName)
+        .from(bucket)
         .getPublicUrl(data.path);
         
       return publicUrl;
@@ -260,7 +263,7 @@ export const mediaService = {
       const blob = new Blob([vttContent], { type: 'text/vtt' });
       const file = new File([blob], `captions-${projectId}.vtt`, { type: 'text/vtt' });
       
-      // Upload the VTT file to Supabase storage
+      // Upload the VTT file to Supabase storage (using updated bucket name)
       const captionsUrl = await this.uploadMediaFile('video-assets', `captions/${projectId}.vtt`, file);
       
       toast.dismiss("generating-captions");
@@ -351,7 +354,7 @@ export const mediaService = {
         const blob = new Blob(byteArrays, {type: 'audio/mp3'});
         const file = new File([blob], `audio-${projectId}.mp3`, {type: 'audio/mp3'});
         
-        // Upload the audio file
+        // Upload the audio file to our new bucket
         audioUrl = await this.uploadMediaFile('video-assets', `audio/${projectId}.mp3`, file);
       }
       

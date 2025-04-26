@@ -91,7 +91,10 @@ export const videoRenderService = {
         // Update project status to failed
         await supabase
           .from('video_projects')
-          .update({ status: newStatus })
+          .update({ 
+            status: newStatus,
+            error_message: data.error || "Unknown error" 
+          })
           .eq('id', projectId);
           
         // Create notification for failed video
