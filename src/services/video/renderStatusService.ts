@@ -75,15 +75,42 @@ export const renderStatusService = {
         })
         .eq('id', projectId);
       
-      // Then create notification with full debug logging
-      console.log(`Creating completion notification for user ${projectData.user_id}`);
-      await renderNotifications.createRenderCompleteNotification(
-        projectData.user_id,
-        projectData.title,
-        projectId,
-        data.url
-      );
-      console.log("Notification creation process completed");
+      // Then create notification - fully log the process
+      console.log(`Creating completion notification for user ${projectData.user_id}, project ${projectId}`);
+      try {
+        await renderNotifications.createRenderCompleteNotification(
+          projectData.user_id,
+          projectData.title,
+          projectId,
+          data.url
+        );
+        console.log("Notification creation process initiated");
+      } catch (notificationError) {
+        console.error("Failed to create completion notification:", notificationError);
+        
+        // Last resort direct insert
+        try {
+          const directNotification = {
+            user_id: projectData.user_id,
+            title: "Video Rendering Complete",
+            message: `Your video "${projectData.title || 'Untitled'}" is ready to view!`,
+            type: 'video',
+            is_read: false
+          };
+          
+          const { error: directError } = await supabase
+            .from('notifications')
+            .insert([directNotification]);
+            
+          if (directError) {
+            console.error("Last resort notification insert failed:", directError);
+          } else {
+            console.log("Last resort notification insert succeeded");
+          }
+        } catch (directError) {
+          console.error("Last resort insert attempt failed:", directError);
+        }
+      }
       
     } else if (status === 'failed') {
       await supabase
@@ -94,12 +121,16 @@ export const renderStatusService = {
         })
         .eq('id', projectId);
 
-      await renderNotifications.createRenderFailedNotification(
-        projectData.user_id,
-        projectData.title,
-        projectId,
-        data.error || "Unknown error"
-      );
+      try {
+        await renderNotifications.createRenderFailedNotification(
+          projectData.user_id,
+          projectData.title,
+          projectId,
+          data.error || "Unknown error"
+        );
+      } catch (notificationError) {
+        console.error("Failed to create failure notification:", notificationError);
+      }
     } else {
       await supabase
         .from('video_projects')

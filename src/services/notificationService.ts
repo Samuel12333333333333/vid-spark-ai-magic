@@ -65,13 +65,23 @@ export const notificationService = {
         return null;
       }
       
-      // Ensure metadata is an object
-      const safeMetadata = metadata || {};
+      // Ensure metadata is JSON-compatible
+      let safeMetadata: Record<string, any> = {};
+      
+      try {
+        if (metadata && Object.keys(metadata).length > 0) {
+          // For safety, stringify and parse the object to remove any non-serializable content
+          safeMetadata = JSON.parse(JSON.stringify(metadata));
+        }
+      } catch (e) {
+        console.error("Error serializing metadata, using empty object:", e);
+        // Use empty object if serialization fails
+      }
       
       const notification = {     
         user_id: userId,
-        title,
-        message,
+        title: title.substring(0, 255), // Ensure title isn't too long
+        message: message.substring(0, 1000), // Ensure message isn't too long
         type,
         is_read: false,
         metadata: safeMetadata
@@ -80,32 +90,50 @@ export const notificationService = {
       console.log("Notification payload:", JSON.stringify(notification));
       
       // First attempt: Try direct database insertion with full error capture
-      const { data: directData, error: directError } = await supabase
-        .from('notifications')
-        .insert([notification])
-        .select();
+      let insertResult;
+      try {
+        insertResult = await supabase
+          .from('notifications')
+          .insert([notification])
+          .select();
+          
+        if (insertResult.error) {
+          throw insertResult.error;
+        }
         
-      if (directError) {
+        if (insertResult.data && insertResult.data.length > 0) {
+          console.log("✅ Notification created successfully:", insertResult.data[0].id);
+          return insertResult.data[0] as Notification;
+        }
+      } catch (directError) {
         console.error("❌ Direct notification insert failed:", directError);
         console.error("Error details:", JSON.stringify(directError));
-        console.error("Table constraints may prevent insertion with this metadata");
         
         // Try fallback insert method without metadata
         console.log("Attempting fallback insert without metadata");
         const simplifiedNotification = {
           user_id: userId,
-          title,
-          message,
+          title: title.substring(0, 255),
+          message: message.substring(0, 1000),
           type,
           is_read: false
         };
         
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('notifications')
-          .insert([simplifiedNotification])
-          .select();
+        try {
+          const fallbackResult = await supabase
+            .from('notifications')
+            .insert([simplifiedNotification])
+            .select();
+            
+          if (fallbackResult.error) {
+            throw fallbackResult.error;
+          }
           
-        if (fallbackError) {
+          if (fallbackResult.data && fallbackResult.data.length > 0) {
+            console.log("✅ Fallback insert succeeded:", fallbackResult.data[0].id);
+            return fallbackResult.data[0] as Notification;
+          }
+        } catch (fallbackError) {
           console.error("❌ Fallback insert also failed:", fallbackError);
           console.error("Error details:", JSON.stringify(fallbackError));
           
@@ -119,48 +147,31 @@ export const notificationService = {
             is_read: false
           };
           
-          const { data: lastResortData, error: lastResortError } = await supabase
-            .from('notifications')
-            .insert([bareMinimumNotification])
-            .select();
+          try {
+            const lastResortResult = await supabase
+              .from('notifications')
+              .insert([bareMinimumNotification])
+              .select();
+              
+            if (lastResortResult.error) {
+              throw lastResortResult.error;
+            }
             
-          if (lastResortError) {
+            if (lastResortResult.data && lastResortResult.data.length > 0) {
+              console.log("✅ Last resort insert succeeded:", lastResortResult.data[0].id);
+              return lastResortResult.data[0] as Notification;
+            }
+          } catch (lastResortError) {
             console.error("❌ All notification insert attempts failed");
+            console.error("Last resort error:", JSON.stringify(lastResortError));
             return null;
           }
-          
-          // If last resort succeeded, return the result
-          if (lastResortData && lastResortData.length > 0) {
-            console.log("✅ Last resort insert succeeded:", lastResortData[0].id);
-            return lastResortData[0] as Notification;
-          }
-          
-          return null;
         }
-        
-        // If fallback succeeded, return the result
-        if (fallbackData && fallbackData.length > 0) {
-          console.log("✅ Fallback insert succeeded:", fallbackData[0].id);
-          return fallbackData[0] as Notification;
-        }
-        
-        // If no data returned but no error, create a placeholder
-        console.log("✅ Fallback insert succeeded but no data returned");
-        return {
-          ...simplifiedNotification,
-          id: 'temp-' + new Date().getTime(),
-          created_at: new Date().toISOString(),
-          type: this.validateNotificationType(type),
-        } as Notification;
       }
       
-      if (directData && directData.length > 0) {
-        console.log("✅ Notification created successfully:", directData[0].id);
-        return directData[0] as Notification;
-      } else {
-        console.error("❌ No data returned from notification insert");
-        return null;
-      }
+      // If we got here without a return, something unexpected happened
+      console.error("❌ Notification create failed with no specific error");
+      return null;
     } catch (error) {
       console.error("❌ Error creating notification:", error);
       return null;

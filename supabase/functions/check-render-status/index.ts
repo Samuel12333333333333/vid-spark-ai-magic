@@ -107,14 +107,14 @@ serve(async (req) => {
           }
           
           if (projectData?.user_id) {
-            console.log(`Creating notification for user ${projectData.user_id} about completed video "${projectData.title || 'Untitled'}"`);
+            console.log(`Creating edge function notification for user ${projectData.user_id} about completed video "${projectData.title || 'Untitled'}"`);
             
             // Create a notification directly in the database with better error logging
             const notification = {
               user_id: projectData.user_id,
               title: "Video Rendering Complete",
               message: `Your video "${projectData.title || 'Untitled'}" is ready to view!`,
-              type: 'video', // CRITICAL: Use 'video' to match the constraint
+              type: 'video',
               is_read: false,
               metadata: { 
                 projectId, 
@@ -123,42 +123,65 @@ serve(async (req) => {
               }
             };
             
-            console.log("Attempting to create notification with payload:", JSON.stringify(notification));
+            console.log("🔔 Edge function creating notification with payload:", JSON.stringify(notification));
             
-            // First attempt: Direct database insertion
-            const { data: notificationData, error: insertError } = await supabase
-              .from('notifications')
-              .insert([notification])
-              .select();
-              
-            if (insertError) {
-              console.error("Error creating notification:", insertError);
-              console.error("Error details:", JSON.stringify(insertError));
-              
-              // Second attempt: Try again without metadata which might be causing issues
-              const simplifiedNotification = {
-                user_id: projectData.user_id,
-                title: "Video Rendering Complete",
-                message: `Your video "${projectData.title || 'Untitled'}" is ready to view!`,
-                type: 'video',
-                is_read: false
-              };
-              
-              console.log("Trying simplified notification insert:", JSON.stringify(simplifiedNotification));
-              
-              const { data: fallbackData, error: fallbackError } = await supabase
+            try {
+              // First attempt: Direct database insertion
+              const { data: notificationData, error: insertError } = await supabase
                 .from('notifications')
-                .insert([simplifiedNotification])
+                .insert([notification])
                 .select();
                 
-              if (fallbackError) {
-                console.error("Fallback insert also failed:", fallbackError);
-                console.error("Fallback error details:", JSON.stringify(fallbackError));
+              if (insertError) {
+                console.error("Edge function error creating notification:", insertError);
+                console.error("Error details:", JSON.stringify(insertError));
+                
+                // Second attempt: Try again without metadata which might be causing issues
+                const simplifiedNotification = {
+                  user_id: projectData.user_id,
+                  title: "Video Rendering Complete",
+                  message: `Your video "${projectData.title || 'Untitled'}" is ready to view!`,
+                  type: 'video',
+                  is_read: false
+                };
+                
+                console.log("Trying simplified notification insert:", JSON.stringify(simplifiedNotification));
+                
+                const { data: fallbackData, error: fallbackError } = await supabase
+                  .from('notifications')
+                  .insert([simplifiedNotification])
+                  .select();
+                  
+                if (fallbackError) {
+                  console.error("Fallback insert also failed:", fallbackError);
+                  console.error("Fallback error details:", JSON.stringify(fallbackError));
+                  
+                  // Third attempt: Ultra simplified
+                  const basicNotification = {
+                    user_id: projectData.user_id,
+                    title: "Video Complete",
+                    message: "Your video is ready.",
+                    type: 'video',
+                    is_read: false
+                  };
+                  
+                  const { error: basicError } = await supabase
+                    .from('notifications')
+                    .insert([basicNotification]);
+                    
+                  if (basicError) {
+                    console.error("Even basic notification failed:", basicError);
+                  } else {
+                    console.log("✅ Basic notification created successfully");
+                  }
+                } else {
+                  console.log("✅ Simplified notification created successfully:", fallbackData);
+                }
               } else {
-                console.log("✅ Simplified notification created successfully:", fallbackData);
+                console.log("✅ Notification created successfully from edge function:", notificationData);
               }
-            } else {
-              console.log("✅ Notification created successfully:", notificationData);
+            } catch (notificationError) {
+              console.error("Unexpected error during notification creation:", notificationError);
             }
             
             // Update project status and URLs
@@ -218,12 +241,12 @@ serve(async (req) => {
               user_id: projectData.user_id,
               title: "Video Rendering Failed",
               message: `Your video "${projectData.title || 'Untitled'}" could not be rendered. Please try again.`,
-              type: 'video', // CRITICAL: Use 'video' instead of 'video_failed'
+              type: 'video',
               is_read: false,
               metadata: { projectId, error: data.response.error || "Unknown error" }
             };
             
-            console.log("Attempting to create failure notification:", JSON.stringify(notification));
+            console.log("🔔 Edge function creating failure notification:", JSON.stringify(notification));
             
             // Try to create notification
             const { data: notificationData, error: notificationError } = await supabase
@@ -251,6 +274,25 @@ serve(async (req) => {
               
               if (fallbackError) {
                 console.error("Simplified failure notification also failed:", fallbackError);
+                
+                // Ultra minimal version
+                const basicNotification = {
+                  user_id: projectData.user_id,
+                  title: "Video Failed",
+                  message: "Your video could not be created.",
+                  type: 'video',
+                  is_read: false
+                };
+                
+                const { error: basicError } = await supabase
+                  .from('notifications')
+                  .insert([basicNotification]);
+                  
+                if (basicError) {
+                  console.error("Even basic failure notification failed:", basicError);
+                } else {
+                  console.log("✅ Basic failure notification created");
+                }
               } else {
                 console.log("✅ Simplified failure notification created successfully:", fallbackData);
               }
