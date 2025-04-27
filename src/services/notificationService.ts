@@ -78,6 +78,7 @@ export const notificationService = {
         // Use empty object if serialization fails
       }
       
+      // Create a simplified notification to maximize chance of success
       const notification = {     
         user_id: userId,
         title: title.substring(0, 255), // Ensure title isn't too long
@@ -89,27 +90,50 @@ export const notificationService = {
 
       console.log("Notification payload:", JSON.stringify(notification));
       
-      // Direct database insertion
-      try {
-        const { data, error } = await supabase
-          .from('notifications')
-          .insert([notification])
-          .select();
+      // Direct database insertion with retry mechanism
+      let maxRetries = 3;
+      let retries = 0;
+      let lastError = null;
+      
+      while (retries < maxRetries) {
+        try {
+          console.log(`Attempt ${retries + 1} to insert notification`);
           
-        if (error) {
-          console.error("❌ Notification insert failed:", error);
-          throw error;
+          const { data, error } = await supabase
+            .from('notifications')
+            .insert([notification])
+            .select();
+            
+          if (error) {
+            console.error(`❌ Notification insert failed (attempt ${retries + 1}):`, error);
+            lastError = error;
+            retries++;
+            
+            // Wait briefly before retrying
+            await new Promise(resolve => setTimeout(resolve, 500 * retries));
+            continue;
+          }
+          
+          if (data && data.length > 0) {
+            console.log("✅ Notification created successfully:", data[0].id);
+            return data[0] as Notification;
+          }
+          
+          throw new Error("No data returned from notification insert");
+        } catch (insertError) {
+          lastError = insertError;
+          retries++;
+          
+          console.error(`❌ Insert attempt ${retries} failed:`, insertError);
+          
+          // Wait briefly before retrying
+          await new Promise(resolve => setTimeout(resolve, 500 * retries));
         }
-        
-        if (data && data.length > 0) {
-          console.log("✅ Notification created successfully:", data[0].id);
-          return data[0] as Notification;
-        }
-        
-        throw new Error("No data returned from notification insert");
-      } catch (insertError) {
-        // If the insert fails due to metadata, try without it
-        console.error("❌ Initial insert failed, trying without metadata:", insertError);
+      }
+      
+      // If all attempts fail with metadata, try once without metadata
+      try {
+        console.log("❌ All attempts failed, trying without metadata");
         
         const simplifiedNotification = {
           user_id: userId,
@@ -133,8 +157,11 @@ export const notificationService = {
           console.log("✅ Fallback notification created successfully:", fallbackData[0].id);
           return fallbackData[0] as Notification;
         }
+      } catch (fallbackError) {
+        console.error("❌ Fallback attempt also failed:", fallbackError);
       }
       
+      console.error("❌ All notification creation attempts failed");
       return null;
     } catch (error) {
       console.error("❌ Error creating notification:", error);
