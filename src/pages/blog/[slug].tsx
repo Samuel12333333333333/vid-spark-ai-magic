@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,6 +6,7 @@ import { useBlogPosts } from "@/hooks/useBlogPosts";
 import SEOMetadata from "@/components/SEOMetadata";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { slugify } from "@/utils/slugify";
 
 export default function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -16,13 +16,10 @@ export default function BlogPostPage() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // First try to find post in the already loaded posts
   useEffect(() => {
     if (!loading && posts.length > 0 && slug) {
-      // Try to find by slug
       let foundPost = posts.find(p => p.slug === slug);
       
-      // If not found by slug, try to find by ID (for backward compatibility)
       if (!foundPost) {
         foundPost = posts.find(p => p.id === slug);
       }
@@ -33,20 +30,17 @@ export default function BlogPostPage() {
     }
   }, [slug, posts, loading]);
 
-  // If not found in already loaded posts, try direct DB lookup
   useEffect(() => {
     const fetchDirectFromDB = async () => {
       if (!loading && !post && slug) {
         setLoadingDirect(true);
         try {
-          // First try by UUID in case it's an ID
           let { data, error: fetchError } = await supabase
             .from('blog_posts')
             .select('*')
             .eq('id', slug)
             .single();
           
-          // If not found, look in all posts and compare against slugified titles
           if (!data) {
             const { data: allPosts, error: allPostsError } = await supabase
               .from('blog_posts')
@@ -54,7 +48,6 @@ export default function BlogPostPage() {
               
             if (allPostsError) throw allPostsError;
             
-            // Find the post where the slugified title matches the slug param
             data = (allPosts || []).find(p => slugify(p.title) === slug) || null;
           }
           
@@ -66,7 +59,6 @@ export default function BlogPostPage() {
           } else {
             setError("Blog post not found");
             toast.error("Blog post not found");
-            // Redirect to blog listing after showing the toast
             setTimeout(() => navigate("/blog"), 2000);
           }
         } catch (err) {
