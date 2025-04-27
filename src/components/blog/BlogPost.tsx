@@ -9,9 +9,13 @@ interface BlogPostProps {
   summary: string;
   content: string;
   created_at: string;
+  slug?: string;
 }
 
-export function BlogPost({ id, title, summary, created_at }: BlogPostProps) {
+export function BlogPost({ id, title, summary, created_at, slug }: BlogPostProps) {
+  // Use slug for URL if available, otherwise fall back to ID
+  const urlPath = slug || id;
+  
   return (
     <Card className="mb-6">
       <CardHeader>
@@ -25,7 +29,7 @@ export function BlogPost({ id, title, summary, created_at }: BlogPostProps) {
       <CardContent>
         <p className="text-gray-600 dark:text-gray-300">{summary}</p>
         <Link 
-          to={`/blog/${id}`}
+          to={`/blog/${urlPath}`}
           className="inline-block text-primary hover:underline mt-4"
         >
           Read more...
