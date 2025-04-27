@@ -39,11 +39,32 @@ export function NotificationItem({ notification, onMarkAsRead, onDelete }: Notif
     onDelete(notification.id);
   };
 
+  // Get action class to highlight notifications based on action/status
+  const getActionClass = () => {
+    if (!notification.metadata) return '';
+    
+    const metadata = notification.metadata as Record<string, any>;
+    
+    if (metadata.action === 'delete') {
+      return 'border-l-4 border-red-500';
+    }
+    
+    if (metadata.status === 'completed') {
+      return 'border-l-4 border-green-500';
+    }
+    
+    if (metadata.status === 'failed') {
+      return 'border-l-4 border-orange-500';
+    }
+    
+    return '';
+  };
+
   return (
     <div 
       className={`p-4 border-b transition-colors relative ${
         notification.is_read ? 'bg-background' : 'bg-muted/30'
-      }`}
+      } ${getActionClass()}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >

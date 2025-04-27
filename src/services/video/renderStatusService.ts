@@ -2,6 +2,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { RenderResponse, RenderStatus } from "./types";
 import { renderNotifications } from "./renderNotifications";
+import { notificationService } from "@/services/notificationService";
+import { toast } from "sonner";
 
 export const renderStatusService = {
   async updateRenderStatus(projectId: string, renderId: string): Promise<RenderStatus> {
@@ -63,8 +65,9 @@ export const renderStatusService = {
 
       console.log(`Project belongs to user ${projectData.user_id}, title: "${projectData.title}"`);
 
-      // Create notification before updating project to ensure notification is created
+      // Update project status
       if (status === 'completed' && data.url) {
+        // Create notification for video completion
         console.log(`Creating notification for completed video: ${data.url}`);
         
         const notification = {
@@ -86,16 +89,24 @@ export const renderStatusService = {
         
         while (retries < maxRetries) {
           try {
+            console.log(`Attempt ${retries + 1} to insert completion notification`);
             const { error: notifError } = await supabase
               .from('notifications')
               .insert([notification]);
               
             if (!notifError) {
               console.log("✅ Video completion notification created successfully");
+              toast.success("Video rendering complete!", {
+                description: "Your video is now ready to view.",
+                action: {
+                  label: "View",
+                  onClick: () => window.location.href = `/dashboard/videos/${projectId}`
+                }
+              });
               break;
             }
             
-            console.error(`Failed to create notification (attempt ${retries + 1}):`, notifError);
+            console.error(`Failed to create completion notification (attempt ${retries + 1}):`, notifError);
             retries++;
             await new Promise(resolve => setTimeout(resolve, 1000 * retries));
           } catch (err) {
@@ -105,7 +116,7 @@ export const renderStatusService = {
           }
         }
 
-        // Update project status
+        // Update project with URL regardless of notification status
         const { error: updateError } = await supabase
           .from('video_projects')
           .update({
@@ -121,7 +132,7 @@ export const renderStatusService = {
           console.log(`Project ${projectId} updated with completed status and URL`);
         }
       } else if (status === 'failed') {
-        // Create failure notification
+        // Create notification for video failure
         const notification = {
           user_id: projectData.user_id,
           title: "Video Rendering Failed",
@@ -136,14 +147,32 @@ export const renderStatusService = {
         };
 
         // Insert failure notification
-        const { error: notifError } = await supabase
-          .from('notifications')
-          .insert([notification]);
-          
-        if (notifError) {
-          console.error("Failed to create failure notification:", notifError);
-        } else {
-          console.log("✅ Video failure notification created successfully");
+        let retries = 0;
+        const maxRetries = 3;
+        
+        while (retries < maxRetries) {
+          try {
+            console.log(`Attempt ${retries + 1} to insert failure notification`);
+            const { error: notifError } = await supabase
+              .from('notifications')
+              .insert([notification]);
+              
+            if (!notifError) {
+              console.log("✅ Video failure notification created successfully");
+              toast.error("Video rendering failed", {
+                description: "There was a problem creating your video. Please try again."
+              });
+              break;
+            }
+            
+            console.error(`Failed to create failure notification (attempt ${retries + 1}):`, notifError);
+            retries++;
+            await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+          } catch (err) {
+            console.error(`Failure notification creation attempt ${retries + 1} failed:`, err);
+            retries++;
+            await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+          }
         }
 
         // Update project with failed status
@@ -157,6 +186,8 @@ export const renderStatusService = {
           
         if (updateError) {
           console.error("Failed to update video project status to failed:", updateError);
+        } else {
+          console.log(`Project ${projectId} updated with failed status`);
         }
       } else {
         // For other statuses, just update the project

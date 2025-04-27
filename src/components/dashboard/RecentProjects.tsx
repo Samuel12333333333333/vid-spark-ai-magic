@@ -7,6 +7,8 @@ import { Play, FileEdit, Trash2, Check, X } from "lucide-react";
 import { VideoProject, videoService } from "@/services/videoService";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface RecentProjectsProps {
   projects: VideoProject[];
@@ -15,6 +17,7 @@ interface RecentProjectsProps {
 export function RecentProjects({ projects }: RecentProjectsProps) {
   const [loadedVideos, setLoadedVideos] = useState<Record<string, boolean>>({});
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
+  const { user } = useAuth();
 
   // Handle video load start
   const handleVideoLoadStart = (id: string) => {
@@ -58,8 +61,40 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
     }
   };
 
-  const deleteProject = async (id: string) => {
+  const deleteProject = async (id: string, title: string) => {
     try {
+      // First, create a notification about the deletion
+      if (user?.id) {
+        // Create notification for video deletion
+        const notification = {
+          user_id: user.id,
+          title: "Video Deleted",
+          message: `Your video "${title || 'Untitled'}" has been deleted.`,
+          type: 'video',
+          is_read: false,
+          metadata: { 
+            action: 'delete',
+            timestamp: new Date().toISOString()
+          }
+        };
+
+        // Try to insert the notification
+        try {
+          const { error: notifError } = await supabase
+            .from('notifications')
+            .insert([notification]);
+            
+          if (notifError) {
+            console.error("Failed to create video deletion notification:", notifError);
+          } else {
+            console.log("✅ Video deletion notification created successfully");
+          }
+        } catch (notifErr) {
+          console.error("Error creating deletion notification:", notifErr);
+        }
+      }
+
+      // Now delete the video project
       await videoService.deleteProject(id);
       toast.success("Video deleted successfully");
       // You would typically refresh the videos list here
@@ -165,7 +200,7 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
                       size="icon" 
                       variant="ghost" 
                       className="h-8 w-8 text-destructive"
-                      onClick={() => deleteProject(project.id)}
+                      onClick={() => deleteProject(project.id, project.title)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

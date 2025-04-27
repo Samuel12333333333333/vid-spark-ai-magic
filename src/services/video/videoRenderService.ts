@@ -1,130 +1,165 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { notificationService } from "../notificationService";
-import { RenderStartOptions, RenderStatus } from "./types";
-import { renderNotifications } from "./renderNotifications";
+import { VideoProject } from "@/services/videoService";
+import { RenderStatus, RenderResponse } from "./types";
 import { renderStatusService } from "./renderStatusService";
-import { VideoProject } from "../videoService";
+import { toast } from "sonner";
 
 export const videoRenderService = {
-  async startRender({
-    projectId,
-    userId,
-    prompt,
-    style = 'social',
-    hasAudio = false,
-    hasCaptions = true,
-    narrationScript,
-    brandColors,
-    includeCaptions,
-    scenes,
-    audioBase64
-  }: RenderStartOptions): Promise<{ success: boolean; message: string; renderId?: string }> {
+  async renderVideo(projectId: string, sceneData: any): Promise<boolean> {
     try {
-      console.log(`Starting render for project ${projectId} by user ${userId}`);
-      
-      // Create notification for render start
-      await renderNotifications.createRenderStartNotification(
-        userId,
-        prompt.substring(0, 30) + "...", 
-        projectId
-      );
-      
-      // Prepare render request
-      const renderRequest = {
-        scenes,
-        userId,
-        projectId,
-        audioBase64,
-        includeCaptions,
-        narrationScript,
-        has_audio: hasAudio,
-        has_captions: hasCaptions
-      };
-      
-      // Call render-video edge function
-      const { data, error } = await supabase.functions.invoke("render-video", {
-        body: renderRequest
-      });
-      
-      if (error) {
-        console.error("Error starting render:", error);
+      console.log("Starting render service for project:", projectId);
+
+      // Fetch the project to make sure it exists and get its data
+      const { data: project, error: projectError } = await supabase
+        .from('video_projects')
+        .select('*')
+        .eq('id', projectId)
+        .single();
+
+      if (projectError || !project) {
+        console.error("Error fetching project:", projectError);
+        toast.error("Failed to start video rendering - Project not found");
+        return false;
+      }
+
+      // Update project status to processing
+      const { error: updateError } = await supabase
+        .from('video_projects')
+        .update({ status: 'processing' })
+        .eq('id', projectId);
+
+      if (updateError) {
+        console.error("Error updating project status:", updateError);
+        toast.error("Failed to update project status");
+        return false;
+      }
+
+      try {
+        // Start the rendering process
+        console.log("Calling render-video function with project:", projectId);
+        const { data, error } = await supabase.functions.invoke("render-video", {
+          body: { 
+            projectId,
+            scenes: sceneData.scenes,
+            captions: project.has_captions || false
+          }
+        });
+
+        if (error) {
+          console.error("Error calling render function:", error);
+          
+          // Update project status to failed
+          await supabase
+            .from('video_projects')
+            .update({ 
+              status: 'failed',
+              error_message: error.message || "Failed to start rendering process" 
+            })
+            .eq('id', projectId);
+            
+          toast.error("Failed to start video rendering");
+          return false;
+        }
+
+        if (!data || !data.renderId) {
+          console.error("Render function did not return a proper response", data);
+          
+          // Update project status to failed
+          await supabase
+            .from('video_projects')
+            .update({ 
+              status: 'failed',
+              error_message: "Invalid response from rendering service" 
+            })
+            .eq('id', projectId);
+            
+          toast.error("Invalid response from rendering service");
+          return false;
+        }
+
+        console.log("Got render ID:", data.renderId);
+        
+        // Update project with render ID
+        await supabase
+          .from('video_projects')
+          .update({ render_id: data.renderId })
+          .eq('id', projectId);
+          
+        toast.success("Video rendering started");
+
+        // Start polling for status
+        await this.startStatusPolling(projectId, data.renderId);
+        
+        return true;
+      } catch (invokeError) {
+        console.error("Exception in render function invocation:", invokeError);
         
         // Update project status to failed
-        try {
-          await supabase
-            .from("video_projects")
-            .update({
-              status: "failed",
-              error_message: error.message || "Failed to start rendering"
-            })
-            .eq("id", projectId);
-        } catch (updateError) {
-          console.error("Error updating project status after render failure:", updateError);
+        await supabase
+          .from('video_projects')
+          .update({ 
+            status: 'failed',
+            error_message: invokeError.message || "Exception during render function invocation" 
+          })
+          .eq('id', projectId);
+          
+        toast.error("Exception during render function invocation");
+        return false;
+      }
+    } catch (error) {
+      console.error("Error in renderVideo:", error);
+      toast.error("An unexpected error occurred");
+      return false;
+    }
+  },
+
+  async startStatusPolling(projectId: string, renderId: string): Promise<void> {
+    console.log("Starting status polling for project:", projectId, "render ID:", renderId);
+    
+    // Initial delay before first check
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
+    let status: RenderStatus = 'processing';
+    let attempts = 0;
+    const maxAttempts = 20; // Prevent infinite polling
+    
+    while (status !== 'completed' && status !== 'failed' && attempts < maxAttempts) {
+      attempts++;
+      console.log(`Polling attempt ${attempts}/${maxAttempts}`);
+      
+      try {
+        // Use the renderStatusService to check status and update the project
+        status = await renderStatusService.updateRenderStatus(projectId, renderId);
+        
+        console.log(`Status check result: ${status}`);
+        
+        if (status === 'completed') {
+          console.log("Rendering completed successfully!");
+          break;
+        } else if (status === 'failed') {
+          console.error("Rendering failed");
+          break;
         }
         
-        toast.error("Failed to start video rendering", {
-          description: error.message
-        });
+        // Wait before next poll - increase delay for each attempt
+        const delay = Math.min(5000 + (attempts * 2000), 30000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } catch (error) {
+        console.error("Error in status polling:", error);
         
-        return {
-          success: false,
-          message: error.message || "Failed to start rendering"
-        };
+        // Continue polling despite errors, but log them
+        await new Promise(resolve => setTimeout(resolve, 10000));
       }
+    }
+    
+    if (attempts >= maxAttempts && status !== 'completed' && status !== 'failed') {
+      console.error("Maximum polling attempts reached without completion");
       
-      if (!data || !data.renderId) {
-        console.error("Invalid response from render endpoint:", data);
-        
-        toast.error("Invalid response from render service");
-        
-        return {
-          success: false,
-          message: "Invalid response from render service"
-        };
-      }
-      
-      const renderId = data.renderId;
-      console.log(`Render started with ID: ${renderId}`);
-      
-      // Get initial status
-      const initialStatus: RenderStatus = await renderStatusService.updateRenderStatus(projectId, renderId);
-      
-      // Log project and render info
-      console.log(`Project ${projectId} render status: ${initialStatus}`);
-      
-      return {
-        success: true,
-        message: "Render started successfully",
-        renderId
-      };
-    } catch (error) {
-      console.error("Error in startRender:", error);
-      
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-      
-      toast.error("Failed to start video rendering", {
-        description: errorMessage
-      });
-      
-      // Update project status to failed
-      try {
-        await supabase
-          .from("video_projects")
-          .update({
-            status: "failed",
-            error_message: errorMessage
-          })
-          .eq("id", projectId);
-      } catch (updateError) {
-        console.error("Error updating project status:", updateError);
-      }
-      
-      return {
-        success: false,
-        message: errorMessage
-      };
+      // Update project as failed due to timeout
+      await renderStatusService.updateProjectStatus(projectId, 'failed', {
+        error: "Rendering timed out after maximum polling attempts"
+      } as RenderResponse);
     }
   }
 };
