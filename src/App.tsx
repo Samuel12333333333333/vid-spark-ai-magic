@@ -1,8 +1,9 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { HelmetProvider } from "react-helmet-async";
@@ -21,7 +22,7 @@ import FeaturesPage from "./pages/product/FeaturesPage";
 import IntegrationsPage from "./pages/product/IntegrationsPage";
 import UseCasesPage from "./pages/product/UseCasesPage";
 import BlogPage from "./pages/resources/BlogPage";
-import BlogPostPage from "./pages/blog/[id]";
+import BlogPostPage from "./pages/blog/[slug]";
 import HelpCenterPage from "./pages/resources/HelpCenterPage";
 import CommunityPage from "./pages/resources/CommunityPage";
 import APIDocsPage from "./pages/resources/APIDocsPage";
@@ -44,6 +45,7 @@ import GeneratorPage from "./pages/dashboard/GeneratorPage";
 import BrandKitPage from "./pages/dashboard/BrandKitPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 import UpgradePage from "./pages/dashboard/UpgradePage";
+import NotificationsPage from "./pages/dashboard/NotificationsPage";
 
 // Protected Route component
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
@@ -77,6 +79,9 @@ const App = () => {
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/login" element={<AuthPage />} />
                   <Route path="/register" element={<AuthPage />} />
+                  
+                  {/* Payment success page */}
+                  <Route path="/payment-success" element={<PaymentSuccessPage />} />
                   
                   {/* HTML Sitemap page */}
                   <Route path="/sitemap" element={<SitemapPage />} />
@@ -120,6 +125,7 @@ const App = () => {
                     <Route path="brand" element={<BrandKitPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                     <Route path="upgrade" element={<UpgradePage />} />
+                    <Route path="notifications" element={<NotificationsPage />} />
                   </Route>
                   
                   {/* 404 Route */}
