@@ -49,133 +49,130 @@ export const renderStatusService = {
   async updateProjectStatus(projectId: string, status: RenderStatus, data: RenderResponse) {
     console.log(`Updating project ${projectId} status to ${status}`);
     
-    const { data: projectData } = await supabase
-      .from('video_projects')
-      .select('user_id, title')
-      .eq('id', projectId)
-      .single();
-
-    if (!projectData?.user_id) {
-      console.error("Cannot update status: user_id not found in project data");
-      return;
-    }
-
-    console.log(`Project belongs to user ${projectData.user_id}, title: "${projectData.title}"`);
-
-    if (status === 'completed' && data.url) {
-      console.log(`Video complete, URL: ${data.url}`);
-      
-      // First update the project
-      const { error: updateError } = await supabase
+    try {
+      const { data: projectData, error: projectError } = await supabase
         .from('video_projects')
-        .update({
-          status,
-          video_url: data.url,
-          thumbnail_url: data.thumbnail || null
-        })
-        .eq('id', projectId);
-        
-      if (updateError) {
-        console.error("Failed to update video project:", updateError);
-      } else {
-        console.log(`Project ${projectId} updated with completed status and URL`);
+        .select('user_id, title')
+        .eq('id', projectId)
+        .single();
+
+      if (projectError || !projectData?.user_id) {
+        console.error("Error fetching project data:", projectError);
+        return;
       }
-      
-      // Then create notification - try multiple approaches for maximum reliability
-      console.log(`Creating completion notification for user ${projectData.user_id}, project ${projectId}`);
-      
-      try {
-        // First approach: Using our dedicated notification handler
-        await renderNotifications.createRenderCompleteNotification(
-          projectData.user_id,
-          projectData.title,
-          projectId,
-          data.url
-        );
-        console.log("Notification creation process completed");
-      } catch (notificationError) {
-        console.error("Failed to create completion notification:", notificationError);
+
+      console.log(`Project belongs to user ${projectData.user_id}, title: "${projectData.title}"`);
+
+      // Create notification before updating project to ensure notification is created
+      if (status === 'completed' && data.url) {
+        console.log(`Creating notification for completed video: ${data.url}`);
         
-        // Second approach: Direct database insert as fallback
-        try {
-          console.log("Attempting direct database insert as fallback");
-          
-          const directNotification = {
-            user_id: projectData.user_id,
-            title: "Video Rendering Complete",
-            message: `Your video "${projectData.title || 'Untitled'}" is ready to view!`,
-            type: 'video',
-            is_read: false
-          };
-          
-          const { error: directError } = await supabase
-            .from('notifications')
-            .insert([directNotification]);
-            
-          if (directError) {
-            console.error("Direct notification insert failed:", directError);
-          } else {
-            console.log("Direct notification insert succeeded");
+        const notification = {
+          user_id: projectData.user_id,
+          title: "Video Rendering Complete",
+          message: `Your video "${projectData.title || 'Untitled'}" is ready to view!`,
+          type: 'video',
+          is_read: false,
+          metadata: { 
+            projectId, 
+            videoUrl: data.url,
+            status: 'completed'
           }
-        } catch (directError) {
-          console.error("All notification creation attempts failed:", directError);
-        }
-      }
-      
-    } else if (status === 'failed') {
-      // Update project with failed status
-      const { error: updateError } = await supabase
-        .from('video_projects')
-        .update({ 
-          status,
-          error_message: data.error || "Unknown error" 
-        })
-        .eq('id', projectId);
-        
-      if (updateError) {
-        console.error("Failed to update video project status to failed:", updateError);
-      }
+        };
 
-      // Create failure notification with multiple fallback approaches
-      try {
-        await renderNotifications.createRenderFailedNotification(
-          projectData.user_id,
-          projectData.title,
-          projectId,
-          data.error || "Unknown error"
-        );
-      } catch (notificationError) {
-        console.error("Failed to create failure notification:", notificationError);
+        // Insert notification with retry mechanism
+        let retries = 0;
+        const maxRetries = 3;
         
-        // Direct database insert as fallback
-        try {
-          const failureNotification = {
-            user_id: projectData.user_id,
-            title: "Video Rendering Failed",
-            message: `Your video "${projectData.title || 'Untitled'}" could not be rendered.`,
-            type: 'video',
-            is_read: false
-          };
+        while (retries < maxRetries) {
+          try {
+            const { error: notifError } = await supabase
+              .from('notifications')
+              .insert([notification]);
+              
+            if (!notifError) {
+              console.log("✅ Video completion notification created successfully");
+              break;
+            }
+            
+            console.error(`Failed to create notification (attempt ${retries + 1}):`, notifError);
+            retries++;
+            await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+          } catch (err) {
+            console.error(`Notification creation attempt ${retries + 1} failed:`, err);
+            retries++;
+            await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+          }
+        }
+
+        // Update project status
+        const { error: updateError } = await supabase
+          .from('video_projects')
+          .update({
+            status,
+            video_url: data.url,
+            thumbnail_url: data.thumbnail || null
+          })
+          .eq('id', projectId);
           
-          await supabase
-            .from('notifications')
-            .insert([failureNotification]);
-        } catch (directError) {
-          console.error("All failure notification attempts failed");
+        if (updateError) {
+          console.error("Failed to update video project:", updateError);
+        } else {
+          console.log(`Project ${projectId} updated with completed status and URL`);
+        }
+      } else if (status === 'failed') {
+        // Create failure notification
+        const notification = {
+          user_id: projectData.user_id,
+          title: "Video Rendering Failed",
+          message: `Your video "${projectData.title || 'Untitled'}" could not be rendered. Please try again.`,
+          type: 'video',
+          is_read: false,
+          metadata: { 
+            projectId,
+            error: data.error || 'Unknown error',
+            status: 'failed'
+          }
+        };
+
+        // Insert failure notification
+        const { error: notifError } = await supabase
+          .from('notifications')
+          .insert([notification]);
+          
+        if (notifError) {
+          console.error("Failed to create failure notification:", notifError);
+        } else {
+          console.log("✅ Video failure notification created successfully");
+        }
+
+        // Update project with failed status
+        const { error: updateError } = await supabase
+          .from('video_projects')
+          .update({ 
+            status,
+            error_message: data.error || "Unknown error"
+          })
+          .eq('id', projectId);
+          
+        if (updateError) {
+          console.error("Failed to update video project status to failed:", updateError);
+        }
+      } else {
+        // For other statuses, just update the project
+        const { error: updateError } = await supabase
+          .from('video_projects')
+          .update({ status })
+          .eq('id', projectId);
+          
+        if (updateError) {
+          console.error(`Failed to update project to ${status} status:`, updateError);
+        } else {
+          console.log(`Project ${projectId} updated with ${status} status`);
         }
       }
-    } else {
-      // For statuses other than completed or failed
-      const { error: updateError } = await supabase
-        .from('video_projects')
-        .update({ status })
-        .eq('id', projectId);
-        
-      if (updateError) {
-        console.error(`Failed to update project to ${status} status:`, updateError);
-      } else {
-        console.log(`Project ${projectId} updated with ${status} status`);
-      }
+    } catch (error) {
+      console.error("Error updating project status:", error);
     }
   }
 };
