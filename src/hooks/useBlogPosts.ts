@@ -5,7 +5,11 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 import { slugify } from '@/utils/slugify';
 
-type BlogPost = Database['public']['Tables']['blog_posts']['Row'] & {
+// Define the base BlogPost type from the database
+type BaseBlogPost = Database['public']['Tables']['blog_posts']['Row'];
+
+// Extend the type to include the slug property
+export type BlogPost = BaseBlogPost & {
   slug?: string;
 };
 
@@ -30,7 +34,7 @@ export function useBlogPosts() {
         const processedPosts = (data || []).map(post => ({
           ...post,
           // Generate slug from title if not present in the database
-          slug: post.slug || slugify(post.title)
+          slug: slugify(post.title)
         }));
         
         setPosts(processedPosts);
@@ -54,10 +58,13 @@ export function useBlogPosts() {
             table: 'blog_posts'
           },
           (payload) => {
-            const newPost = payload.new as BlogPost;
+            const newPost = payload.new as BaseBlogPost;
             // Add slug to new posts
-            newPost.slug = newPost.slug || slugify(newPost.title);
-            setPosts(currentPosts => [newPost, ...currentPosts]);
+            const postWithSlug: BlogPost = {
+              ...newPost,
+              slug: slugify(newPost.title)
+            };
+            setPosts(currentPosts => [postWithSlug, ...currentPosts]);
           }
         )
         .subscribe();
