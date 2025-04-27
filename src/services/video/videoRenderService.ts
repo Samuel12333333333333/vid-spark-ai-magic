@@ -1,154 +1,130 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { notificationService } from "../notificationService";
+import { RenderStartOptions, RenderStatus } from "./types";
 import { renderNotifications } from "./renderNotifications";
+import { renderStatusService } from "./renderStatusService";
+import { VideoProject } from "../videoService";
 
 export const videoRenderService = {
-  async generateVideo(projectData) {
+  async startRender({
+    projectId,
+    userId,
+    prompt,
+    style = 'social',
+    hasAudio = false,
+    hasCaptions = true,
+    narrationScript,
+    brandColors,
+    includeCaptions,
+    scenes,
+    audioBase64
+  }: RenderStartOptions): Promise<{ success: boolean; message: string; renderId?: string }> {
     try {
-      console.log("Starting video generation process");
-      const { title, prompt, style, userId } = projectData;
+      console.log(`Starting render for project ${projectId} by user ${userId}`);
       
-      // Create project record first
-      const { data: project, error: projectError } = await supabase
-        .from('video_projects')
-        .insert([{
-          title,
-          prompt,
-          style,
-          user_id: userId,
-          status: 'rendering',
-        }])
-        .select()
-        .single();
-        
-      if (projectError || !project) {
-        console.error("Error creating video project:", projectError);
-        toast.error("Failed to start video generation");
-        return null;
-      }
-      
-      // Create "started" notification immediately
+      // Create notification for render start
       await renderNotifications.createRenderStartNotification(
         userId,
-        title,
-        project.id
+        prompt.substring(0, 30) + "...", 
+        projectId
       );
       
-      console.log(`Project created successfully with ID: ${project.id}`);
+      // Prepare render request
+      const renderRequest = {
+        scenes,
+        userId,
+        projectId,
+        audioBase64,
+        includeCaptions,
+        narrationScript,
+        has_audio: hasAudio,
+        has_captions: hasCaptions
+      };
       
-      // Invoke render function
-      const { data: renderData, error: renderError } = await supabase.functions.invoke("render-video", {
-        body: { 
-          projectId: project.id,
-          prompt,
-          style,
-          title
-        },
-      });
-      
-      if (renderError || !renderData) {
-        console.error("Error starting render:", renderError);
-        
-        // Update project with error status
-        await supabase
-          .from('video_projects')
-          .update({ 
-            status: 'failed',
-            error_message: renderError?.message || "Failed to start rendering"
-          })
-          .eq('id', project.id);
-        
-        // Create failure notification 
-        await renderNotifications.createRenderFailedNotification(
-          userId,
-          title,
-          project.id, 
-          renderError?.message || "Failed to start rendering"
-        );
-        
-        toast.error("Failed to generate video");
-        return null;
-      }
-
-      console.log("Render initiated:", renderData);
-      
-      // Update project with render ID
-      await supabase
-        .from('video_projects')
-        .update({ render_id: renderData.renderId })
-        .eq('id', project.id);
-        
-      return project;
-    } catch (error) {
-      console.error("Exception in generateVideo:", error);
-      toast.error("An unexpected error occurred");
-      return null;
-    }
-  },
-
-  updateRenderStatus(projectId: string, renderId: string): Promise<RenderStatus> {
-    return renderStatusService.updateRenderStatus(projectId, renderId);
-  },
-  
-  async startRender(project: VideoProject): Promise<string | null> {
-    try {
-      if (!project.id || !project.prompt || !project.style) {
-        console.error("Missing required project fields for rendering");
-        throw new Error("Incomplete project data");
-      }
-      
-      console.log(`Starting render for project ${project.id}`);
-      
+      // Call render-video edge function
       const { data, error } = await supabase.functions.invoke("render-video", {
-        body: { 
-          projectId: project.id,
-          userId: project.user_id,
-          prompt: project.prompt,
-          style: project.style,
-          hasAudio: project.has_audio,
-          hasCaptions: project.has_captions,
-          narrationScript: project.narration_script,
-          brandColors: project.brand_colors,
-          includeCaptions: project.has_captions,
-          scenes: project.scenes || [], 
-          audioBase64: project.audio_data 
-        }
+        body: renderRequest
       });
       
-      if (error || !data?.renderId) {
+      if (error) {
         console.error("Error starting render:", error);
-        throw new Error("Failed to get render ID");
+        
+        // Update project status to failed
+        try {
+          await supabase
+            .from("video_projects")
+            .update({
+              status: "failed",
+              error_message: error.message || "Failed to start rendering"
+            })
+            .eq("id", projectId);
+        } catch (updateError) {
+          console.error("Error updating project status after render failure:", updateError);
+        }
+        
+        toast.error("Failed to start video rendering", {
+          description: error.message
+        });
+        
+        return {
+          success: false,
+          message: error.message || "Failed to start rendering"
+        };
       }
       
-      await supabase
-        .from('video_projects')
-        .update({
-          render_id: data.renderId,
-          status: 'processing'
-        })
-        .eq('id', project.id);
+      if (!data || !data.renderId) {
+        console.error("Invalid response from render endpoint:", data);
+        
+        toast.error("Invalid response from render service");
+        
+        return {
+          success: false,
+          message: "Invalid response from render service"
+        };
+      }
       
-      await renderNotifications.createRenderStartNotification(
-        project.user_id,
-        project.title,
-        project.id
-      );
+      const renderId = data.renderId;
+      console.log(`Render started with ID: ${renderId}`);
       
-      return data.renderId;
+      // Get initial status
+      const initialStatus: RenderStatus = await renderStatusService.updateRenderStatus(projectId, renderId);
+      
+      // Log project and render info
+      console.log(`Project ${projectId} render status: ${initialStatus}`);
+      
+      return {
+        success: true,
+        message: "Render started successfully",
+        renderId
+      };
     } catch (error) {
       console.error("Error in startRender:", error);
       
-      if (project.id) {
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      
+      toast.error("Failed to start video rendering", {
+        description: errorMessage
+      });
+      
+      // Update project status to failed
+      try {
         await supabase
-          .from('video_projects')
-          .update({ 
-            status: 'failed',
-            error_message: error instanceof Error ? error.message : "Unknown error"
+          .from("video_projects")
+          .update({
+            status: "failed",
+            error_message: errorMessage
           })
-          .eq('id', project.id);
+          .eq("id", projectId);
+      } catch (updateError) {
+        console.error("Error updating project status:", updateError);
       }
       
-      return null;
+      return {
+        success: false,
+        message: errorMessage
+      };
     }
   }
 };
