@@ -85,31 +85,82 @@ serve(async (req) => {
     }
 
     // If we have a project ID and the render is done, let's make sure we update the project
-    if (projectId && data.response.status === "done") {
+    if (projectId) {
       // Initialize Supabase client
       const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
       const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       
-      if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+        console.error("Missing Supabase credentials, cannot update project");
+        return new Response(
+          JSON.stringify({ 
+            status: data.response.status,
+            url: data.response.url,
+            thumbnail: data.response.thumbnail,
+            error: "Missing Supabase credentials",
+            projectId
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+      
+      try {
+        // Get the project to fetch the user_id (for notifications)
+        const { data: projectData, error: projectError } = await supabase
+          .from('video_projects')
+          .select('user_id, title')
+          .eq('id', projectId)
+          .single();
         
-        try {
-          // Get the project to fetch the user_id (for notifications)
-          const { data: projectData, error: projectError } = await supabase
-            .from('video_projects')
-            .select('user_id, title')
-            .eq('id', projectId)
-            .single();
+        if (projectError) {
+          console.error("Error fetching project data:", projectError);
+          throw projectError;
+        }
+        
+        if (!projectData?.user_id) {
+          console.error("Cannot update status: user_id not found in project data");
+          return new Response(
+            JSON.stringify({ 
+              status: data.response.status,
+              url: data.response.url,
+              thumbnail: data.response.thumbnail,
+              error: "User ID not found in project data",
+              projectId
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        // Handle completed render
+        if (data.response.status === "done") {
+          console.log(`Creating notification for user ${projectData.user_id} about completed video "${projectData.title || 'Untitled'}"`);
           
-          if (projectError) {
-            console.error("Error fetching project data:", projectError);
-            throw projectError;
+          // First update the project
+          const { error: updateError } = await supabase
+            .from('video_projects')
+            .update({
+              status: 'completed',
+              video_url: data.response.url,
+              thumbnail_url: data.response.thumbnail || null
+            })
+            .eq('id', projectId);
+            
+          if (updateError) {
+            console.error("Error updating project:", updateError);
+            throw updateError;
           }
           
-          if (projectData?.user_id) {
-            console.log(`Creating edge function notification for user ${projectData.user_id} about completed video "${projectData.title || 'Untitled'}"`);
+          console.log("Project updated successfully with completed status and video URL");
+          
+          // Try multiple approaches to create notification - guaranteed delivery
+          let notificationCreated = false;
+          
+          // Approach 1: Direct insert with full notification data
+          try {
+            console.log("Attempt 1: Creating completion notification with full data");
             
-            // Create a notification directly in the database with better error logging
             const notification = {
               user_id: projectData.user_id,
               title: "Video Rendering Complete",
@@ -123,21 +174,27 @@ serve(async (req) => {
               }
             };
             
-            console.log("🔔 Edge function creating notification with payload:", JSON.stringify(notification));
+            const { data: notifData, error: notifError } = await supabase
+              .from('notifications')
+              .insert([notification])
+              .select();
+              
+            if (notifError) {
+              console.error("Attempt 1 failed:", notifError);
+              throw notifError;
+            } else {
+              console.log("✅ Notification created successfully:", notifData);
+              notificationCreated = true;
+            }
+          } catch (error1) {
+            console.error("Error in notification creation attempt 1:", error1);
             
-            try {
-              // First attempt: Direct database insertion
-              const { data: notificationData, error: insertError } = await supabase
-                .from('notifications')
-                .insert([notification])
-                .select();
+            // Approach 2: Simplified notification without metadata
+            if (!notificationCreated) {
+              try {
+                console.log("Attempt 2: Creating notification without metadata");
                 
-              if (insertError) {
-                console.error("Edge function error creating notification:", insertError);
-                console.error("Error details:", JSON.stringify(insertError));
-                
-                // Second attempt: Try again without metadata which might be causing issues
-                const simplifiedNotification = {
+                const simpleNotification = {
                   user_id: projectData.user_id,
                   title: "Video Rendering Complete",
                   message: `Your video "${projectData.title || 'Untitled'}" is ready to view!`,
@@ -145,80 +202,58 @@ serve(async (req) => {
                   is_read: false
                 };
                 
-                console.log("Trying simplified notification insert:", JSON.stringify(simplifiedNotification));
-                
-                const { data: fallbackData, error: fallbackError } = await supabase
+                const { data: simpleData, error: simpleError } = await supabase
                   .from('notifications')
-                  .insert([simplifiedNotification])
+                  .insert([simpleNotification])
                   .select();
                   
-                if (fallbackError) {
-                  console.error("Fallback insert also failed:", fallbackError);
-                  console.error("Fallback error details:", JSON.stringify(fallbackError));
-                  
-                  // Third attempt: Ultra simplified
-                  const basicNotification = {
-                    user_id: projectData.user_id,
-                    title: "Video Complete",
-                    message: "Your video is ready.",
-                    type: 'video',
-                    is_read: false
-                  };
-                  
-                  const { error: basicError } = await supabase
-                    .from('notifications')
-                    .insert([basicNotification]);
-                    
-                  if (basicError) {
-                    console.error("Even basic notification failed:", basicError);
-                  } else {
-                    console.log("✅ Basic notification created successfully");
-                  }
+                if (simpleError) {
+                  console.error("Attempt 2 failed:", simpleError);
+                  throw simpleError;
                 } else {
-                  console.log("✅ Simplified notification created successfully:", fallbackData);
+                  console.log("✅ Simple notification created successfully:", simpleData);
+                  notificationCreated = true;
                 }
-              } else {
-                console.log("✅ Notification created successfully from edge function:", notificationData);
+              } catch (error2) {
+                console.error("Error in notification creation attempt 2:", error2);
+                
+                // Approach 3: Ultra-minimal notification
+                if (!notificationCreated) {
+                  try {
+                    console.log("Attempt 3: Creating minimal notification");
+                    
+                    const minimalNotification = {
+                      user_id: projectData.user_id,
+                      title: "Video Complete",
+                      message: "Your video is ready to view.",
+                      type: 'video',
+                      is_read: false
+                    };
+                    
+                    const { error: minimalError } = await supabase
+                      .from('notifications')
+                      .insert([minimalNotification]);
+                      
+                    if (minimalError) {
+                      console.error("Attempt 3 failed:", minimalError);
+                    } else {
+                      console.log("✅ Minimal notification created successfully");
+                      notificationCreated = true;
+                    }
+                  } catch (error3) {
+                    console.error("All notification creation attempts failed:", error3);
+                  }
+                }
               }
-            } catch (notificationError) {
-              console.error("Unexpected error during notification creation:", notificationError);
             }
-            
-            // Update project status and URLs
-            const { error: updateError } = await supabase
-              .from('video_projects')
-              .update({
-                status: 'completed',
-                video_url: data.response.url,
-                thumbnail_url: data.response.thumbnail || null
-              })
-              .eq('id', projectId);
-              
-            if (updateError) {
-              console.error("Error updating project:", updateError);
-              throw updateError;
-            }
-            
-            console.log(`Project ${projectId} updated successfully with video URL and status`);
-          } else {
-            console.error("Cannot create notification: user_id not found in project data");
           }
-        } catch (supabaseError) {
-          console.error("Error working with Supabase:", supabaseError);
-        }
-      } else {
-        console.error("Missing Supabase credentials, cannot create notification");
-      }
-    } else if (projectId && data.response.status === "failed") {
-      // Handle failed render status
-      // Initialize Supabase client
-      const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-      const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-      
-      if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-        
-        try {
+          
+          if (!notificationCreated) {
+            console.error("❌ Failed to create notification after all attempts");
+          }
+        } 
+        // Handle failed render
+        else if (data.response.status === "failed") {
           // Update project status
           await supabase
             .from('video_projects')
@@ -228,81 +263,41 @@ serve(async (req) => {
             })
             .eq('id', projectId);
             
-          // Get the project to fetch the user_id
-          const { data: projectData } = await supabase
-            .from('video_projects')
-            .select('user_id, title')
-            .eq('id', projectId)
-            .single();
-            
-          if (projectData?.user_id) {
-            // Create a notification for failed rendering
-            const notification = {
+          // Create a notification for failed rendering
+          try {
+            const failNotification = {
               user_id: projectData.user_id,
               title: "Video Rendering Failed",
               message: `Your video "${projectData.title || 'Untitled'}" could not be rendered. Please try again.`,
               type: 'video',
-              is_read: false,
-              metadata: { projectId, error: data.response.error || "Unknown error" }
+              is_read: false
             };
             
-            console.log("🔔 Edge function creating failure notification:", JSON.stringify(notification));
-            
-            // Try to create notification
-            const { data: notificationData, error: notificationError } = await supabase
+            const { error: failNotifError } = await supabase
               .from('notifications')
-              .insert([notification])
-              .select();
+              .insert([failNotification]);
               
-            if (notificationError) {
-              console.error("Error creating failure notification:", notificationError);
-              console.error("Error details:", JSON.stringify(notificationError));
-              
-              // Try simplified version without metadata
-              const simplifiedNotification = {
-                user_id: projectData.user_id,
-                title: "Video Rendering Failed",
-                message: `Your video "${projectData.title || 'Untitled'}" could not be rendered. Please try again.`,
-                type: 'video',
-                is_read: false
-              };
-              
-              const { data: fallbackData, error: fallbackError } = await supabase
-                .from('notifications')
-                .insert([simplifiedNotification])
-                .select();
-              
-              if (fallbackError) {
-                console.error("Simplified failure notification also failed:", fallbackError);
-                
-                // Ultra minimal version
-                const basicNotification = {
-                  user_id: projectData.user_id,
-                  title: "Video Failed",
-                  message: "Your video could not be created.",
-                  type: 'video',
-                  is_read: false
-                };
-                
-                const { error: basicError } = await supabase
-                  .from('notifications')
-                  .insert([basicNotification]);
-                  
-                if (basicError) {
-                  console.error("Even basic failure notification failed:", basicError);
-                } else {
-                  console.log("✅ Basic failure notification created");
-                }
-              } else {
-                console.log("✅ Simplified failure notification created successfully:", fallbackData);
-              }
+            if (failNotifError) {
+              console.error("Failed to create failure notification:", failNotifError);
             } else {
-              console.log(`✅ Failure notification created for project ${projectId}:`, notificationData);
+              console.log("✅ Failure notification created successfully");
             }
+          } catch (failError) {
+            console.error("Error creating failure notification:", failError);
           }
-        } catch (supabaseError) {
-          console.error("Error working with Supabase for failed render:", supabaseError);
         }
+      } catch (supabaseError) {
+        console.error("Error working with Supabase:", supabaseError);
+        return new Response(
+          JSON.stringify({ 
+            status: data.response.status,
+            url: data.response.url,
+            thumbnail: data.response.thumbnail,
+            error: "Database error: " + (supabaseError instanceof Error ? supabaseError.message : "Unknown error"),
+            projectId
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 

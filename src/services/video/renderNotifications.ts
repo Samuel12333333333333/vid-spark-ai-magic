@@ -8,6 +8,7 @@ export const renderNotifications = {
     try {
       console.log(`🔔 Creating render start notification for user ${userId}, project ${projectId}`);
       
+      // Try direct insert first for maximum reliability
       const startNotification = {
         user_id: userId,
         title: "Video Rendering Started",
@@ -24,6 +25,7 @@ export const renderNotifications = {
 
       if (directError) {
         console.error("❌ Direct render start notification failed:", directError);
+        
         // Fallback to using the notification service
         await notificationService.createNotification({
           userId,
@@ -49,6 +51,7 @@ export const renderNotifications = {
       console.log(`🔔 Creating render complete notification for user ${userId}, project ${projectId}`);
       console.log(`Video URL: ${videoUrl}`);
       
+      // Try direct insert first for maximum reliability
       const completeNotification = {
         user_id: userId,
         title: "Video Rendering Complete",
@@ -67,16 +70,39 @@ export const renderNotifications = {
         console.error("❌ Direct completion notification failed:", directError);
         console.error("Error details:", directError.message);
         
-        // Fallback to using the notification service
-        const fallbackResult = await notificationService.createNotification({
-          userId,
-          title: "Video Rendering Complete",
-          message: `Your video "${title || 'Untitled'}" is ready to view!`,
-          type: 'video',
-          metadata: { projectId, videoUrl }
-        });
-        
-        console.log("Fallback notification result:", fallbackResult);
+        // First fallback: simplified notification without metadata
+        try {
+          const simpleNotification = {
+            user_id: userId,
+            title: "Video Rendering Complete",
+            message: `Your video "${title || 'Untitled'}" is ready to view!`,
+            type: 'video',
+            is_read: false
+          };
+          
+          const { data: simpleData, error: simpleError } = await supabase
+            .from('notifications')
+            .insert([simpleNotification])
+            .select();
+            
+          if (simpleError) {
+            console.error("❌ Simplified notification failed:", simpleError);
+            
+            // Second fallback: notification service
+            const fallbackResult = await notificationService.createNotification({
+              userId,
+              title: "Video Rendering Complete",
+              message: `Your video "${title || 'Untitled'}" is ready to view!`,
+              type: 'video'
+            });
+            
+            console.log("Fallback notification result:", fallbackResult);
+          } else {
+            console.log("✅ Simple notification created successfully:", simpleData);
+          }
+        } catch (fallbackError) {
+          console.error("Both notification methods failed:", fallbackError);
+        }
       } else {
         console.log("✅ Complete notification created successfully:", data);
       }
@@ -98,6 +124,7 @@ export const renderNotifications = {
       console.log(`🔔 Creating render failed notification for user ${userId}, project ${projectId}`);
       console.log(`Error: ${errorMessage}`);
       
+      // Try direct insert first
       const failNotification = {
         user_id: userId,
         title: "Video Rendering Failed",
@@ -114,18 +141,31 @@ export const renderNotifications = {
 
       if (directError) {
         console.error("❌ Direct failure notification failed:", directError);
-        console.error("Error details:", directError.message);
         
-        // Fallback to using the notification service
-        const fallbackResult = await notificationService.createNotification({
-          userId,
+        // Simplified fallback
+        const simpleNotification = {
+          user_id: userId,
           title: "Video Rendering Failed",
-          message: `Your video "${title || 'Untitled'}" could not be rendered. Please try again.`,
+          message: `Your video "${title || 'Untitled'}" could not be rendered.`,
           type: 'video',
-          metadata: { projectId, error: errorMessage }
-        });
+          is_read: false
+        };
         
-        console.log("Fallback notification result:", fallbackResult);
+        const { error: simpleError } = await supabase
+          .from('notifications')
+          .insert([simpleNotification]);
+          
+        if (simpleError) {
+          console.error("❌ Simplified failure notification failed:", simpleError);
+          
+          // Last resort: notification service
+          await notificationService.createNotification({
+            userId,
+            title: "Video Rendering Failed",
+            message: `Your video "${title || 'Untitled'}" could not be rendered.`,
+            type: 'video'
+          });
+        }
       } else {
         console.log("✅ Failed notification created successfully:", data);
       }
@@ -169,11 +209,13 @@ export const renderNotifications = {
       // Update video project status
       const { error: updateError } = await supabase
         .from('video_projects')
-        .update({ status: "failed" })
+        .update({ status: "failed", error_message: errorMessage })
         .eq('id', projectId);
         
       if (updateError) {
         console.error("Failed to update video project status to failed:", updateError);
+      } else {
+        console.log(`Project ${projectId} updated with failed status`);
       }
 
       // Create the notification

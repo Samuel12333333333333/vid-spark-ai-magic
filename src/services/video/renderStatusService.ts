@@ -66,7 +66,7 @@ export const renderStatusService = {
       console.log(`Video complete, URL: ${data.url}`);
       
       // First update the project
-      await supabase
+      const { error: updateError } = await supabase
         .from('video_projects')
         .update({
           status,
@@ -74,22 +74,32 @@ export const renderStatusService = {
           thumbnail_url: data.thumbnail || null
         })
         .eq('id', projectId);
+        
+      if (updateError) {
+        console.error("Failed to update video project:", updateError);
+      } else {
+        console.log(`Project ${projectId} updated with completed status and URL`);
+      }
       
-      // Then create notification - fully log the process
+      // Then create notification - try multiple approaches for maximum reliability
       console.log(`Creating completion notification for user ${projectData.user_id}, project ${projectId}`);
+      
       try {
+        // First approach: Using our dedicated notification handler
         await renderNotifications.createRenderCompleteNotification(
           projectData.user_id,
           projectData.title,
           projectId,
           data.url
         );
-        console.log("Notification creation process initiated");
+        console.log("Notification creation process completed");
       } catch (notificationError) {
         console.error("Failed to create completion notification:", notificationError);
         
-        // Last resort direct insert
+        // Second approach: Direct database insert as fallback
         try {
+          console.log("Attempting direct database insert as fallback");
+          
           const directNotification = {
             user_id: projectData.user_id,
             title: "Video Rendering Complete",
@@ -103,24 +113,30 @@ export const renderStatusService = {
             .insert([directNotification]);
             
           if (directError) {
-            console.error("Last resort notification insert failed:", directError);
+            console.error("Direct notification insert failed:", directError);
           } else {
-            console.log("Last resort notification insert succeeded");
+            console.log("Direct notification insert succeeded");
           }
         } catch (directError) {
-          console.error("Last resort insert attempt failed:", directError);
+          console.error("All notification creation attempts failed:", directError);
         }
       }
       
     } else if (status === 'failed') {
-      await supabase
+      // Update project with failed status
+      const { error: updateError } = await supabase
         .from('video_projects')
         .update({ 
           status,
           error_message: data.error || "Unknown error" 
         })
         .eq('id', projectId);
+        
+      if (updateError) {
+        console.error("Failed to update video project status to failed:", updateError);
+      }
 
+      // Create failure notification with multiple fallback approaches
       try {
         await renderNotifications.createRenderFailedNotification(
           projectData.user_id,
@@ -130,12 +146,36 @@ export const renderStatusService = {
         );
       } catch (notificationError) {
         console.error("Failed to create failure notification:", notificationError);
+        
+        // Direct database insert as fallback
+        try {
+          const failureNotification = {
+            user_id: projectData.user_id,
+            title: "Video Rendering Failed",
+            message: `Your video "${projectData.title || 'Untitled'}" could not be rendered.`,
+            type: 'video',
+            is_read: false
+          };
+          
+          await supabase
+            .from('notifications')
+            .insert([failureNotification]);
+        } catch (directError) {
+          console.error("All failure notification attempts failed");
+        }
       }
     } else {
-      await supabase
+      // For statuses other than completed or failed
+      const { error: updateError } = await supabase
         .from('video_projects')
         .update({ status })
         .eq('id', projectId);
+        
+      if (updateError) {
+        console.error(`Failed to update project to ${status} status:`, updateError);
+      } else {
+        console.log(`Project ${projectId} updated with ${status} status`);
+      }
     }
   }
 };
