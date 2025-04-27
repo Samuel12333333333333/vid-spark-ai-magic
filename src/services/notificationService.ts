@@ -86,31 +86,31 @@ export const notificationService = {
         is_read: false,
         metadata: safeMetadata
       };
-  
+
       console.log("Notification payload:", JSON.stringify(notification));
       
-      // First attempt: Try direct database insertion with full error capture
-      let insertResult;
+      // Direct database insertion
       try {
-        insertResult = await supabase
+        const { data, error } = await supabase
           .from('notifications')
           .insert([notification])
           .select();
           
-        if (insertResult.error) {
-          throw insertResult.error;
+        if (error) {
+          console.error("❌ Notification insert failed:", error);
+          throw error;
         }
         
-        if (insertResult.data && insertResult.data.length > 0) {
-          console.log("✅ Notification created successfully:", insertResult.data[0].id);
-          return insertResult.data[0] as Notification;
+        if (data && data.length > 0) {
+          console.log("✅ Notification created successfully:", data[0].id);
+          return data[0] as Notification;
         }
-      } catch (directError) {
-        console.error("❌ Direct notification insert failed:", directError);
-        console.error("Error details:", JSON.stringify(directError));
         
-        // Try fallback insert method without metadata
-        console.log("Attempting fallback insert without metadata");
+        throw new Error("No data returned from notification insert");
+      } catch (insertError) {
+        // If the insert fails due to metadata, try without it
+        console.error("❌ Initial insert failed, trying without metadata:", insertError);
+        
         const simplifiedNotification = {
           user_id: userId,
           title: title.substring(0, 255),
@@ -119,58 +119,22 @@ export const notificationService = {
           is_read: false
         };
         
-        try {
-          const fallbackResult = await supabase
-            .from('notifications')
-            .insert([simplifiedNotification])
-            .select();
-            
-          if (fallbackResult.error) {
-            throw fallbackResult.error;
-          }
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('notifications')
+          .insert([simplifiedNotification])
+          .select();
           
-          if (fallbackResult.data && fallbackResult.data.length > 0) {
-            console.log("✅ Fallback insert succeeded:", fallbackResult.data[0].id);
-            return fallbackResult.data[0] as Notification;
-          }
-        } catch (fallbackError) {
+        if (fallbackError) {
           console.error("❌ Fallback insert also failed:", fallbackError);
-          console.error("Error details:", JSON.stringify(fallbackError));
-          
-          // Try ultra simplified version with just mandatory fields
-          console.log("Attempting ultra-simplified insert as last resort");
-          const bareMinimumNotification = {
-            user_id: userId,
-            title: title.substring(0, 50), // Truncate if too long
-            message: message.substring(0, 100), // Truncate if too long
-            type: 'video', // Use known working type
-            is_read: false
-          };
-          
-          try {
-            const lastResortResult = await supabase
-              .from('notifications')
-              .insert([bareMinimumNotification])
-              .select();
-              
-            if (lastResortResult.error) {
-              throw lastResortResult.error;
-            }
-            
-            if (lastResortResult.data && lastResortResult.data.length > 0) {
-              console.log("✅ Last resort insert succeeded:", lastResortResult.data[0].id);
-              return lastResortResult.data[0] as Notification;
-            }
-          } catch (lastResortError) {
-            console.error("❌ All notification insert attempts failed");
-            console.error("Last resort error:", JSON.stringify(lastResortError));
-            return null;
-          }
+          return null;
+        }
+        
+        if (fallbackData && fallbackData.length > 0) {
+          console.log("✅ Fallback notification created successfully:", fallbackData[0].id);
+          return fallbackData[0] as Notification;
         }
       }
       
-      // If we got here without a return, something unexpected happened
-      console.error("❌ Notification create failed with no specific error");
       return null;
     } catch (error) {
       console.error("❌ Error creating notification:", error);

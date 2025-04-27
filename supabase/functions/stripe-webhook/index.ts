@@ -3,6 +3,31 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@12.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
+const createNotification = async (supabaseAdmin, userId, title, message, type = 'payment') => {
+  try {
+    // Simple notification without complex metadata for maximum reliability
+    const notification = {
+      user_id: userId,
+      title,
+      message,
+      type,
+      is_read: false,
+    };
+    
+    const { error } = await supabaseAdmin
+      .from('notifications')
+      .insert([notification]);
+      
+    if (error) {
+      console.error("Error creating notification:", error);
+    } else {
+      console.log("Notification created successfully");
+    }
+  } catch (error) {
+    console.error("Exception creating notification:", error);
+  }
+};
+
 serve(async (req) => {
   const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
     apiVersion: "2023-10-16",
@@ -87,6 +112,15 @@ serve(async (req) => {
               console.error("Error updating subscription:", error);
             } else {
               console.log("Subscription updated successfully");
+              
+              // Create notification for subscription renewal
+              await createNotification(
+                supabaseAdmin,
+                session.metadata.userId,
+                "Subscription Renewed",
+                `Your ${subscriptionData.plan_name} plan subscription has been renewed successfully.`,
+                'payment'
+              );
             }
           } else {
             // Insert new subscription
@@ -98,6 +132,15 @@ serve(async (req) => {
               console.error("Error inserting subscription:", error);
             } else {
               console.log("Subscription created successfully");
+              
+              // Create notification for new subscription
+              await createNotification(
+                supabaseAdmin, 
+                session.metadata.userId,
+                "Subscription Activated",
+                `Your ${subscriptionData.plan_name} plan subscription has been activated successfully.`,
+                'payment'
+              );
             }
           }
         }
@@ -124,6 +167,23 @@ serve(async (req) => {
           const userId = customers[0].user_id;
           console.log("Found user for subscription:", userId);
           
+          // Determine plan name
+          let planName = "pro"; // Default
+          
+          const { data: priceData } = await stripe.prices.retrieve(
+            subscription.items.data[0].price.id
+          );
+          
+          if (priceData.product) {
+            const { data: productData } = await stripe.products.retrieve(
+              priceData.product.toString()
+            );
+            
+            if (productData.name.toLowerCase().includes("business")) {
+              planName = "business";
+            }
+          }
+          
           // Update subscription status and end date
           const { error } = await supabaseAdmin
             .from("subscriptions")
@@ -131,6 +191,7 @@ serve(async (req) => {
               status: subscription.status,
               current_period_end: new Date(subscription.current_period_end * 1000),
               stripe_subscription_id: subscription.id,
+              plan_name: planName
             })
             .eq("user_id", userId);
             
@@ -138,6 +199,23 @@ serve(async (req) => {
             console.error("Error updating subscription:", error);
           } else {
             console.log("Subscription updated successfully");
+            
+            // Create notification
+            let notificationTitle = "Subscription Updated";
+            let notificationMessage = `Your ${planName} plan subscription has been updated.`;
+            
+            if (event.type === "customer.subscription.created") {
+              notificationTitle = "Subscription Started";
+              notificationMessage = `Your ${planName} plan subscription has been activated.`;
+            }
+            
+            await createNotification(
+              supabaseAdmin,
+              userId,
+              notificationTitle,
+              notificationMessage,
+              'payment'
+            );
           }
         } else {
           console.error("No user found for customer:", subscription.customer);
@@ -174,6 +252,15 @@ serve(async (req) => {
             console.error("Error canceling subscription:", error);
           } else {
             console.log("Subscription canceled successfully");
+            
+            // Create notification
+            await createNotification(
+              supabaseAdmin,
+              userId,
+              "Subscription Canceled",
+              "Your subscription has been canceled.",
+              'payment'
+            );
           }
         } else {
           console.error("No user found for subscription:", canceledSubscription.id);

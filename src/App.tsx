@@ -80,7 +80,7 @@ const App = () => {
                   <Route path="/login" element={<AuthPage />} />
                   <Route path="/register" element={<AuthPage />} />
                   
-                  {/* Payment success page */}
+                  {/* Payment success page - public but typically accessed after payment */}
                   <Route path="/payment-success" element={<PaymentSuccessPage />} />
                   
                   {/* HTML Sitemap page */}
