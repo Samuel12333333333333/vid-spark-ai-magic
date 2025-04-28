@@ -34,8 +34,6 @@ export function useVideoLimits() {
       setResetDate(getDefaultResetDate());
       console.log("Using default usage values to enable video generation");
       
-      // Uncomment this block when the edge function is fixed
-      /*
       // Call the get_video_usage edge function
       const { data, error } = await supabase.functions.invoke("get_video_usage");
 
@@ -79,8 +77,6 @@ export function useVideoLimits() {
     console.log("Incrementing usage (test mode - always succeeds)");
     return true;
     
-    // Uncomment this when the edge function is fixed
-    /*
     if (!canGenerateVideo) {
       toast.error(
         `You've reached your limit of ${maxVideosPerMonth} videos this month. Your limit will reset on ${resetDate?.toLocaleDateString()}.`
