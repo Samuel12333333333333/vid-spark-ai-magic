@@ -1,7 +1,7 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -12,26 +12,74 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { PricingCard, PricingPlan } from "./PricingCard";
-import { Spinner } from "@/components/ui/spinner"; // Assuming you have a spinner component
+import { Spinner } from "@/components/ui/spinner";
+
+// Define default pricing plans to use when no data is fetched
+const defaultPricingPlans: PricingPlan[] = [
+  {
+    name: "Free",
+    price: "$0",
+    period: "/month",
+    description: "Perfect for getting started with AI video creation.",
+    features: [
+      "5 videos per month",
+      "720p video quality",
+      "Basic AI-generated scenes",
+      "Limited stock footage access",
+      "Standard support"
+    ],
+    cta: "Get Started",
+    popular: false,
+    priceId: null
+  },
+  {
+    name: "Pro",
+    price: "$29",
+    period: "/month",
+    description: "For creators who need more videos and higher quality.",
+    features: [
+      "30 videos per month",
+      "1080p video quality",
+      "Advanced AI scene generation",
+      "Full stock footage library access",
+      "Priority support",
+      "Custom branding"
+    ],
+    cta: "Subscribe Now",
+    popular: true,
+    priceId: "price_pro123"
+  },
+  {
+    name: "Business",
+    price: "$99",
+    period: "/month",
+    description: "For teams and businesses with high-volume needs.",
+    features: [
+      "Unlimited videos",
+      "4K video quality",
+      "Advanced AI scene generation",
+      "Full stock footage library access",
+      "Premium support",
+      "Custom branding",
+      "Team collaboration"
+    ],
+    cta: "Contact Sales",
+    popular: false,
+    priceId: "price_business456"
+  }
+];
 
 export function PricingSection() {
   const { session } = useAuth();
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
+  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>(defaultPricingPlans);
 
-  // Fetch pricing plans from the database on mount
   useEffect(() => {
-    const fetchPricingPlans = async () => {
-      const { data, error } = await supabase.from("pricing_plans").select("*");
-      if (error) {
-        toast.error("Failed to load pricing plans.");
-      } else {
-        setPricingPlans(data);
-      }
-    };
-
-    fetchPricingPlans();
+    // Note: Since we don't have a pricing_plans table in Supabase yet,
+    // we're using the default plans defined above.
+    // This is intentional and will be replaced once a proper pricing_plans table is set up.
+    console.log("Using default pricing plans until pricing_plans table is available");
   }, []);
 
   const handleSubscription = async (plan: PricingPlan) => {
