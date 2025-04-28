@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    // Get Supabase client with service key
+    // Get Supabase client with service key for admin operations
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
@@ -57,35 +57,77 @@ serve(async (req) => {
     const userId = user.id;
     console.log(`Incrementing video usage for user: ${userId}`);
     
-    // Calculate the first day of the current month for usage tracking
+    // Check if user has an active subscription
+    const { data: subscriptionData } = await supabase
+      .from('subscriptions')
+      .select('plan_name, status')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .single();
+      
+    // Set limits based on subscription tier
+    let isSubscribed = false;
+    let videoLimit = 2; // Free tier default
+    
+    if (subscriptionData) {
+      isSubscribed = true;
+      const planName = subscriptionData.plan_name.toLowerCase();
+      if (planName === 'pro') {
+        videoLimit = 20;
+      } else if (planName === 'business') {
+        videoLimit = 50;
+      }
+    }
+    
+    // Set up query parameters based on subscription status
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const firstDayOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
     
-    // Query to count videos created this month (before incrementing)
-    const { data: videoData, error: videoError } = await supabase
+    let videoQuery = supabase
       .from('video_projects')
       .select('id')
-      .eq('user_id', userId)
-      .gte('created_at', firstDayOfMonth.toISOString())
-      .lt('created_at', firstDayOfNextMonth.toISOString());
+      .eq('user_id', userId);
+      
+    // For subscribers, only count videos from this month
+    // For free users, count all videos
+    if (isSubscribed) {
+      videoQuery = videoQuery
+        .gte('created_at', firstDayOfMonth.toISOString())
+        .lt('created_at', firstDayOfNextMonth.toISOString());
+    }
     
-    if (videoError) {
-      console.error("Error querying video projects:", videoError);
+    const { data: existingVideos, error: countError } = await videoQuery;
+    
+    if (countError) {
+      console.error("Error checking video count:", countError);
       return new Response(
-        JSON.stringify({ error: "Database error", details: videoError.message }),
+        JSON.stringify({ error: "Database error", details: countError.message }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
     
-    // The increment happens when a new video project is created in the video_projects table
-    // This function just returns the updated count for tracking purposes
+    // Check if user has reached their limit
+    if (existingVideos.length >= videoLimit) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Video limit reached", 
+          details: "You have reached your video limit for your current plan",
+          count: existingVideos.length,
+          limit: videoLimit,
+          reset_at: isSubscribed ? firstDayOfNextMonth.toISOString() : null
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
+      );
+    }
     
-    // Return updated usage data (the count will be incremented in the UI)
+    // Return updated usage data - The insertion of the actual video will happen elsewhere
     return new Response(
       JSON.stringify({ 
-        count: videoData.length + 1, // +1 for the current operation
-        reset_at: firstDayOfNextMonth.toISOString()
+        count: existingVideos.length + 1, // +1 since we're about to create a new video
+        reset_at: isSubscribed ? firstDayOfNextMonth.toISOString() : null,
+        limit: videoLimit,
+        is_subscribed: isSubscribed
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 
 interface VideoUsageResponse {
   count: number;
@@ -12,32 +13,35 @@ const getDefaultResetDate = () =>
   new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
 
 export function useVideoLimits() {
+  const { hasActiveSubscription, isPro, isBusiness } = useSubscription();
   const [usageCount, setUsageCount] = useState<number>(0);
   const [resetDate, setResetDate] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isError, setIsError] = useState<boolean>(false);
-  const maxVideosPerMonth = 5; // Free tier limit
+  
+  // Set maximum videos based on subscription tier
+  const maxVideosPerMonth = hasActiveSubscription 
+    ? isPro 
+      ? 20 
+      : isBusiness 
+        ? 50 
+        : 2 // Free tier
+    : 2; // Default free tier
 
-  // Check if user can generate a video - force to true for testing
-  const canGenerateVideo = true; // Override to always allow video generation for testing
-  const remainingVideos = Math.max(1, maxVideosPerMonth - usageCount); // Ensure at least 1 remaining
+  // Check if user can generate a video
+  const canGenerateVideo = usageCount < maxVideosPerMonth; 
+  const remainingVideos = Math.max(0, maxVideosPerMonth - usageCount);
 
   const checkUsage = useCallback(async () => {
     try {
       setIsLoading(true);
       setIsError(false);
 
-      // For testing purposes, set default values directly
-      setUsageCount(0); // Force usage to 0 for testing
-      setResetDate(getDefaultResetDate());
-      console.log("Using default usage values to enable video generation");
-      
       // Call the get_video_usage edge function
       const { data, error } = await supabase.functions.invoke<VideoUsageResponse>("get_video_usage");
 
       if (error) {
         console.error("Usage error:", error);
-        console.error("Using default usage values due to error");
         setIsError(true);
         setUsageCount(0);
         setResetDate(getDefaultResetDate());
@@ -56,7 +60,6 @@ export function useVideoLimits() {
         setResetDate(getDefaultResetDate());
       }
       
-      // Note: Removed invalid comment closure that was causing errors
     } catch (error) {
       console.error("Error checking video usage:", error);
       setIsError(true);
@@ -65,22 +68,23 @@ export function useVideoLimits() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isPro, isBusiness, hasActiveSubscription]);
 
   useEffect(() => {
     checkUsage();
   }, [checkUsage]);
 
   const incrementUsage = useCallback(async (): Promise<boolean> => {
-    // For testing, always return true
-    console.log("Incrementing usage (test mode - always succeeds)");
-    return true;
-
-    /* Commented out for testing - will be re-enabled when ready
     if (!canGenerateVideo) {
-      toast.error(
-        `You've reached your limit of ${maxVideosPerMonth} videos this month. Your limit will reset on ${resetDate?.toLocaleDateString()}.`
-      );
+      if (hasActiveSubscription) {
+        toast.error(
+          `You've reached your limit of ${maxVideosPerMonth} videos this month. Your limit will reset on ${resetDate?.toLocaleDateString()}.`
+        );
+      } else {
+        toast.error(
+          `You've reached your limit of ${maxVideosPerMonth} total videos on the free tier. Please upgrade to create more videos.`
+        );
+      }
       return false;
     }
 
@@ -107,8 +111,7 @@ export function useVideoLimits() {
       console.error("Error incrementing video usage:", error);
       return false;
     }
-    */
-  }, [/* canGenerateVideo, maxVideosPerMonth, resetDate */]); // Dependencies commented out since the function is in test mode
+  }, [canGenerateVideo, maxVideosPerMonth, resetDate, hasActiveSubscription]);
 
   // This method allows external components to refresh the usage data
   const refreshUsage = useCallback(() => {

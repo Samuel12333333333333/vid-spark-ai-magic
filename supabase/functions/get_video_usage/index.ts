@@ -57,18 +57,45 @@ serve(async (req) => {
     const userId = user.id;
     console.log(`Getting video usage for user: ${userId}`);
     
-    // Calculate the first day of the current month for usage tracking
+    // Check if user has a subscription
+    const { data: subscriptionData } = await supabase
+      .from('subscriptions')
+      .select('plan_name, status')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .single();
+      
+    // Calculate video limits based on subscription plan
+    let isSubscribed = false;
+    let isPro = false;
+    let isBusiness = false;
+    
+    if (subscriptionData) {
+      isSubscribed = true;
+      isPro = subscriptionData.plan_name.toLowerCase() === 'pro';
+      isBusiness = subscriptionData.plan_name.toLowerCase() === 'business';
+    }
+    
+    // Get first day of current month for monthly subscriptions
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const firstDayOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
     
-    // Query to count videos created this month
-    const { data: videoData, error: videoError } = await supabase
+    // Query to count videos created this month (for subscribers) or total (for free tier)
+    let query = supabase
       .from('video_projects')
       .select('id')
-      .eq('user_id', userId)
-      .gte('created_at', firstDayOfMonth.toISOString())
-      .lt('created_at', firstDayOfNextMonth.toISOString());
+      .eq('user_id', userId);
+      
+    // For subscribers, only count videos created in the current billing period
+    // For free users, count all videos ever created
+    if (isSubscribed) {
+      query = query
+        .gte('created_at', firstDayOfMonth.toISOString())
+        .lt('created_at', firstDayOfNextMonth.toISOString());
+    }
+    
+    const { data: videoData, error: videoError } = await query;
     
     if (videoError) {
       console.error("Error querying video projects:", videoError);
@@ -78,11 +105,18 @@ serve(async (req) => {
       );
     }
     
+    // For subscribed users, reset date is next month
+    // For free users, there's no reset since it's a total limit
+    const resetAt = isSubscribed ? firstDayOfNextMonth.toISOString() : null;
+    
     // Return usage data
     return new Response(
       JSON.stringify({ 
         count: videoData.length,
-        reset_at: firstDayOfNextMonth.toISOString()
+        reset_at: resetAt,
+        is_subscribed: isSubscribed,
+        is_pro: isPro,
+        is_business: isBusiness
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

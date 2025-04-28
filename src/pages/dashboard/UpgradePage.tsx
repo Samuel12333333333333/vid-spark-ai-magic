@@ -27,9 +27,9 @@ export default function UpgradePage() {
       period: "/month",
       description: "Great for trying out SmartVid",
       features: [
-        "1 video per day",
-        "720p video quality",
+        "2 videos total",
         "30-second videos",
+        "720p video quality",
         "Basic templates",
         "Standard generation speed",
         "Watermarked videos",
@@ -43,7 +43,7 @@ export default function UpgradePage() {
       period: "/month",
       description: "Perfect for content creators",
       features: [
-        "30 videos per month",
+        "20 videos per month",
         "1080p video quality",
         "2-minute videos",
         "All templates",
@@ -53,7 +53,7 @@ export default function UpgradePage() {
         "Basic AI voiceover",
       ],
       current: isPro,
-      priceId: "price_1RDAF8QOvLVQwvg3c5YbnDiG", // Updated Pro plan price ID
+      priceId: "price_1RDAF8QOvLVQwvg3c5YbnDiG", // Pro plan price ID
     },
     {
       name: "Business",
@@ -61,7 +61,7 @@ export default function UpgradePage() {
       period: "/month",
       description: "For teams and businesses",
       features: [
-        "Unlimited videos",
+        "50 videos per month",
         "4K video quality",
         "5-minute videos",
         "Custom templates",
@@ -73,7 +73,7 @@ export default function UpgradePage() {
         "API access",
       ],
       current: isBusiness,
-      priceId: "price_1RDAG2QOvLVQwvg3sPadXHon", // Updated Business plan price ID
+      priceId: "price_1RDAG2QOvLVQwvg3sPadXHon", // Business plan price ID
     },
   ];
 

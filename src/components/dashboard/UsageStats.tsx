@@ -2,6 +2,8 @@
 import { VideoProject } from "@/services/videoService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
+import { useSubscription } from "@/contexts/SubscriptionContext";
+import { useVideoLimits } from "@/hooks/useVideoLimits";
 
 interface UsageStatsProps {
   recentProjects: VideoProject[];
@@ -9,25 +11,44 @@ interface UsageStatsProps {
 
 export function UsageStats({ recentProjects }: UsageStatsProps) {
   const { user } = useAuth();
+  const { hasActiveSubscription, isPro, isBusiness } = useSubscription();
+  const { usageCount, maxVideosPerMonth, resetDate } = useVideoLimits();
+  
   const [planInfo, setPlanInfo] = useState({
     plan: "Free",
     videosCreated: 0,
-    videosRemaining: 30,
+    videosRemaining: 2,
     renewalDate: "-"
   });
 
   useEffect(() => {
-    // Calculate usage stats
-    const videosCreated = recentProjects.length;
-    const videosRemaining = 30 - videosCreated; // Assuming a limit of 30 videos on free plan
+    // Determine plan name
+    let planName = "Free";
+    if (hasActiveSubscription) {
+      planName = isPro ? "Pro" : isBusiness ? "Business" : "Free";
+    }
+    
+    // Calculate usage stats based on subscription tier
+    const videosLimit = hasActiveSubscription 
+      ? isPro 
+        ? 20 
+        : isBusiness 
+          ? 50 
+          : 2 // Free tier
+      : 2; // Default to free
+    
+    // Use the calculated values or fallback to the ones from useVideoLimits
+    const videosCreated = usageCount || recentProjects.length;
+    const videosRemaining = Math.max(0, videosLimit - videosCreated);
+    const renewalDate = resetDate ? resetDate.toLocaleDateString() : "-";
     
     setPlanInfo({
-      plan: "Free",  // Default to free, should be updated from subscription info
+      plan: planName,
       videosCreated,
-      videosRemaining: videosRemaining > 0 ? videosRemaining : 0,
-      renewalDate: "-"
+      videosRemaining,
+      renewalDate
     });
-  }, [recentProjects, user]);
+  }, [recentProjects, user, hasActiveSubscription, isPro, isBusiness, usageCount, maxVideosPerMonth, resetDate]);
 
   return (
     <div className="border rounded-lg p-6">
@@ -46,7 +67,9 @@ export function UsageStats({ recentProjects }: UsageStatsProps) {
           <p className="text-2xl font-bold">{planInfo.plan}</p>
         </div>
         <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">Renewal Date</p>
+          <p className="text-sm text-muted-foreground">
+            {hasActiveSubscription ? "Renewal Date" : "Upgrade to Pro"}
+          </p>
           <p className="text-2xl font-bold">{planInfo.renewalDate}</p>
         </div>
       </div>

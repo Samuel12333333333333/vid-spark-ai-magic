@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,8 +23,8 @@ const defaultPricingPlans: PricingPlan[] = [
     period: "/month",
     description: "Perfect for getting started with AI video creation.",
     features: [
-      "5 videos per month",
-      "720p video quality",
+      "2 videos total",
+      "30-second video duration",
       "Basic AI-generated scenes",
       "Limited stock footage access",
       "Standard support"
@@ -38,7 +39,7 @@ const defaultPricingPlans: PricingPlan[] = [
     period: "/month",
     description: "For creators who need more videos and higher quality.",
     features: [
-      "30 videos per month",
+      "20 videos per month",
       "1080p video quality",
       "Advanced AI scene generation",
       "Full stock footage library access",
@@ -47,7 +48,7 @@ const defaultPricingPlans: PricingPlan[] = [
     ],
     cta: "Subscribe Now",
     popular: true,
-    priceId: "price_pro123"
+    priceId: "price_1RDAF8QOvLVQwvg3c5YbnDiG"
   },
   {
     name: "Business",
@@ -55,7 +56,7 @@ const defaultPricingPlans: PricingPlan[] = [
     period: "/month",
     description: "For teams and businesses with high-volume needs.",
     features: [
-      "Unlimited videos",
+      "50 videos per month",
       "4K video quality",
       "Advanced AI scene generation",
       "Full stock footage library access",
@@ -65,7 +66,7 @@ const defaultPricingPlans: PricingPlan[] = [
     ],
     cta: "Contact Sales",
     popular: false,
-    priceId: "price_business456"
+    priceId: "price_1RDAG2QOvLVQwvg3sPadXHon"
   }
 ];
 
