@@ -55,6 +55,8 @@ export function useVideoLimits() {
         setUsageCount(0);
         setResetDate(getDefaultResetDate());
       }
+      
+      // Note: Removed invalid comment closure that was causing errors
     } catch (error) {
       console.error("Error checking video usage:", error);
       setIsError(true);
@@ -74,6 +76,7 @@ export function useVideoLimits() {
     console.log("Incrementing usage (test mode - always succeeds)");
     return true;
 
+    /* Commented out for testing - will be re-enabled when ready
     if (!canGenerateVideo) {
       toast.error(
         `You've reached your limit of ${maxVideosPerMonth} videos this month. Your limit will reset on ${resetDate?.toLocaleDateString()}.`
@@ -104,8 +107,10 @@ export function useVideoLimits() {
       console.error("Error incrementing video usage:", error);
       return false;
     }
-  }, [canGenerateVideo, maxVideosPerMonth, resetDate]);
+    */
+  }, [/* canGenerateVideo, maxVideosPerMonth, resetDate */]); // Dependencies commented out since the function is in test mode
 
+  // This method allows external components to refresh the usage data
   const refreshUsage = useCallback(() => {
     return checkUsage();
   }, [checkUsage]);

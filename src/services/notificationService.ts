@@ -58,7 +58,6 @@ export const notificationService = {
   }): Promise<Notification | null> {
     try {
       console.log(`⏳ Creating notification for user ${userId}: ${title}`);
-      console.log(`Type: ${type}, Message: ${message}`);
       
       if (!userId) {
         console.error("❌ Cannot create notification: user_id is missing");
@@ -75,10 +74,8 @@ export const notificationService = {
         }
       } catch (e) {
         console.error("Error serializing metadata, using empty object:", e);
-        // Use empty object if serialization fails
       }
       
-      // Create a simplified notification to maximize chance of success
       const notification = {     
         user_id: userId,
         title: title.substring(0, 255), // Ensure title isn't too long
@@ -90,7 +87,6 @@ export const notificationService = {
 
       console.log("Notification payload:", JSON.stringify(notification));
       
-      // Direct database insertion with retry mechanism
       let maxRetries = 3;
       let retries = 0;
       let lastError = null;
@@ -105,17 +101,19 @@ export const notificationService = {
             .select();
             
           if (error) {
-            console.error(`❌ Notification insert failed (attempt ${retries + 1}):`, error);
             lastError = error;
             retries++;
-            
-            // Wait briefly before retrying
+            console.error(`❌ Notification insert failed (attempt ${retries}):`, error);
             await new Promise(resolve => setTimeout(resolve, 500 * retries));
             continue;
           }
           
           if (data && data.length > 0) {
             console.log("✅ Notification created successfully:", data[0].id);
+            
+            // Display toast notification if it's a user-facing event
+            this.showToastForNotification(type, title, message);
+            
             return data[0] as Notification;
           }
           
@@ -123,49 +121,86 @@ export const notificationService = {
         } catch (insertError) {
           lastError = insertError;
           retries++;
-          
           console.error(`❌ Insert attempt ${retries} failed:`, insertError);
-          
-          // Wait briefly before retrying
           await new Promise(resolve => setTimeout(resolve, 500 * retries));
         }
       }
       
       // If all attempts fail with metadata, try once without metadata
-      try {
-        console.log("❌ All attempts failed, trying without metadata");
+      return this.createFallbackNotification(userId, title, message, type);
+    } catch (error) {
+      console.error("❌ Error creating notification:", error);
+      return null;
+    }
+  },
+  
+  // New method for creating a simplified notification as a fallback
+  async createFallbackNotification(
+    userId: string, 
+    title: string, 
+    message: string, 
+    type: 'video' | 'payment' | 'account' | 'newsletter'
+  ): Promise<Notification | null> {
+    try {
+      console.log("❌ All attempts failed, trying simplified notification");
+      
+      const simplifiedNotification = {
+        user_id: userId,
+        title: title.substring(0, 255),
+        message: message.substring(0, 1000),
+        type,
+        is_read: false
+      };
+      
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('notifications')
+        .insert([simplifiedNotification])
+        .select();
         
-        const simplifiedNotification = {
-          user_id: userId,
-          title: title.substring(0, 255),
-          message: message.substring(0, 1000),
-          type,
-          is_read: false
-        };
+      if (fallbackError) {
+        console.error("❌ Fallback insert also failed:", fallbackError);
+        return null;
+      }
+      
+      if (fallbackData && fallbackData.length > 0) {
+        console.log("✅ Fallback notification created successfully:", fallbackData[0].id);
         
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('notifications')
-          .insert([simplifiedNotification])
-          .select();
-          
-        if (fallbackError) {
-          console.error("❌ Fallback insert also failed:", fallbackError);
-          return null;
-        }
+        // Display toast for important events even on fallback
+        this.showToastForNotification(type, title, message);
         
-        if (fallbackData && fallbackData.length > 0) {
-          console.log("✅ Fallback notification created successfully:", fallbackData[0].id);
-          return fallbackData[0] as Notification;
-        }
-      } catch (fallbackError) {
-        console.error("❌ Fallback attempt also failed:", fallbackError);
+        return fallbackData[0] as Notification;
       }
       
       console.error("❌ All notification creation attempts failed");
       return null;
     } catch (error) {
-      console.error("❌ Error creating notification:", error);
+      console.error("❌ Error creating fallback notification:", error);
       return null;
+    }
+  },
+
+  // New centralized method to show toasts for notifications
+  showToastForNotification(type: string, title: string, message: string): void {
+    const toastOptions: any = {
+      description: message
+    };
+
+    switch (type) {
+      case 'video':
+        toast.info(title, toastOptions);
+        break;
+      case 'payment':
+        toast.success(title, toastOptions);
+        break;
+      case 'account':
+        toast.info(title, toastOptions);
+        break;
+      case 'newsletter':
+        toast.info(title, toastOptions);
+        break;
+      default:
+        toast(title, toastOptions);
+        break;
     }
   },
   

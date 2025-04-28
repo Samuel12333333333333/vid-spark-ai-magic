@@ -1,6 +1,6 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { mediaService } from "./mediaService";
+import { renderNotifications } from "./video/renderNotifications";
 
 export interface VideoProject {
   id: string;
@@ -21,9 +21,9 @@ export interface VideoProject {
   has_audio?: boolean;
   has_captions?: boolean;
   narration_script?: string;
-  scenes?: any[]; // Add missing property for scenes
-  audio_data?: string; // Add missing property for audio data
-  error_message?: string; // Add property for error messages
+  scenes?: any[]; 
+  audio_data?: string;
+  error_message?: string;
 }
 
 export const videoService = {
@@ -39,11 +39,9 @@ export const videoService = {
         throw error;
       }
       
-      // Validate video URLs for each project
       const processedData = (data || []).map(project => ({
         ...project,
         video_url: mediaService.validateVideoUrl(project.video_url),
-        // Ensure boolean fields are boolean
         has_audio: Boolean(project.has_audio),
         has_captions: Boolean(project.has_captions)
       }));
@@ -68,11 +66,9 @@ export const videoService = {
         throw error;
       }
       
-      // Validate video URLs for each project
       const processedData = (data || []).map(project => ({
         ...project,
         video_url: mediaService.validateVideoUrl(project.video_url),
-        // Ensure boolean fields are boolean
         has_audio: Boolean(project.has_audio),
         has_captions: Boolean(project.has_captions)
       }));
@@ -86,7 +82,6 @@ export const videoService = {
   
   async getProjectById(id: string): Promise<VideoProject | null> {
     try {
-      // Validate input
       if (!id) {
         console.error("Invalid project ID provided to getProjectById");
         return null;
@@ -104,9 +99,7 @@ export const videoService = {
       }
       
       if (data) {
-        // Validate video URL
         data.video_url = mediaService.validateVideoUrl(data.video_url);
-        // Ensure boolean fields are boolean
         data.has_audio = Boolean(data.has_audio);
         data.has_captions = Boolean(data.has_captions);
       }
@@ -120,7 +113,6 @@ export const videoService = {
   
   async createProject(project: Omit<VideoProject, 'id' | 'created_at' | 'updated_at'>): Promise<VideoProject | null> {
     try {
-      // Validate required fields
       if (!project.title || !project.prompt || !project.user_id) {
         console.error("Missing required fields for project creation");
         throw new Error("Missing required fields for project creation");
@@ -134,7 +126,6 @@ export const videoService = {
         narration_script: project.narration_script?.substring(0, 20) + "..." || "None provided"
       });
       
-      // Ensure default values for new columns and proper data types
       const projectWithDefaults = {
         ...project,
         has_audio: Boolean(project.has_audio),
@@ -163,13 +154,11 @@ export const videoService = {
   
   async updateProject(id: string, updates: Partial<VideoProject>): Promise<void> {
     try {
-      // Validate project ID
       if (!id) {
         console.error("Missing project ID for update");
         throw new Error("Missing project ID");
       }
       
-      // Ensure boolean values are stored as booleans
       const sanitizedUpdates = {
         ...updates,
         has_audio: updates.has_audio !== undefined ? Boolean(updates.has_audio) : undefined,
@@ -186,7 +175,6 @@ export const videoService = {
           : "No change"
       });
       
-      // If there's a video_url, validate it
       if (updates.video_url) {
         sanitizedUpdates.video_url = mediaService.validateVideoUrl(updates.video_url);
       }
@@ -210,10 +198,19 @@ export const videoService = {
   
   async deleteProject(id: string): Promise<void> {
     try {
-      // Validate project ID
       if (!id) {
         console.error("Missing project ID for deletion");
         throw new Error("Missing project ID");
+      }
+      
+      const { data: projectData, error: fetchError } = await supabase
+        .from('video_projects')
+        .select('title, user_id')
+        .eq('id', id)
+        .single();
+        
+      if (fetchError) {
+        console.error(`Error fetching project data before deletion with id ${id}:`, fetchError);
       }
       
       const { error } = await supabase
@@ -227,6 +224,13 @@ export const videoService = {
       }
       
       console.log(`Video project ${id} deleted successfully`);
+      
+      if (projectData && projectData.user_id) {
+        await renderNotifications.createVideoDeletedNotification(
+          projectData.user_id,
+          projectData.title || 'Untitled'
+        );
+      }
     } catch (error) {
       console.error('Error in deleteProject:', error);
       throw error;
