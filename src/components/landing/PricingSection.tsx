@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,70 +12,27 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { PricingCard, PricingPlan } from "./PricingCard";
+import { Spinner } from "@/components/ui/spinner"; // Assuming you have a spinner component
 
 export function PricingSection() {
   const { session } = useAuth();
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
 
-  const pricingPlans: PricingPlan[] = [
-    {
-      name: "Free",
-      price: "$0",
-      description: "Great for trying out SmartVid",
-      features: [
-        "1 video per day",
-        "720p video quality",
-        "30-second videos",
-        "Basic templates",
-        "Standard generation speed",
-        "Watermarked videos",
-      ],
-      cta: "Get Started",
-      popular: false,
-      priceId: null, // Free plan doesn't need a price ID
-    },
-    {
-      name: "Pro",
-      price: "$29",
-      period: "/month",
-      description: "Perfect for content creators",
-      features: [
-        "30 videos per month",
-        "1080p video quality",
-        "2-minute videos",
-        "All templates",
-        "Priority generation",
-        "No watermarks",
-        "Custom branding",
-        "Basic AI voiceover",
-      ],
-      cta: "Upgrade to Pro",
-      popular: true,
-      priceId: "price_1RDAF8QOvLVQwvg3c5YbnDiG", // Updated Pro plan price ID
-    },
-    {
-      name: "Business",
-      price: "$99",
-      period: "/month",
-      description: "For teams and businesses",
-      features: [
-        "Unlimited videos",
-        "4K video quality",
-        "5-minute videos",
-        "Custom templates",
-        "Express generation",
-        "No watermarks",
-        "Custom branding",
-        "Premium AI voiceover",
-        "Team collaboration",
-        "API access",
-      ],
-      cta: "Upgrade to Business",
-      popular: false,
-      priceId: "price_1RDAG2QOvLVQwvg3sPadXHon", // Updated Business plan price ID
-    },
-  ];
+  // Fetch pricing plans from the database on mount
+  useEffect(() => {
+    const fetchPricingPlans = async () => {
+      const { data, error } = await supabase.from("pricing_plans").select("*");
+      if (error) {
+        toast.error("Failed to load pricing plans.");
+      } else {
+        setPricingPlans(data);
+      }
+    };
+
+    fetchPricingPlans();
+  }, []);
 
   const handleSubscription = async (plan: PricingPlan) => {
     if (!session) {
@@ -92,9 +48,9 @@ export function PricingSection() {
 
     try {
       setIsLoading(plan.name);
-      
+
       console.log("Creating checkout for plan:", plan.name, "with priceId:", plan.priceId);
-      
+
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: {
           priceId: plan.priceId,
