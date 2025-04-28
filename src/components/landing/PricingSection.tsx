@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -64,7 +64,7 @@ const defaultPricingPlans: PricingPlan[] = [
       "Custom branding",
       "Team collaboration"
     ],
-    cta: "Contact Sales",
+    cta: "Subscribe Now", // Changed from "Contact Sales" to "Subscribe Now"
     popular: false,
     priceId: "price_1RDAG2QOvLVQwvg3sPadXHon"
   }
@@ -72,6 +72,7 @@ const defaultPricingPlans: PricingPlan[] = [
 
 export function PricingSection() {
   const { session } = useAuth();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>(defaultPricingPlans);
@@ -84,6 +85,7 @@ export function PricingSection() {
   }, []);
 
   const handleSubscription = async (plan: PricingPlan) => {
+    // Strict authentication check
     if (!session) {
       setShowLoginDialog(true);
       return;
