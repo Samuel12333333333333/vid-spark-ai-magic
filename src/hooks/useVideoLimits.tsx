@@ -34,8 +34,6 @@ export function useVideoLimits() {
       setResetDate(getDefaultResetDate());
       console.log("Using default usage values to enable video generation");
       
-      /* 
-      // Commented out for testing - will be re-enabled when ready
       // Call the get_video_usage edge function
       const { data, error } = await supabase.functions.invoke("get_video_usage");
 
@@ -75,11 +73,11 @@ export function useVideoLimits() {
   }, [checkUsage]);
 
   const incrementUsage = useCallback(async (): Promise<boolean> => {
+   
     // For testing, always return true
     console.log("Incrementing usage (test mode - always succeeds)");
     return true;
     
-    /* 
     // Commented out for testing - will be re-enabled when ready
     if (!canGenerateVideo) {
       toast.error(
