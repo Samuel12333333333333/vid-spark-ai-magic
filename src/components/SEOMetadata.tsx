@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 
@@ -18,15 +17,25 @@ export default function SEOMetadata({
   description,
   keywords,
   canonicalUrl,
-  ogImage = 'https://lovable.dev/opengraph-image-p98pqg.png', // Default OG image
+  ogImage = 'https://lovable.dev/opengraph-image-p98pqg.png',
   ogType = 'website',
   twitterCard = 'summary_large_image',
   noIndex = false
 }: SEOMetadataProps) {
-  // Construct full canonical URL if it's a relative path
-  const fullCanonicalUrl = canonicalUrl?.startsWith('http') 
-    ? canonicalUrl 
-    : canonicalUrl ? `https://smartvideofy.com${canonicalUrl}` : `https://smartvideofy.com${window.location.pathname}`;
+  const getCanonicalUrl = () => {
+    if (canonicalUrl?.startsWith('http')) return canonicalUrl;
+    if (canonicalUrl) return `https://smartvideofy.com${canonicalUrl}`;
+    
+    // Avoid window usage if not client-side
+    if (typeof window !== 'undefined') {
+      return `https://smartvideofy.com${window.location.pathname}`;
+    }
+    
+    // Safe fallback
+    return 'https://smartvideofy.com';
+  };
+
+  const fullCanonicalUrl = getCanonicalUrl();
 
   return (
     <Helmet>
@@ -52,9 +61,6 @@ export default function SEOMetadata({
       
       {/* Indexing control */}
       {noIndex && <meta name="robots" content="noindex, nofollow" />}
-      
-      {/* Sitemap reference */}
-      <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
     </Helmet>
   );
 }
