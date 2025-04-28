@@ -1,4 +1,3 @@
-
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -13,8 +12,8 @@ interface TemplateCardProps {
 }
 
 const getPlaceholderImage = (category: string) => {
-  // Use the second uploaded image for the template cards
-  return "/lovable-uploads/8a1dbf1f-e165-4056-bd06-a594c9b170cd.png";
+  // Use dynamic placeholder based on category or fallback
+  return `/lovable-uploads/placeholder-${category}.png`; // Update this logic as needed
 };
 
 export function TemplateCard({ id, name, description, thumbnail, category }: TemplateCardProps) {
@@ -65,3 +64,4 @@ export function TemplateCard({ id, name, description, thumbnail, category }: Tem
     </Card>
   );
 }
+
