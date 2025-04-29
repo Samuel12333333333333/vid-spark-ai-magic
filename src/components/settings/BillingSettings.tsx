@@ -1,28 +1,25 @@
+
 import { useState, useEffect } from "react";
-import { CreditCard, ExternalLink, Loader2, Tag, Clock, Receipt } from "lucide-react";
+import { CreditCard, ExternalLink, Loader2, Tag, Clock, Receipt, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatDistanceToNow, format } from "date-fns";
+import { useSubscription } from "@/contexts/SubscriptionContext";
+import { formatDistanceToNow, format, parseISO } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface PaymentMethod {
   id: string;
-  brand: string; // visa, mastercard, etc
+  brand: string;
   last4: string;
   expMonth: number;
   expYear: number;
   isDefault: boolean;
-}
-
-interface SubscriptionPlan {
-  name: string;
-  status: "active" | "canceled" | "trialing" | "past_due";
-  currentPeriodEnd: Date;
-  price: number;
-  interval: "month" | "year";
 }
 
 interface PaymentHistory {
@@ -35,66 +32,86 @@ interface PaymentHistory {
 
 export function BillingSettings() {
   const { user } = useAuth();
+  const { subscription, hasActiveSubscription, isPro, isBusiness, refreshSubscription } = useSubscription();
   const [isLoading, setIsLoading] = useState(true);
+  const [isPortalLoading, setIsPortalLoading] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [subscription, setSubscription] = useState<SubscriptionPlan | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Mock data loading for demonstration purposes
-    const loadData = async () => {
-      setIsLoading(true);
+  // Fetch payment methods and history
+  const fetchBillingData = async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Refresh subscription data first
+      await refreshSubscription();
       
-      // Simulate API fetch delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Fetch payment methods from the edge function
+      const { data: methodsData, error: methodsError } = await supabase.functions.invoke("get-payment-methods");
       
-      // For now, we just simulate the data
-      // This would be replaced with actual API calls
-      if (Math.random() > 0.5) {
-        // Simulate having subscription data
-        setSubscription({
-          name: "Pro Plan",
-          status: "active",
-          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-          price: 29.99,
-          interval: "month"
-        });
-        
-        setPaymentMethods([
-          {
-            id: "pm_123456",
-            brand: "visa",
-            last4: "4242",
-            expMonth: 12,
-            expYear: 2025,
-            isDefault: true
-          }
-        ]);
-        
-        setPaymentHistory([
-          {
-            id: "pi_123456",
-            amount: 29.99,
-            status: "succeeded",
-            date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-            receiptUrl: "#"
-          },
-          {
-            id: "pi_123455",
-            amount: 29.99,
-            status: "succeeded",
-            date: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)
-          }
-        ]);
+      if (methodsError) {
+        console.error("Error fetching payment methods:", methodsError);
+        setError("Could not fetch payment information");
+      } else if (methodsData?.paymentMethods) {
+        setPaymentMethods(methodsData.paymentMethods);
       }
       
+      // Fetch payment history
+      const { data: historyData, error: historyError } = await supabase.functions.invoke("get-payment-history");
+      
+      if (historyError) {
+        console.error("Error fetching payment history:", historyError);
+        if (!methodsError) {
+          setError("Could not fetch payment history");
+        }
+      } else if (historyData?.paymentHistory) {
+        // Format dates from timestamps
+        const formattedHistory = historyData.paymentHistory.map(payment => ({
+          ...payment,
+          date: new Date(payment.created * 1000)
+        }));
+        setPaymentHistory(formattedHistory);
+      }
+    } catch (err) {
+      console.error("Error fetching billing data:", err);
+      setError("An unexpected error occurred while fetching your billing information");
+    } finally {
       setIsLoading(false);
-    };
-    
-    if (user) {
-      loadData();
     }
+  };
+
+  useEffect(() => {
+    fetchBillingData();
   }, [user]);
+
+  // Open Stripe Customer Portal
+  const handleManageSubscription = async () => {
+    setIsPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("customer-portal");
+      
+      if (error) {
+        console.error("Error accessing customer portal:", error);
+        toast.error("Could not open customer portal. Please try again.");
+        return;
+      }
+      
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error("Could not generate customer portal link");
+      }
+    } catch (err) {
+      console.error("Error opening customer portal:", err);
+      toast.error("Could not open customer portal. Please try again.");
+    } finally {
+      setIsPortalLoading(false);
+    }
+  };
 
   // Helper function to format card brand
   const formatCardBrand = (brand: string) => {
@@ -115,6 +132,99 @@ export function BillingSettings() {
     }
   };
 
+  const renderCurrentPlan = () => {
+    if (isLoading) {
+      return (
+        <div className="mt-1">
+          <Skeleton className="h-6 w-24" />
+        </div>
+      );
+    }
+    
+    if (hasActiveSubscription && subscription) {
+      return (
+        <div className="flex items-center mt-1">
+          <Badge variant="default">{subscription.plan_name}</Badge>
+          <span className="text-sm text-muted-foreground ml-2">
+            {subscription.status === "active" ? "Active" : subscription.status}
+          </span>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="flex items-center mt-1">
+        <Badge>Free</Badge>
+        <span className="text-sm text-muted-foreground ml-2">1 video per day</span>
+      </div>
+    );
+  };
+  
+  const renderSubscriptionDetails = () => {
+    if (isLoading) {
+      return (
+        <div className="mt-4 space-y-2">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+        </div>
+      );
+    }
+    
+    if (hasActiveSubscription && subscription && subscription.current_period_end) {
+      const endDate = typeof subscription.current_period_end === 'string' 
+        ? parseISO(subscription.current_period_end)
+        : new Date(subscription.current_period_end);
+        
+      return (
+        <div className="mt-4 space-y-2">
+          <div className="flex items-center text-sm">
+            <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+            <span>
+              Your subscription renews {formatDistanceToNow(endDate, { addSuffix: true })}
+            </span>
+          </div>
+          <div className="flex items-center text-sm">
+            <Tag className="h-4 w-4 mr-2 text-muted-foreground" />
+            <span>
+              {subscription.status === "active" ? "Your subscription is active" : 
+               subscription.status === "canceled" ? "Your subscription is canceled but still active until the end of the billing period" : 
+               "Your subscription needs attention"}
+            </span>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="mt-4 text-sm text-muted-foreground">
+        <p>Your free plan includes:</p>
+        <ul className="list-disc list-inside mt-2 space-y-1">
+          <li>1 video per day (30 per month)</li>
+          <li>720p video quality</li>
+          <li>30-second maximum duration</li>
+          <li>Basic templates</li>
+          <li>SmartVid watermark</li>
+        </ul>
+      </div>
+    );
+  };
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        
+        <Button onClick={fetchBillingData}>
+          Retry Loading Billing Information
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Current Plan Section */}
@@ -122,64 +232,35 @@ export function BillingSettings() {
         <div className="flex justify-between items-start">
           <div>
             <h3 className="font-medium text-lg">Current Plan</h3>
-            {isLoading ? (
-              <div className="mt-1">
-                <Skeleton className="h-6 w-24" />
-              </div>
-            ) : subscription ? (
-              <div className="flex items-center mt-1">
-                <Badge variant="default">{subscription.name}</Badge>
-                <span className="text-sm text-muted-foreground ml-2">
-                  {subscription.price.toFixed(2)} / {subscription.interval}
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center mt-1">
-                <Badge>Free</Badge>
-                <span className="text-sm text-muted-foreground ml-2">1 video per day</span>
-              </div>
-            )}
+            {renderCurrentPlan()}
           </div>
           
-          <Button variant="default">
-            {subscription ? "Manage Subscription" : "Upgrade Plan"}
-          </Button>
+          {hasActiveSubscription ? (
+            <Button 
+              variant="default" 
+              onClick={handleManageSubscription}
+              disabled={isPortalLoading}
+            >
+              {isPortalLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                "Manage Subscription"
+              )}
+            </Button>
+          ) : (
+            <Button 
+              variant="default" 
+              onClick={() => window.location.href = "/dashboard/upgrade"}
+            >
+              Upgrade Plan
+            </Button>
+          )}
         </div>
         
-        {isLoading ? (
-          <div className="mt-4 space-y-2">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-3/4" />
-          </div>
-        ) : subscription ? (
-          <div className="mt-4 space-y-2">
-            <div className="flex items-center text-sm">
-              <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-              <span>
-                Your subscription renews {formatDistanceToNow(subscription.currentPeriodEnd, { addSuffix: true })}
-              </span>
-            </div>
-            <div className="flex items-center text-sm">
-              <Tag className="h-4 w-4 mr-2 text-muted-foreground" />
-              <span>
-                {subscription.status === "active" ? "Your subscription is active" : 
-                 subscription.status === "canceled" ? "Your subscription is canceled but still active until the end of the billing period" : 
-                 "Your subscription needs attention"}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-4 text-sm text-muted-foreground">
-            <p>Your free plan includes:</p>
-            <ul className="list-disc list-inside mt-2 space-y-1">
-              <li>1 video per day (30 per month)</li>
-              <li>720p video quality</li>
-              <li>30-second maximum duration</li>
-              <li>Basic templates</li>
-              <li>SmartVid watermark</li>
-            </ul>
-          </div>
-        )}
+        {renderSubscriptionDetails()}
       </div>
 
       {/* Payment Methods Section */}
@@ -217,12 +298,32 @@ export function BillingSettings() {
                     {method.isDefault && (
                       <Badge variant="outline" className="mr-2">Default</Badge>
                     )}
-                    <Button variant="outline" size="sm">Remove</Button>
-                    <Button variant="ghost" size="sm">Edit</Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isPortalLoading} 
+                      onClick={handleManageSubscription}
+                    >
+                      Manage
+                    </Button>
                   </div>
                 </div>
               ))}
-              <Button className="w-full" variant="outline">Add New Payment Method</Button>
+              <Button 
+                className="w-full" 
+                variant="outline" 
+                onClick={handleManageSubscription}
+                disabled={isPortalLoading}
+              >
+                {isPortalLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  "Manage Payment Methods"
+                )}
+              </Button>
             </div>
           ) : (
             <div>
@@ -234,7 +335,12 @@ export function BillingSettings() {
                     <p className="text-sm text-muted-foreground">Add a payment method to upgrade</p>
                   </div>
                 </div>
-                <Button variant="outline">Add Method</Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => window.location.href = "/dashboard/upgrade"}
+                >
+                  Add Method
+                </Button>
               </div>
             </div>
           )}
@@ -266,7 +372,7 @@ export function BillingSettings() {
                   <div className="flex justify-between items-center py-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="font-medium">${payment.amount.toFixed(2)}</p>
+                        <p className="font-medium">${(payment.amount / 100).toFixed(2)}</p>
                         {formatPaymentStatus(payment.status)}
                       </div>
                       <p className="text-sm text-muted-foreground">

@@ -45,7 +45,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList>
+        <TabsList className="mb-4">
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
@@ -53,8 +53,8 @@ export default function SettingsPage() {
           <TabsTrigger value="api">API</TabsTrigger>
         </TabsList>
         
-        <div className="mt-6">
-          <TabsContent value="account" className="space-y-6">
+        <div>
+          <TabsContent value="account">
             <Card>
               <CardHeader>
                 <CardTitle>Profile Information</CardTitle>
@@ -68,7 +68,7 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
           
-          <TabsContent value="security" className="space-y-6">
+          <TabsContent value="security">
             <Card>
               <CardHeader>
                 <CardTitle>Password Settings</CardTitle>
@@ -82,15 +82,15 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
           
-          <TabsContent value="billing" className="space-y-6">
+          <TabsContent value="billing">
             <BillingSettings />
           </TabsContent>
           
-          <TabsContent value="notifications" className="space-y-6">
+          <TabsContent value="notifications">
             <NotificationSettings />
           </TabsContent>
           
-          <TabsContent value="api" className="space-y-6">
+          <TabsContent value="api">
             <ApiSettings />
           </TabsContent>
         </div>
