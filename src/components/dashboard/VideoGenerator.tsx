@@ -12,13 +12,14 @@ import { validateVideoPrompt } from "@/lib/input-validator";
 import { useVideoLimits } from "@/hooks/useVideoLimits";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
+import { AlertCircle, Info } from "lucide-react";
 import { useSubscription } from "@/contexts/SubscriptionContext";
-import { AlertTriangle, Info } from "lucide-react";
 
 export function VideoGenerator() {
   const [prompt, setPrompt] = useState<string>('');
   const [style, setStyle] = useState<string>('modern');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showTips, setShowTips] = useState<boolean>(false);
   const { usageCount, canGenerateVideo, remainingVideos, incrementUsage, maxVideosPerMonth, refreshUsage } = useVideoLimits();
   const { session } = useAuth();
   const { hasActiveSubscription, isPro, isBusiness } = useSubscription();
@@ -74,8 +75,15 @@ export function VideoGenerator() {
       
       if (!incrementResult) {
         toast.error("Could not validate your video limits. Please try again.");
+        setIsLoading(false);
         return;
       }
+      
+      // Show longer processing toast
+      toast.loading("Generating video from your prompt...", {
+        duration: 10000,
+        id: "video-generation"
+      });
       
       const result = await videoService.generateVideo({
         prompt,
@@ -83,19 +91,34 @@ export function VideoGenerator() {
         userId: session?.user.id || '',
       });
       
+      // Dismiss loading toast
+      toast.dismiss("video-generation");
+      
       if (result.success && result.videoId) {
         toast.success("Your video is being generated! You'll be notified when it's ready.");
         navigate(`/dashboard/videos/${result.videoId}`);
       } else {
         toast.error(result.error || "Failed to start video generation. Please try again.");
+        // Show tips if there's an error
+        setShowTips(true);
       }
     } catch (error) {
       console.error("Error generating video:", error);
       toast.error("An unexpected error occurred. Please try again.");
+      // Show tips if there's an error
+      setShowTips(true);
     } finally {
       setIsLoading(false);
     }
   };
+  
+  const promptTips = [
+    "Be specific about what you want to see in the video",
+    "Include the purpose or message of your video",
+    "Mention visual elements or style preferences",
+    "Keep your prompt between 50-200 characters for best results",
+    "Try to avoid very abstract concepts or vague descriptions"
+  ];
 
   return (
     <div className="w-full max-w-4xl mx-auto">
@@ -115,7 +138,7 @@ export function VideoGenerator() {
           }`}>
             <div className="flex items-start gap-2">
               {!canGenerateVideo ? (
-                <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
               ) : remainingVideos <= 3 ? (
                 <Info className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
               ) : (
@@ -169,6 +192,19 @@ export function VideoGenerator() {
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   Be descriptive! Include the purpose, style, and any specific visuals you want.
                 </p>
+                
+                {showTips && (
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                    <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
+                      Tips for better video generation:
+                    </h4>
+                    <ul className="list-disc pl-5 text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                      {promptTips.map((tip, index) => (
+                        <li key={index}>{tip}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

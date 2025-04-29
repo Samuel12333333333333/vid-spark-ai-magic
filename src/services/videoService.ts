@@ -270,12 +270,81 @@ export const videoService = {
       
       console.log("Created video project with ID:", newProject.id);
       
+      // Generate scenes from the prompt using Gemini API
+      console.log("Generating scenes from prompt...");
+      const { data: scenesData, error: scenesError } = await supabase.functions.invoke("generate-scenes", {
+        body: { prompt: params.prompt }
+      });
+      
+      if (scenesError) {
+        console.error("Error generating scenes:", scenesError);
+        await this.updateProject(newProject.id, { 
+          status: 'failed',
+          error_message: scenesError.message || "Failed to generate scenes from prompt"
+        });
+        return { success: false, error: scenesError.message };
+      }
+      
+      if (!scenesData || !scenesData.scenes || scenesData.scenes.length === 0) {
+        console.error("No scenes generated from prompt");
+        await this.updateProject(newProject.id, { 
+          status: 'failed',
+          error_message: "Failed to generate scenes from prompt"
+        });
+        return { success: false, error: "Failed to generate scenes from prompt" };
+      }
+      
+      console.log(`Generated ${scenesData.scenes.length} scenes from prompt`);
+      
+      // Find video clips for each scene
+      const scenes = scenesData.scenes;
+      const processedScenes = [];
+      
+      for (const scene of scenes) {
+        console.log(`Finding video for scene: ${scene.scene}`);
+        const keywords = this.extractKeywords(scene.description);
+        
+        const { data: videoResults, error: videoError } = await supabase.functions.invoke("search-videos", {
+          body: { keywords }
+        });
+        
+        if (videoError || !videoResults || !videoResults.videos || videoResults.videos.length === 0) {
+          console.error(`Error finding videos for scene: ${scene.scene}`, videoError);
+          continue;
+        }
+        
+        const videoClip = videoResults.videos[0]; // Use the first matching video
+        
+        processedScenes.push({
+          ...scene,
+          videoUrl: videoClip.url,
+          duration: 5, // Default duration in seconds
+        });
+      }
+      
+      if (processedScenes.length === 0) {
+        console.error("Failed to find suitable videos for any scenes");
+        await this.updateProject(newProject.id, { 
+          status: 'failed',
+          error_message: "Failed to find suitable videos for scenes"
+        });
+        return { success: false, error: "Failed to find suitable videos for scenes" };
+      }
+      
+      console.log(`Processed ${processedScenes.length} scenes with videos`);
+      
+      // Update project with scenes
+      await this.updateProject(newProject.id, {
+        scenes: processedScenes
+      });
+      
       // Send request to edge function to start video generation process
       const { data, error } = await supabase.functions.invoke("render-video", {
         body: { 
           projectId: newProject.id,
           prompt: params.prompt,
-          style: params.style 
+          style: params.style,
+          scenes: processedScenes
         }
       });
       
@@ -320,5 +389,24 @@ export const videoService = {
         error: error.message || "An unexpected error occurred" 
       };
     }
+  },
+  
+  extractKeywords(description: string): string[] {
+    if (!description) return ["video"];
+    
+    // Extract important nouns and adjectives from the description
+    const words = description.split(/\s+/);
+    const stopWords = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'of', 'is', 'are', 'was', 'were']);
+    
+    const keywords = words
+      .filter(word => word.length > 3 && !stopWords.has(word.toLowerCase()))
+      .map(word => word.replace(/[.,;:!?]/, ''))
+      .slice(0, 3); // Take up to 3 keywords
+      
+    if (keywords.length === 0) {
+      return ["video"]; // Fallback
+    }
+    
+    return keywords;
   }
 };

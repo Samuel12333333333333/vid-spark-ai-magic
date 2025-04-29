@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 
@@ -80,16 +81,34 @@ serve(async (req) => {
     // Validate required fields
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
       console.error("No valid scenes provided");
+      
+      // If projectId is provided, update the project with error
+      if (projectId) {
+        try {
+          await supabase
+            .from("video_projects")
+            .update({
+              status: "failed",
+              error_message: "No valid scenes provided. Please try again with a more descriptive prompt."
+            })
+            .eq("id", projectId);
+            
+          console.log(`Updated project ${projectId} with failed status due to missing scenes`);
+        } catch (updateError) {
+          console.error("Failed to update project with error:", updateError);
+        }
+      }
+      
       return new Response(
         JSON.stringify({ error: "Scenes array is required" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
 
-    if (!userId || !projectId) {
-      console.error("Missing user or project ID");
+    if (!projectId) {
+      console.error("Missing project ID");
       return new Response(
-        JSON.stringify({ error: "User ID and Project ID are required" }),
+        JSON.stringify({ error: "Project ID is required" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
@@ -110,6 +129,22 @@ serve(async (req) => {
     const invalidScenes = scenes.filter(scene => !scene.videoUrl);
     if (invalidScenes.length > 0) {
       console.error(`Found ${invalidScenes.length} scenes missing video URLs`);
+      
+      // Update project with error
+      try {
+        await supabase
+          .from("video_projects")
+          .update({
+            status: "failed",
+            error_message: `Some scenes are missing video URLs (${invalidScenes.length} out of ${scenes.length} scenes)`
+          })
+          .eq("id", actualProjectId);
+          
+        console.log(`Updated project ${actualProjectId} with failed status due to missing video URLs`);
+      } catch (updateError) {
+        console.error("Failed to update project with error:", updateError);
+      }
+      
       return new Response(
         JSON.stringify({ 
           error: "Some scenes are missing video URLs",
