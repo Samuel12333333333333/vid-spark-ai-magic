@@ -67,12 +67,12 @@ serve(async (req) => {
     let customerId;
     if (!subscription?.stripe_customer_id) {
       // Try to find customer directly in Stripe
-      const { data: customers } = await stripe.customers.list({
+      const customers = await stripe.customers.list({
         email: user.email,
         limit: 1,
       });
 
-      if (!customers || customers.length === 0) {
+      if (!customers || customers.data.length === 0) {
         // No customer means no payment history
         return new Response(JSON.stringify({ paymentHistory: [] }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -80,50 +80,55 @@ serve(async (req) => {
         });
       }
       
-      customerId = customers[0].id;
+      customerId = customers.data[0].id;
     } else {
       customerId = subscription.stripe_customer_id;
     }
 
     console.log("Found customer ID:", customerId);
     
-    // Get all payment intents for the customer
-    const paymentIntents = await stripe.paymentIntents.list({
-      customer: customerId,
-      limit: 25,
-    });
+    try {
+      // Get all payment intents for the customer
+      const paymentIntents = await stripe.paymentIntents.list({
+        customer: customerId,
+        limit: 25,
+      });
 
-    // Get all invoice payments for subscription charges
-    const invoices = await stripe.invoices.list({
-      customer: customerId,
-      limit: 25,
-      status: 'paid',
-    });
+      // Get all invoice payments for subscription charges
+      const invoices = await stripe.invoices.list({
+        customer: customerId,
+        limit: 25,
+        status: 'paid',
+      });
 
-    // Format payment intents
-    const paymentHistory = [
-      ...paymentIntents.data.map(pi => ({
-        id: pi.id,
-        amount: pi.amount,
-        status: pi.status,
-        created: pi.created,
-        receiptUrl: pi.charges.data[0]?.receipt_url,
-      })),
-      ...invoices.data.map(invoice => ({
-        id: invoice.id,
-        amount: invoice.amount_paid,
-        status: invoice.status === 'paid' ? 'succeeded' : invoice.status,
-        created: invoice.created,
-        receiptUrl: invoice.hosted_invoice_url,
-      }))
-    ].sort((a, b) => b.created - a.created);
+      // Format payment intents - with safety checks
+      const paymentHistory = [
+        ...paymentIntents.data.map(pi => ({
+          id: pi.id,
+          amount: pi.amount,
+          status: pi.status,
+          created: pi.created,
+          receiptUrl: pi.charges?.data?.[0]?.receipt_url || null,
+        })),
+        ...invoices.data.map(invoice => ({
+          id: invoice.id,
+          amount: invoice.amount_paid,
+          status: invoice.status === 'paid' ? 'succeeded' : invoice.status,
+          created: invoice.created,
+          receiptUrl: invoice.hosted_invoice_url || null,
+        }))
+      ].sort((a, b) => b.created - a.created);
 
-    console.log("Retrieved payment history:", paymentHistory.length);
-    
-    return new Response(JSON.stringify({ paymentHistory }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+      console.log("Retrieved payment history:", paymentHistory.length);
+      
+      return new Response(JSON.stringify({ paymentHistory }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    } catch (stripeError) {
+      console.error("Error fetching from Stripe:", stripeError);
+      throw new Error(`Stripe API error: ${stripeError.message}`);
+    }
   } catch (error) {
     console.error("Error fetching payment history:", error);
     return new Response(JSON.stringify({ error: error.message }), {

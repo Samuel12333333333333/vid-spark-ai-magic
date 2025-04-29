@@ -27,7 +27,7 @@ interface PaymentHistory {
   amount: number;
   status: "succeeded" | "processing" | "failed";
   date: Date;
-  receiptUrl?: string;
+  receiptUrl?: string | null;
 }
 
 export function BillingSettings() {
@@ -50,31 +50,42 @@ export function BillingSettings() {
       // Refresh subscription data first
       await refreshSubscription();
       
-      // Fetch payment methods from the edge function
-      const { data: methodsData, error: methodsError } = await supabase.functions.invoke("get-payment-methods");
-      
-      if (methodsError) {
-        console.error("Error fetching payment methods:", methodsError);
-        setError("Could not fetch payment information");
-      } else if (methodsData?.paymentMethods) {
-        setPaymentMethods(methodsData.paymentMethods);
+      try {
+        // Fetch payment methods from the edge function
+        const { data: methodsData, error: methodsError } = await supabase.functions.invoke("get-payment-methods");
+        
+        if (methodsError) {
+          console.error("Error fetching payment methods:", methodsError);
+          setError("Could not fetch payment information");
+        } else if (methodsData?.paymentMethods) {
+          setPaymentMethods(methodsData.paymentMethods);
+        }
+      } catch (methodsError) {
+        console.error("Exception fetching payment methods:", methodsError);
       }
       
-      // Fetch payment history
-      const { data: historyData, error: historyError } = await supabase.functions.invoke("get-payment-history");
-      
-      if (historyError) {
-        console.error("Error fetching payment history:", historyError);
-        if (!methodsError) {
+      try {
+        // Fetch payment history
+        const { data: historyData, error: historyError } = await supabase.functions.invoke("get-payment-history");
+        
+        if (historyError) {
+          console.error("Error fetching payment history:", historyError);
+          if (!error) { // Only set error if no previous error
+            setError("Could not fetch payment history");
+          }
+        } else if (historyData?.paymentHistory) {
+          // Format dates from timestamps
+          const formattedHistory = historyData.paymentHistory.map(payment => ({
+            ...payment,
+            date: new Date(payment.created * 1000)
+          }));
+          setPaymentHistory(formattedHistory);
+        }
+      } catch (historyError) {
+        console.error("Exception fetching payment history:", historyError);
+        if (!error) { // Only set error if no previous error
           setError("Could not fetch payment history");
         }
-      } else if (historyData?.paymentHistory) {
-        // Format dates from timestamps
-        const formattedHistory = historyData.paymentHistory.map(payment => ({
-          ...payment,
-          date: new Date(payment.created * 1000)
-        }));
-        setPaymentHistory(formattedHistory);
       }
     } catch (err) {
       console.error("Error fetching billing data:", err);
