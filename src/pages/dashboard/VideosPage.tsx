@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import { RecentProjects } from "@/components/dashboard/RecentProjects";
 import { VideoProject, videoService } from "@/services/videoService";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function VideosPage() {
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -17,22 +18,34 @@ export default function VideosPage() {
   const [videos, setVideos] = useState<VideoProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
+  const { session } = useAuth();
+
+  const fetchVideos = async () => {
+    try {
+      setIsLoading(true);
+      const allVideos = await videoService.getProjects();
+      setVideos(allVideos);
+    } catch (error) {
+      console.error("Error fetching videos:", error);
+      toast.error("Failed to load videos");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchVideos = async () => {
-      try {
-        setIsLoading(true);
-        const allVideos = await videoService.getProjects();
-        setVideos(allVideos);
-      } catch (error) {
-        console.error("Error fetching videos:", error);
-        toast.error("Failed to load videos");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchVideos();
+    
+    // Poll for updates if there are any processing videos
+    const hasProcessingVideos = videos.some(v => v.status === 'processing');
+    
+    if (hasProcessingVideos) {
+      const interval = setInterval(() => {
+        fetchVideos();
+      }, 15000); // Check every 15 seconds
+      
+      return () => clearInterval(interval);
+    }
   }, []);
 
   // Filter videos based on status and search term
@@ -107,6 +120,7 @@ export default function VideosPage() {
               size="icon"
               className={view === "grid" ? "bg-muted" : ""}
               onClick={() => setView("grid")}
+              aria-label="Grid view"
             >
               <Grid2X2 className="h-4 w-4" />
             </Button>
@@ -115,6 +129,7 @@ export default function VideosPage() {
               size="icon"
               className={view === "list" ? "bg-muted" : ""}
               onClick={() => setView("list")}
+              aria-label="List view"
             >
               <Rows3 className="h-4 w-4" />
             </Button>
@@ -182,6 +197,14 @@ export default function VideosPage() {
           </div>
         </TabsContent>
       </Tabs>
+      
+      <Button 
+        variant="outline" 
+        onClick={fetchVideos} 
+        className="mx-auto flex items-center gap-2"
+      >
+        <Loader2 className="h-4 w-4" /> Refresh Videos
+      </Button>
     </div>
   );
 }

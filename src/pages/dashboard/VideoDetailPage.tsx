@@ -32,6 +32,8 @@ export default function VideoDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [title, setTitle] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
 
   // Fetch the video project
   useEffect(() => {
@@ -56,7 +58,19 @@ export default function VideoDetailPage() {
     };
 
     fetchProject();
-  }, [id, navigate]);
+
+    // Periodically refresh if video is processing
+    let interval: number | null = null;
+    if (project && project.status === "processing") {
+      interval = window.setInterval(() => {
+        fetchProject();
+      }, 10000); // Check every 10 seconds
+    }
+
+    return () => {
+      if (interval) window.clearInterval(interval);
+    };
+  }, [id, navigate, project?.status]);
 
   // Handle editing the project title
   const handleSaveTitle = async () => {
@@ -91,11 +105,69 @@ export default function VideoDetailPage() {
 
   // Handle copying the video link
   const copyVideoLink = () => {
-    if (!project?.video_url) return;
+    if (!project?.video_url) {
+      toast.error("No video URL available to copy");
+      return;
+    }
     
     navigator.clipboard.writeText(project.video_url)
       .then(() => toast.success("Video link copied to clipboard"))
       .catch(() => toast.error("Failed to copy link"));
+  };
+
+  // Handle sharing the video
+  const handleShare = async () => {
+    if (!project?.video_url) {
+      toast.error("No video URL available to share");
+      return;
+    }
+    
+    setShareLoading(true);
+    try {
+      // Use Web Share API if available
+      if (navigator.share) {
+        await navigator.share({
+          title: project.title,
+          text: `Check out this video: ${project.title}`,
+          url: project.video_url
+        });
+        toast.success("Shared successfully");
+      } else {
+        // Fallback to copying the link
+        await navigator.clipboard.writeText(project.video_url);
+        toast.success("Link copied to clipboard for sharing");
+      }
+    } catch (error) {
+      console.error("Error sharing:", error);
+      toast.error("Failed to share video");
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  // Handle downloading the video
+  const handleDownload = async () => {
+    if (!project?.video_url) {
+      toast.error("No video available to download");
+      return;
+    }
+    
+    setDownloadLoading(true);
+    try {
+      // Create a temporary anchor element to trigger download
+      const a = document.createElement("a");
+      a.href = project.video_url;
+      a.download = `${project.title.replace(/\s+/g, '_')}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast.success("Download started");
+    } catch (error) {
+      console.error("Error downloading video:", error);
+      toast.error("Failed to download video");
+    } finally {
+      setDownloadLoading(false);
+    }
   };
 
   // Handle deleting the project
@@ -156,13 +228,13 @@ export default function VideoDetailPage() {
                 <Copy className="mr-2 h-4 w-4" />
                 Copy Link
               </Button>
-              <Button variant="outline">
+              <Button variant="outline" onClick={handleShare} disabled={shareLoading}>
                 <Share2 className="mr-2 h-4 w-4" />
-                Share
+                {shareLoading ? "Sharing..." : "Share"}
               </Button>
-              <Button variant="outline">
+              <Button variant="outline" onClick={handleDownload} disabled={downloadLoading}>
                 <Download className="mr-2 h-4 w-4" />
-                Download
+                {downloadLoading ? "Starting..." : "Download"}
               </Button>
             </>
           )}
@@ -198,6 +270,11 @@ export default function VideoDetailPage() {
                   <div className="flex flex-col items-center gap-2">
                     <AlertCircle className="h-12 w-12 text-red-500" />
                     <p className="text-white text-center">Video generation failed</p>
+                    {project.error_message && (
+                      <p className="text-white text-sm opacity-75 max-w-md text-center">
+                        Error: {project.error_message}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <img 
@@ -290,7 +367,7 @@ export default function VideoDetailPage() {
                 </div>
               )}
               
-              {project.has_audio && (
+              {project.has_audio !== undefined && (
                 <div>
                   <h3 className="text-sm font-medium mb-1">Audio</h3>
                   <p className="text-sm text-muted-foreground">
@@ -299,7 +376,7 @@ export default function VideoDetailPage() {
                 </div>
               )}
               
-              {project.has_captions && (
+              {project.has_captions !== undefined && (
                 <div>
                   <h3 className="text-sm font-medium mb-1">Captions</h3>
                   <p className="text-sm text-muted-foreground">

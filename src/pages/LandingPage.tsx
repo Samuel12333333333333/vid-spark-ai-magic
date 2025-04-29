@@ -11,10 +11,12 @@ import { CTASection } from "@/components/landing/CTASection";
 import { Footer } from "@/components/landing/Footer";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { session } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -24,6 +26,11 @@ export default function LandingPage() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Determine where navigation buttons should lead based on authentication status
+  const getNavigationDestination = () => {
+    return session ? "/dashboard" : "/login";
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-tl from-[#fdfbfb] via-[#ebedee] to-[#dfe9f3] dark:from-gray-900 dark:via-gray-950 dark:to-black">
@@ -62,12 +69,20 @@ export default function LandingPage() {
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <div className="hidden md:flex gap-3">
-              <Button variant="ghost" asChild className="text-sm font-medium transition-colors duration-300">
-                <Link to="/login">Sign In</Link>
-              </Button>
-              <Button className="bg-primary hover:bg-primary/90 transition-all duration-300 hover:scale-105" asChild>
-                <Link to="/register">Sign Up</Link>
-              </Button>
+              {session ? (
+                <Button className="bg-primary hover:bg-primary/90 transition-all duration-300 hover:scale-105" asChild>
+                  <Link to="/dashboard">Go to Dashboard</Link>
+                </Button>
+              ) : (
+                <>
+                  <Button variant="ghost" asChild className="text-sm font-medium transition-colors duration-300">
+                    <Link to="/login">Sign In</Link>
+                  </Button>
+                  <Button className="bg-primary hover:bg-primary/90 transition-all duration-300 hover:scale-105" asChild>
+                    <Link to="/register">Sign Up</Link>
+                  </Button>
+                </>
+              )}
             </div>
             <Button
               className="md:hidden"
@@ -114,12 +129,20 @@ export default function LandingPage() {
           >
             <nav className="flex flex-col space-y-4 p-4">
               <div className="flex flex-col gap-2 pt-2">
-                <Button variant="outline" asChild className="w-full">
-                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Sign In</Link>
-                </Button>
-                <Button className="bg-primary hover:bg-primary/90 w-full" asChild>
-                  <Link to="/register" onClick={() => setMobileMenuOpen(false)}>Sign Up</Link>
-                </Button>
+                {session ? (
+                  <Button className="w-full" asChild>
+                    <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)}>Go to Dashboard</Link>
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="outline" asChild className="w-full">
+                      <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Sign In</Link>
+                    </Button>
+                    <Button className="bg-primary hover:bg-primary/90 w-full" asChild>
+                      <Link to="/register" onClick={() => setMobileMenuOpen(false)}>Sign Up</Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </nav>
           </motion.div>

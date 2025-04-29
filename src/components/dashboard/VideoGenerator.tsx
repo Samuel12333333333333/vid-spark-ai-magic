@@ -1,5 +1,6 @@
 
 import { useState, useCallback, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +23,18 @@ export function VideoGenerator() {
   const { session } = useAuth();
   const { hasActiveSubscription, isPro, isBusiness } = useSubscription();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Handle prefilling from a failed project
+  useEffect(() => {
+    const state = location.state as { projectToRetry?: any };
+    if (state?.projectToRetry) {
+      setPrompt(state.projectToRetry.prompt || '');
+      setStyle(state.projectToRetry.style || 'modern');
+      // Clear location state to prevent persistent prefill
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
   
   // Refresh limits when component mounts
   useEffect(() => {
@@ -30,6 +43,12 @@ export function VideoGenerator() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!session?.user) {
+      toast.error("You must be logged in to create videos");
+      navigate('/login');
+      return;
+    }
     
     const validation = validateVideoPrompt(prompt);
     if (!validation.isValid) {
@@ -178,14 +197,16 @@ export function VideoGenerator() {
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={isLoading || !canGenerateVideo}
+            disabled={isLoading || !canGenerateVideo || !session}
             className={!canGenerateVideo ? "bg-gray-300 hover:bg-gray-300 text-gray-600 cursor-not-allowed dark:bg-gray-700 dark:hover:bg-gray-700" : ""}
           >
             {isLoading ? 
               "Creating..." : 
-              canGenerateVideo ? 
-                "Create Video" : 
-                "Upgrade to create more videos"}
+              !session ? 
+                "Sign in to create" :
+                canGenerateVideo ? 
+                  "Create Video" : 
+                  "Upgrade to create more videos"}
           </Button>
         </CardFooter>
       </Card>

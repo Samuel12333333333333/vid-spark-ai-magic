@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { mediaService } from "./mediaService";
 import { renderNotifications } from "./video/renderNotifications";
@@ -254,7 +255,7 @@ export const videoService = {
       console.log("Starting video generation with params:", params);
       
       // Create a new video project in the database
-      const newProject = await videoService.createProject({
+      const newProject = await this.createProject({
         title: params.prompt.substring(0, 50) + (params.prompt.length > 50 ? '...' : ''),
         prompt: params.prompt,
         status: 'pending',
@@ -280,7 +281,7 @@ export const videoService = {
       
       if (error) {
         console.error("Error invoking render-video function:", error);
-        await videoService.updateProject(newProject.id, { 
+        await this.updateProject(newProject.id, { 
           status: 'failed',
           error_message: error.message || "Failed to start video generation process"
         });
@@ -291,7 +292,7 @@ export const videoService = {
       
       // Update the project with render ID if available
       if (data?.renderId) {
-        await videoService.updateProject(newProject.id, { 
+        await this.updateProject(newProject.id, { 
           render_id: data.renderId,
           status: 'processing'
         });
