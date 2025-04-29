@@ -1,14 +1,14 @@
 
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { VideoCamera, FileText, Layout } from "lucide-react";
+import { Video, FileText, Layout } from "lucide-react";
 
 export function QuickActions() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div className="border rounded-lg p-6 hover:border-smartvid-600 transition-colors hover:shadow-md">
         <div className="flex items-center gap-2 mb-2">
-          <VideoCamera className="h-5 w-5 text-smartvid-600" />
+          <Video className="h-5 w-5 text-smartvid-600" />
           <h3 className="font-semibold">Generate from Text</h3>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
