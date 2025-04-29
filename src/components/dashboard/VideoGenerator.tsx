@@ -1,25 +1,32 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { generateVideo } from "@/services/videoService";
+import { videoService } from "@/services/videoService";
 import { validateVideoPrompt } from "@/lib/input-validator";
 import { useVideoLimits } from "@/hooks/useVideoLimits";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
+import { useSubscription } from "@/contexts/SubscriptionContext";
+import { AlertTriangle, Info } from "lucide-react";
 
 export function VideoGenerator() {
   const [prompt, setPrompt] = useState<string>('');
   const [style, setStyle] = useState<string>('modern');
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const { usageCount, canGenerateVideo, remainingVideos, incrementUsage, maxVideosPerMonth } = useVideoLimits();
+  const { usageCount, canGenerateVideo, remainingVideos, incrementUsage, maxVideosPerMonth, refreshUsage } = useVideoLimits();
   const { session } = useAuth();
+  const { hasActiveSubscription, isPro, isBusiness } = useSubscription();
   const navigate = useNavigate();
+  
+  // Refresh limits when component mounts
+  useEffect(() => {
+    refreshUsage();
+  }, [refreshUsage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +38,11 @@ export function VideoGenerator() {
     }
     
     if (!canGenerateVideo) {
-      toast.error(`You've reached your limit of ${maxVideosPerMonth} videos. Please upgrade your plan to create more videos.`);
+      if (hasActiveSubscription) {
+        toast.error(`You've reached your limit of ${maxVideosPerMonth} videos for this billing period.`);
+      } else {
+        toast.error(`You've reached your limit of ${maxVideosPerMonth} total videos on the free tier.`);
+      }
       navigate('/dashboard/upgrade');
       return;
     }
@@ -47,7 +58,7 @@ export function VideoGenerator() {
         return;
       }
       
-      const result = await generateVideo({
+      const result = await videoService.generateVideo({
         prompt,
         style,
         userId: session?.user.id || '',
@@ -76,16 +87,49 @@ export function VideoGenerator() {
             Turn your text into a professional video with AI
           </CardDescription>
           
-          <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-950 rounded-md border border-amber-200 dark:border-amber-800">
-            <p className="text-sm text-amber-800 dark:text-amber-300">
-              <span className="font-semibold">Your usage: </span> 
-              {usageCount} / {maxVideosPerMonth} videos {remainingVideos > 0 ? `(${remainingVideos} remaining)` : ''}
-              {remainingVideos <= 2 && (
-                <span className="block mt-1">
-                  Consider <Link to="/dashboard/upgrade" className="font-medium underline">upgrading your plan</Link> for more videos.
-                </span>
+          <div className={`mt-2 p-3 rounded-md border ${
+            !canGenerateVideo 
+              ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" 
+              : remainingVideos <= 3
+              ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+              : "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
+          }`}>
+            <div className="flex items-start gap-2">
+              {!canGenerateVideo ? (
+                <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+              ) : remainingVideos <= 3 ? (
+                <Info className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              ) : (
+                <Info className="h-5 w-5 text-emerald-500 flex-shrink-0 mt-0.5" />
               )}
-            </p>
+              
+              <div>
+                <p className={`text-sm ${
+                  !canGenerateVideo 
+                    ? "text-red-800 dark:text-red-300" 
+                    : remainingVideos <= 3
+                    ? "text-amber-800 dark:text-amber-300"
+                    : "text-emerald-800 dark:text-emerald-300"
+                }`}>
+                  <span className="font-semibold">Your usage: </span> 
+                  {usageCount} / {maxVideosPerMonth} videos {remainingVideos > 0 ? `(${remainingVideos} remaining)` : ''}
+                </p>
+                
+                {!hasActiveSubscription && (
+                  <p className="text-sm mt-1 text-amber-800 dark:text-amber-300">
+                    Free tier limits you to {maxVideosPerMonth} videos total.{" "}
+                    <Link to="/dashboard/upgrade" className="font-medium underline">Upgrade your plan</Link> for more videos.
+                  </p>
+                )}
+                
+                {hasActiveSubscription && remainingVideos <= 3 && (
+                  <p className="text-sm mt-1 text-amber-800 dark:text-amber-300">
+                    Your {isPro ? "Pro" : isBusiness ? "Business" : ""} plan renews on{" "}
+                    {new Date().toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -135,6 +179,7 @@ export function VideoGenerator() {
           <Button 
             onClick={handleSubmit} 
             disabled={isLoading || !canGenerateVideo}
+            className={!canGenerateVideo ? "bg-gray-300 hover:bg-gray-300 text-gray-600 cursor-not-allowed dark:bg-gray-700 dark:hover:bg-gray-700" : ""}
           >
             {isLoading ? 
               "Creating..." : 

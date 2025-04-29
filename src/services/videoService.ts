@@ -85,6 +85,17 @@ export async function generateVideo(params: VideoGenerationParams): Promise<Vide
         render_id: data.renderId,
         status: 'processing'
       });
+      
+      // Send notification to user that video generation has started
+      try {
+        await renderNotifications.createRenderStartNotification(
+          params.userId,
+          newProject.title,
+          newProject.id
+        );
+      } catch (notifError) {
+        console.error("Error creating start notification:", notifError);
+      }
     }
     
     return { 
@@ -311,4 +322,3 @@ export const videoService = {
     }
   }
 };
-

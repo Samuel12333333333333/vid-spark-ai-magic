@@ -57,47 +57,61 @@ serve(async (req) => {
     const userId = user.id;
     console.log(`Incrementing video usage for user: ${userId}`);
     
-    // Check if user has an active subscription
-    const { data: subscriptionData } = await supabase
+    // First, check subscription status to determine limits
+    const { data: subscriptionData, error: subError } = await supabase
       .from('subscriptions')
-      .select('plan_name, status')
+      .select('plan_name, status, current_period_end')
       .eq('user_id', userId)
       .eq('status', 'active')
       .single();
-      
-    // Set limits based on subscription tier
+    
+    // Set default limits
     let isSubscribed = false;
-    let videoLimit = 2; // Free tier default
+    let videoLimit = 2; // Free tier default (lifetime)
+    let resetDate = null;
     
     if (subscriptionData) {
       isSubscribed = true;
       const planName = subscriptionData.plan_name.toLowerCase();
+      
+      // Apply correct plan limits
       if (planName === 'pro') {
-        videoLimit = 20;
+        videoLimit = 20; // 20 videos per month for Pro
       } else if (planName === 'business') {
-        videoLimit = 50;
+        videoLimit = 50; // 50 videos per month for Business
+      }
+      
+      // Use subscription end date as reset date
+      if (subscriptionData.current_period_end) {
+        resetDate = new Date(subscriptionData.current_period_end).toISOString();
+      } else {
+        // Fallback to next month if no specific end date
+        const nextMonth = new Date();
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        resetDate = nextMonth.toISOString();
       }
     }
     
-    // Set up query parameters based on subscription status
+    // Time period calculations
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const firstDayOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
     
-    let videoQuery = supabase
+    // Query to count existing videos
+    let query = supabase
       .from('video_projects')
       .select('id')
       .eq('user_id', userId);
       
-    // For subscribers, only count videos from this month
-    // For free users, count all videos
+    // For subscribers, only count videos from current billing period
+    // For free users, count all videos (lifetime limit)
     if (isSubscribed) {
-      videoQuery = videoQuery
+      query = query
         .gte('created_at', firstDayOfMonth.toISOString())
         .lt('created_at', firstDayOfNextMonth.toISOString());
     }
     
-    const { data: existingVideos, error: countError } = await videoQuery;
+    const { data: existingVideos, error: countError } = await query;
     
     if (countError) {
       console.error("Error checking video count:", countError);
@@ -112,22 +126,23 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: "Video limit reached", 
-          details: "You have reached your video limit for your current plan",
+          details: `You have reached your limit of ${videoLimit} videos${isSubscribed ? " for this billing cycle" : ""}`,
           count: existingVideos.length,
           limit: videoLimit,
-          reset_at: isSubscribed ? firstDayOfNextMonth.toISOString() : null
+          reset_at: resetDate
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
       );
     }
     
-    // Return updated usage data - The insertion of the actual video will happen elsewhere
+    // Increment is possible - return updated count
     return new Response(
       JSON.stringify({ 
         count: existingVideos.length + 1, // +1 since we're about to create a new video
-        reset_at: isSubscribed ? firstDayOfNextMonth.toISOString() : null,
+        reset_at: resetDate,
         limit: videoLimit,
-        is_subscribed: isSubscribed
+        is_subscribed: isSubscribed,
+        remaining: videoLimit - (existingVideos.length + 1)
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    // Get Supabase client with service key
+    // Get Supabase client with service key for admin operations
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
@@ -58,38 +58,58 @@ serve(async (req) => {
     console.log(`Getting video usage for user: ${userId}`);
     
     // Check if user has a subscription
-    const { data: subscriptionData } = await supabase
+    const { data: subscriptionData, error: subError } = await supabase
       .from('subscriptions')
-      .select('plan_name, status')
+      .select('plan_name, status, current_period_end')
       .eq('user_id', userId)
       .eq('status', 'active')
       .single();
+      
+    if (subError) {
+      console.log("No active subscription found:", subError.message);
+    }
       
     // Calculate video limits based on subscription plan
     let isSubscribed = false;
     let isPro = false;
     let isBusiness = false;
+    let videoLimit = 2; // Default for free tier (total videos)
+    let resetDate = null;
     
     if (subscriptionData) {
       isSubscribed = true;
-      isPro = subscriptionData.plan_name.toLowerCase() === 'pro';
-      isBusiness = subscriptionData.plan_name.toLowerCase() === 'business';
+      const planName = subscriptionData.plan_name.toLowerCase();
+      
+      // Apply the exact limits based on the plan
+      if (planName === 'pro') {
+        isPro = true;
+        videoLimit = 20; // 20 videos per month for Pro
+      } else if (planName === 'business') {
+        isBusiness = true;
+        videoLimit = 50; // 50 videos per month for Business
+      }
+      
+      // Use the current_period_end from the subscription as the reset date
+      if (subscriptionData.current_period_end) {
+        resetDate = new Date(subscriptionData.current_period_end).toISOString();
+      }
     }
     
-    // Get first day of current month for monthly subscriptions
+    // For calculating time periods
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const firstDayOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
     
-    // Query to count videos created this month (for subscribers) or total (for free tier)
+    // Query to count videos created
+    // - For subscribed users: count videos from the current billing period
+    // - For free users: count ALL videos ever created (lifetime limit)
     let query = supabase
       .from('video_projects')
       .select('id')
       .eq('user_id', userId);
       
-    // For subscribers, only count videos created in the current billing period
-    // For free users, count all videos ever created
     if (isSubscribed) {
+      // For subscribers, only count videos in the current billing period
       query = query
         .gte('created_at', firstDayOfMonth.toISOString())
         .lt('created_at', firstDayOfNextMonth.toISOString());
@@ -105,15 +125,18 @@ serve(async (req) => {
       );
     }
     
-    // For subscribed users, reset date is next month
-    // For free users, there's no reset since it's a total limit
-    const resetAt = isSubscribed ? firstDayOfNextMonth.toISOString() : null;
+    console.log(`User has created ${videoData.length} videos out of ${videoLimit} limit`);
+    
+    // For subscribed users, reset date is next billing cycle date
+    // For free users, there's no reset (it's a lifetime limit)
+    const effectiveResetDate = resetDate || (isSubscribed ? firstDayOfNextMonth.toISOString() : null);
     
     // Return usage data
     return new Response(
       JSON.stringify({ 
         count: videoData.length,
-        reset_at: resetAt,
+        limit: videoLimit,
+        reset_at: effectiveResetDate,
         is_subscribed: isSubscribed,
         is_pro: isPro,
         is_business: isBusiness

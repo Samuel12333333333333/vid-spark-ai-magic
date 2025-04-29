@@ -6,7 +6,12 @@ import { useSubscription } from "@/contexts/SubscriptionContext";
 
 interface VideoUsageResponse {
   count: number;
+  limit: number;
   reset_at: string;
+  is_subscribed: boolean;
+  is_pro: boolean;
+  is_business: boolean;
+  remaining?: number;
 }
 
 const getDefaultResetDate = () =>
@@ -68,17 +73,24 @@ export function useVideoLimits() {
     } finally {
       setIsLoading(false);
     }
-  }, [isPro, isBusiness, hasActiveSubscription]);
+  }, []);
 
   useEffect(() => {
     checkUsage();
+    
+    // Set up automatic refresh interval (every 5 minutes)
+    const interval = setInterval(() => {
+      checkUsage();
+    }, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
   }, [checkUsage]);
 
   const incrementUsage = useCallback(async (): Promise<boolean> => {
     if (!canGenerateVideo) {
       if (hasActiveSubscription) {
         toast.error(
-          `You've reached your limit of ${maxVideosPerMonth} videos this month. Your limit will reset on ${resetDate?.toLocaleDateString()}.`
+          `You've reached your limit of ${maxVideosPerMonth} videos this billing period. Your limit will reset on ${resetDate?.toLocaleDateString()}.`
         );
       } else {
         toast.error(
@@ -102,6 +114,13 @@ export function useVideoLimits() {
         setResetDate(
           data.reset_at ? new Date(data.reset_at) : getDefaultResetDate()
         );
+        
+        // If close to limit, show warning
+        if (data.remaining !== undefined && data.remaining <= 2 && data.remaining > 0) {
+          toast.warning(
+            `You have ${data.remaining} video${data.remaining === 1 ? '' : 's'} remaining in your ${hasActiveSubscription ? 'current billing period' : 'free tier'}.`
+          );
+        }
       } else {
         setUsageCount((prev) => prev + 1);
       }

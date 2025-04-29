@@ -3,15 +3,34 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@12.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
-const createNotification = async (supabaseAdmin, userId, title, message, type = 'payment') => {
+const createNotification = async (supabaseAdmin, userId, title, message, type = 'payment', metadata = {}) => {
   try {
-    // Simple notification without complex metadata for maximum reliability
+    // Add a deduplication key based on event type and timestamp to avoid duplicates
+    const deduplicationKey = `${type}_${new Date().toISOString().split('T')[0]}_${metadata.event || ''}`;
+    
+    // Check if a similar notification was sent recently (within last hour)
+    const { data: existingNotifications } = await supabaseAdmin
+      .from('notifications')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('title', title)
+      .eq('type', type)
+      .gte('created_at', new Date(Date.now() - 3600000).toISOString()) // Last hour
+      .limit(1);
+      
+    if (existingNotifications && existingNotifications.length > 0) {
+      console.log("Similar notification found recently, skipping to avoid duplicates");
+      return;
+    }
+    
+    // Include metadata with deduplication key for better tracking
     const notification = {
       user_id: userId,
       title,
       message,
       type,
       is_read: false,
+      metadata: { ...metadata, deduplication_key: deduplicationKey }
     };
     
     const { error } = await supabaseAdmin
@@ -119,7 +138,8 @@ serve(async (req) => {
                 session.metadata.userId,
                 "Subscription Renewed",
                 `Your ${subscriptionData.plan_name} plan subscription has been renewed successfully.`,
-                'payment'
+                'payment',
+                { event: 'renewal', plan: subscriptionData.plan_name }
               );
             }
           } else {
@@ -139,8 +159,16 @@ serve(async (req) => {
                 session.metadata.userId,
                 "Subscription Activated",
                 `Your ${subscriptionData.plan_name} plan subscription has been activated successfully.`,
-                'payment'
+                'payment',
+                { event: 'new_subscription', plan: subscriptionData.plan_name }
               );
+              
+              // Reset video usage for this user when they subscribe
+              await supabaseAdmin.rpc('reset_video_usage', { 
+                user_id_param: session.metadata.userId 
+              }).then(result => {
+                console.log("Reset video usage for new subscriber:", result);
+              });
             }
           }
         }
@@ -203,10 +231,12 @@ serve(async (req) => {
             // Create notification
             let notificationTitle = "Subscription Updated";
             let notificationMessage = `Your ${planName} plan subscription has been updated.`;
+            let eventType = 'update';
             
             if (event.type === "customer.subscription.created") {
               notificationTitle = "Subscription Started";
               notificationMessage = `Your ${planName} plan subscription has been activated.`;
+              eventType = 'new';
             }
             
             await createNotification(
@@ -214,8 +244,16 @@ serve(async (req) => {
               userId,
               notificationTitle,
               notificationMessage,
-              'payment'
+              'payment',
+              { event: eventType, plan: planName }
             );
+            
+            // Reset the usage count when subscription is created/updated
+            await supabaseAdmin.rpc('reset_video_usage', { 
+              user_id_param: userId 
+            }).then(result => {
+              console.log("Reset video usage after subscription update:", result);
+            });
           }
         } else {
           console.error("No user found for customer:", subscription.customer);
@@ -259,7 +297,8 @@ serve(async (req) => {
               userId,
               "Subscription Canceled",
               "Your subscription has been canceled.",
-              'payment'
+              'payment',
+              { event: 'canceled' }
             );
           }
         } else {
