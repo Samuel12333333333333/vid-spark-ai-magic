@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { mediaService } from "./mediaService";
 import { renderNotifications } from "./video/renderNotifications";
@@ -37,78 +36,6 @@ interface VideoGenerationResult {
   success: boolean;
   videoId?: string;
   error?: string;
-}
-
-export async function generateVideo(params: VideoGenerationParams): Promise<VideoGenerationResult> {
-  try {
-    console.log("Starting video generation with params:", params);
-    
-    // Create a new video project in the database
-    const newProject = await videoService.createProject({
-      title: params.prompt.substring(0, 50) + (params.prompt.length > 50 ? '...' : ''),
-      prompt: params.prompt,
-      status: 'pending',
-      style: params.style,
-      user_id: params.userId,
-    });
-    
-    if (!newProject || !newProject.id) {
-      console.error("Failed to create video project record");
-      return { success: false, error: "Failed to initialize video project" };
-    }
-    
-    console.log("Created video project with ID:", newProject.id);
-    
-    // Send request to edge function to start video generation process
-    const { data, error } = await supabase.functions.invoke("render-video", {
-      body: { 
-        projectId: newProject.id,
-        prompt: params.prompt,
-        style: params.style 
-      }
-    });
-    
-    if (error) {
-      console.error("Error invoking render-video function:", error);
-      await videoService.updateProject(newProject.id, { 
-        status: 'failed',
-        error_message: error.message || "Failed to start video generation process"
-      });
-      return { success: false, error: error.message };
-    }
-    
-    console.log("Video generation started successfully:", data);
-    
-    // Update the project with render ID if available
-    if (data?.renderId) {
-      await videoService.updateProject(newProject.id, { 
-        render_id: data.renderId,
-        status: 'processing'
-      });
-      
-      // Send notification to user that video generation has started
-      try {
-        await renderNotifications.createRenderStartNotification(
-          params.userId,
-          newProject.title,
-          newProject.id
-        );
-      } catch (notifError) {
-        console.error("Error creating start notification:", notifError);
-      }
-    }
-    
-    return { 
-      success: true, 
-      videoId: newProject.id 
-    };
-  } catch (error) {
-    console.error("Exception during video generation:", error);
-    return { 
-      success: false, 
-      error: error.message || "An unexpected error occurred" 
-    };
-  }
 }
 
 export const videoService = {
@@ -319,6 +246,78 @@ export const videoService = {
     } catch (error) {
       console.error('Error in deleteProject:', error);
       throw error;
+    }
+  },
+  
+  async generateVideo(params: VideoGenerationParams): Promise<VideoGenerationResult> {
+    try {
+      console.log("Starting video generation with params:", params);
+      
+      // Create a new video project in the database
+      const newProject = await videoService.createProject({
+        title: params.prompt.substring(0, 50) + (params.prompt.length > 50 ? '...' : ''),
+        prompt: params.prompt,
+        status: 'pending',
+        style: params.style,
+        user_id: params.userId,
+      });
+      
+      if (!newProject || !newProject.id) {
+        console.error("Failed to create video project record");
+        return { success: false, error: "Failed to initialize video project" };
+      }
+      
+      console.log("Created video project with ID:", newProject.id);
+      
+      // Send request to edge function to start video generation process
+      const { data, error } = await supabase.functions.invoke("render-video", {
+        body: { 
+          projectId: newProject.id,
+          prompt: params.prompt,
+          style: params.style 
+        }
+      });
+      
+      if (error) {
+        console.error("Error invoking render-video function:", error);
+        await videoService.updateProject(newProject.id, { 
+          status: 'failed',
+          error_message: error.message || "Failed to start video generation process"
+        });
+        return { success: false, error: error.message };
+      }
+      
+      console.log("Video generation started successfully:", data);
+      
+      // Update the project with render ID if available
+      if (data?.renderId) {
+        await videoService.updateProject(newProject.id, { 
+          render_id: data.renderId,
+          status: 'processing'
+        });
+        
+        // Send notification to user that video generation has started
+        try {
+          await renderNotifications.createRenderStartNotification(
+            params.userId,
+            newProject.title,
+            newProject.id
+          );
+        } catch (notifError) {
+          console.error("Error creating start notification:", notifError);
+        }
+      }
+      
+      return { 
+        success: true, 
+        videoId: newProject.id 
+      };
+    } catch (error) {
+      console.error("Exception during video generation:", error);
+      return { 
+        success: false, 
+        error: error.message || "An unexpected error occurred" 
+      };
     }
   }
 };
