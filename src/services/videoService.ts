@@ -1,6 +1,9 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { aiService, SceneBreakdown } from "@/services/aiService";
 import { toast } from "sonner";
+import { mediaService } from "@/services/mediaService";
+import { renderNotifications } from "@/services/video/renderNotifications";
 
 export interface VideoProject {
   id: string;
@@ -24,6 +27,7 @@ export interface VideoProject {
   scenes?: any[]; 
   audio_data?: string;
   error_message?: string;
+  audio_url?: string;
 }
 
 interface VideoGenerationParams {
@@ -55,7 +59,7 @@ export const videoService = {
   /**
    * Generate a video based on user prompt and preferences
    */
-  async generateVideo(params: VideoGenerationParams) {
+  async generateVideo(params: VideoGenerationParams): Promise<VideoGenerationResult> {
     try {
       console.log("Starting video generation with params:", params);
       
@@ -65,17 +69,17 @@ export const videoService = {
       const { data: project, error: projectError } = await supabase
         .from("video_projects")
         .insert({
-          user_id: params.userId,
           title: title,
           prompt: params.prompt,
           style: params.style,
           format: params.format || "16:9",
           status: "processing",
-          has_audio: params.voiceSettings ? "Yes" : "No",
-          has_captions: "No",
-          narration_script: params.voiceSettings?.script || "undefined...",
+          has_audio: params.voiceSettings ? true : false,
+          has_captions: false,
+          narration_script: params.voiceSettings?.script || null,
           model_version: params.modelVersion || "gemini-2.0-flash",
-          brand_settings: params.brandKit ? JSON.stringify(params.brandKit) : null
+          brand_settings: params.brandKit ? JSON.stringify(params.brandKit) : null,
+          user_id: params.userId
         })
         .select()
         .single();

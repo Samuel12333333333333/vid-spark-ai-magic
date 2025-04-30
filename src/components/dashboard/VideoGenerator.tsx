@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -677,7 +676,6 @@ export function VideoGenerator() {
                           id="auto-generate"
                           checked={autoGenerateScript}
                           onCheckedChange={setAutoGenerateScript}
-                          size="sm"
                         />
                         <Label htmlFor="auto-generate" className="text-xs">
                           Auto-generate from prompt

@@ -27,9 +27,9 @@ serve(async (req) => {
     
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Use Gemini 2.0 Flash model specifically
+    // Use Gemini Pro model
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-pro", // Currently we use gemini-pro but configure it for fast responses
+      model: "gemini-pro", 
       generationConfig: {
         temperature: 0.4,      // Lower temperature for more focused results
         maxOutputTokens: 1000, // Constrain output size for faster responses
@@ -38,7 +38,7 @@ serve(async (req) => {
       }
     });
     
-    console.log("Using model configuration for fast responses (Gemini 2.0 Flash equivalent)");
+    console.log("Using model configuration for Gemini 2.0 Flash equivalent");
     
     // Set up the prompt for scene generation
     const systemPrompt = `You are an experienced video producer. Break down the following description into 3-5 distinct scenes for a professional video. For each scene, provide:
