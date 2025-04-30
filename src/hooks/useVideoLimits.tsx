@@ -11,6 +11,7 @@ interface VideoUsageResponse {
   is_subscribed: boolean;
   is_pro: boolean;
   is_business: boolean;
+  subscription_start?: string;
   remaining?: number;
 }
 
@@ -21,6 +22,7 @@ export function useVideoLimits() {
   const { hasActiveSubscription, isPro, isBusiness } = useSubscription();
   const [usageCount, setUsageCount] = useState<number>(0);
   const [resetDate, setResetDate] = useState<Date | null>(null);
+  const [subscriptionStartDate, setSubscriptionStartDate] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isError, setIsError] = useState<boolean>(false);
   
@@ -59,6 +61,11 @@ export function useVideoLimits() {
         setResetDate(
           data.reset_at ? new Date(data.reset_at) : getDefaultResetDate()
         );
+        
+        // Set subscription start date if available
+        if (data.subscription_start) {
+          setSubscriptionStartDate(new Date(data.subscription_start));
+        }
       } else {
         console.log("No video usage data received, using defaults");
         setUsageCount(0);
@@ -140,6 +147,7 @@ export function useVideoLimits() {
   return {
     usageCount,
     resetDate,
+    subscriptionStartDate,
     isLoading,
     isError,
     canGenerateVideo,

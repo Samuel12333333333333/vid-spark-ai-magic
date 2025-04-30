@@ -60,7 +60,7 @@ serve(async (req) => {
     // First, check subscription status to determine limits
     const { data: subscriptionData, error: subError } = await supabase
       .from('subscriptions')
-      .select('plan_name, status, current_period_end')
+      .select('plan_name, status, current_period_end, created_at')
       .eq('user_id', userId)
       .eq('status', 'active')
       .single();
@@ -69,6 +69,7 @@ serve(async (req) => {
     let isSubscribed = false;
     let videoLimit = 2; // Free tier default (lifetime)
     let resetDate = null;
+    let subscriptionStartDate = null;
     
     if (subscriptionData) {
       isSubscribed = true;
@@ -90,25 +91,23 @@ serve(async (req) => {
         nextMonth.setMonth(nextMonth.getMonth() + 1);
         resetDate = nextMonth.toISOString();
       }
+
+      // Store subscription start date to filter video counts
+      if (subscriptionData.created_at) {
+        subscriptionStartDate = new Date(subscriptionData.created_at).toISOString();
+      }
     }
     
-    // Time period calculations
-    const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const firstDayOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-    
-    // Query to count existing videos
+    // Query to count existing videos based on subscription status
     let query = supabase
       .from('video_projects')
       .select('id')
       .eq('user_id', userId);
       
-    // For subscribers, only count videos from current billing period
-    // For free users, count all videos (lifetime limit)
-    if (isSubscribed) {
+    // For subscribers, only count videos from subscription start date
+    if (isSubscribed && subscriptionStartDate) {
       query = query
-        .gte('created_at', firstDayOfMonth.toISOString())
-        .lt('created_at', firstDayOfNextMonth.toISOString());
+        .gte('created_at', subscriptionStartDate);
     }
     
     const { data: existingVideos, error: countError } = await query;

@@ -56,31 +56,48 @@ serve(async (req) => {
     console.log("Getting payment history for user:", user.id);
 
     // Get the customer ID from the subscriptions table
-    const { data: subscription } = await supabaseClient
+    const { data: subscription, error: subscriptionError } = await supabaseClient
       .from("subscriptions")
       .select("stripe_customer_id")
       .eq("user_id", user.id)
       .eq("status", "active")
       .maybeSingle();
+    
+    if (subscriptionError) {
+      console.error("Error fetching subscription:", subscriptionError);
+      // Continue execution to try finding customer by email
+    }
 
     // If no subscription found, check if customer exists in Stripe
     let customerId;
     if (!subscription?.stripe_customer_id) {
-      // Try to find customer directly in Stripe
-      const customers = await stripe.customers.list({
-        email: user.email,
-        limit: 1,
-      });
+      console.log("No active subscription found, searching for customer by email");
+      try {
+        // Try to find customer directly in Stripe
+        const customers = await stripe.customers.list({
+          email: user.email,
+          limit: 1,
+        });
 
-      if (!customers || customers.data.length === 0) {
-        // No customer means no payment history
+        if (customers && customers.data.length > 0) {
+          customerId = customers.data[0].id;
+          console.log("Found customer by email:", customerId);
+        } else {
+          console.log("No customer found for email:", user.email);
+          // No customer means no payment history
+          return new Response(JSON.stringify({ paymentHistory: [] }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
+      } catch (stripeError) {
+        console.error("Error searching for customer:", stripeError);
+        // Return empty payment history rather than error
         return new Response(JSON.stringify({ paymentHistory: [] }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
         });
       }
-      
-      customerId = customers.data[0].id;
     } else {
       customerId = subscription.stripe_customer_id;
     }
@@ -103,18 +120,18 @@ serve(async (req) => {
 
       // Format payment intents - with safety checks
       const paymentHistory = [
-        ...paymentIntents.data.map(pi => ({
+        ...(paymentIntents?.data || []).map(pi => ({
           id: pi.id,
-          amount: pi.amount,
-          status: pi.status,
-          created: pi.created,
+          amount: pi.amount || 0,
+          status: pi.status || 'unknown',
+          created: pi.created || Date.now()/1000,
           receiptUrl: pi.charges?.data?.[0]?.receipt_url || null,
         })),
-        ...invoices.data.map(invoice => ({
+        ...(invoices?.data || []).map(invoice => ({
           id: invoice.id,
-          amount: invoice.amount_paid,
+          amount: invoice.amount_paid || 0,
           status: invoice.status === 'paid' ? 'succeeded' : invoice.status,
-          created: invoice.created,
+          created: invoice.created || Date.now()/1000,
           receiptUrl: invoice.hosted_invoice_url || null,
         }))
       ].sort((a, b) => b.created - a.created);
@@ -127,13 +144,23 @@ serve(async (req) => {
       });
     } catch (stripeError) {
       console.error("Error fetching from Stripe:", stripeError);
-      throw new Error(`Stripe API error: ${stripeError.message}`);
+      // Return empty payment history with a warning message
+      return new Response(JSON.stringify({ 
+        paymentHistory: [],
+        warning: `Could not retrieve payment history: ${stripeError.message}`
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200, // Return 200 instead of error to prevent UI issues
+      });
     }
   } catch (error) {
     console.error("Error fetching payment history:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      paymentHistory: [] // Return empty array to prevent UI issues
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
+      status: 200, // Return 200 instead of error to prevent UI issues
     });
   }
 });

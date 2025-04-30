@@ -60,7 +60,7 @@ serve(async (req) => {
     // Check if user has a subscription
     const { data: subscriptionData, error: subError } = await supabase
       .from('subscriptions')
-      .select('plan_name, status, current_period_end')
+      .select('plan_name, status, current_period_end, created_at')
       .eq('user_id', userId)
       .eq('status', 'active')
       .single();
@@ -75,6 +75,7 @@ serve(async (req) => {
     let isBusiness = false;
     let videoLimit = 2; // Default for free tier (total videos)
     let resetDate = null;
+    let subscriptionStartDate = null;
     
     if (subscriptionData) {
       isSubscribed = true;
@@ -93,6 +94,11 @@ serve(async (req) => {
       if (subscriptionData.current_period_end) {
         resetDate = new Date(subscriptionData.current_period_end).toISOString();
       }
+
+      // Store subscription start date to filter video counts
+      if (subscriptionData.created_at) {
+        subscriptionStartDate = new Date(subscriptionData.created_at).toISOString();
+      }
     }
     
     // For calculating time periods
@@ -101,18 +107,17 @@ serve(async (req) => {
     const firstDayOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
     
     // Query to count videos created
-    // - For subscribed users: count videos from the current billing period
+    // - For subscribed users: count videos from the subscription start date or current billing period
     // - For free users: count ALL videos ever created (lifetime limit)
     let query = supabase
       .from('video_projects')
       .select('id')
       .eq('user_id', userId);
       
-    if (isSubscribed) {
-      // For subscribers, only count videos in the current billing period
+    if (isSubscribed && subscriptionStartDate) {
+      // For subscribers, only count videos created after subscription start date
       query = query
-        .gte('created_at', firstDayOfMonth.toISOString())
-        .lt('created_at', firstDayOfNextMonth.toISOString());
+        .gte('created_at', subscriptionStartDate);
     }
     
     const { data: videoData, error: videoError } = await query;
@@ -137,6 +142,7 @@ serve(async (req) => {
         count: videoData.length,
         limit: videoLimit,
         reset_at: effectiveResetDate,
+        subscription_start: subscriptionStartDate,
         is_subscribed: isSubscribed,
         is_pro: isPro,
         is_business: isBusiness
