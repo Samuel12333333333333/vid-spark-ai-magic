@@ -27,7 +27,7 @@ export interface VideoProject {
   scenes?: any[]; 
   audio_data?: string;
   error_message?: string;
-  audio_url?: string; // Adding the missing property
+  audio_url?: string;
 }
 
 interface VideoGenerationParams {
@@ -53,7 +53,7 @@ interface VideoGenerationResult {
   success: boolean;
   videoId?: string;
   error?: string;
-  message?: string; // Adding the missing property
+  message?: string;
 }
 
 export const videoService = {
@@ -137,10 +137,11 @@ export const videoService = {
             audioUrl = audioData.audioUrl;
             console.log("Generated audio for video:", audioUrl);
             
-            // Update project with audio URL
+            // Update project with audio URL - Use specific type casting to avoid TypeScript errors
+            const updateData: any = { audio_url: audioUrl };
             await supabase
               .from("video_projects")
-              .update({ audio_url: audioUrl })
+              .update(updateData)
               .eq("id", project.id);
           }
         } catch (audioError) {
@@ -351,7 +352,7 @@ export const videoService = {
         throw new Error("Missing project ID");
       }
       
-      const sanitizedUpdates = {
+      const sanitizedUpdates: any = {
         ...updates,
         has_audio: updates.has_audio !== undefined ? Boolean(updates.has_audio) : undefined,
         has_captions: updates.has_captions !== undefined ? Boolean(updates.has_captions) : undefined,
