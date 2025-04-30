@@ -27,7 +27,7 @@ export interface VideoProject {
   scenes?: any[]; 
   audio_data?: string;
   error_message?: string;
-  audio_url?: string;
+  audio_url?: string; // Adding the missing property
 }
 
 interface VideoGenerationParams {
@@ -53,6 +53,7 @@ interface VideoGenerationResult {
   success: boolean;
   videoId?: string;
   error?: string;
+  message?: string; // Adding the missing property
 }
 
 export const videoService = {
