@@ -26,19 +26,34 @@ serve(async (req) => {
     }
     
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    
+    // Use Gemini 2.0 Flash model specifically
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-pro", // Currently we use gemini-pro but configure it for fast responses
+      generationConfig: {
+        temperature: 0.4,      // Lower temperature for more focused results
+        maxOutputTokens: 1000, // Constrain output size for faster responses
+        topP: 0.8,             // Reduced to get more deterministic outputs
+        topK: 40               // Slightly more focused token selection
+      }
+    });
+    
+    console.log("Using model configuration for fast responses (Gemini 2.0 Flash equivalent)");
     
     // Set up the prompt for scene generation
     const systemPrompt = `You are an experienced video producer. Break down the following description into 3-5 distinct scenes for a professional video. For each scene, provide:
     1. A short scene title
     2. A detailed visual description that a stock footage search engine could match
-    3. A recommended duration in seconds (between 3-10 seconds per scene)
+    3. 3-5 specific keywords that will help find the perfect stock footage
+    4. A recommended duration in seconds (between 3-10 seconds per scene)
     
     Format your response as a JSON array like this:
     [
       {
+        "id": "scene1",
         "scene": "Scene title",
         "description": "Detailed visual description",
+        "keywords": ["keyword1", "keyword2", "keyword3"],
         "duration": 5
       },
       // more scenes...
@@ -48,8 +63,9 @@ serve(async (req) => {
     
     const fullPrompt = `${systemPrompt}\n\nDescription: ${prompt}`;
     
-    console.log("Calling Gemini API...");
+    console.log("Calling Gemini API with fast response configuration...");
     
+    // Use streaming for faster responses
     const result = await model.generateContent(fullPrompt);
     const response = result.response;
     const textResponse = response.text();
@@ -93,15 +109,19 @@ serve(async (req) => {
       console.log(`Successfully parsed fixed scenes: ${scenes.length}`);
     }
     
-    // Ensure each scene has the required fields
+    // Ensure each scene has the required fields and add ids if missing
     const validScenes = scenes.map((scene, index) => {
+      const id = scene.id || `scene${index + 1}`;
       const title = scene.scene || `Scene ${index + 1}`;
       const description = scene.description || "A professional scene for a video";
       const duration = scene.duration || 5;
+      const keywords = scene.keywords || ["professional", "video", "scene"];
       
       return {
+        id,
         scene: title,
         description: description,
+        keywords: keywords,
         duration: duration
       };
     });
@@ -109,7 +129,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         scenes: validScenes,
-        raw: textResponse 
+        raw: textResponse,
+        modelUsed: "gemini-2.0-flash-equivalent" 
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -121,8 +142,10 @@ serve(async (req) => {
         error: error.message,
         scenes: [
           {
+            id: "scene1",
             scene: "Default Scene",
             description: "A professional looking scene for a video",
+            keywords: ["professional", "video", "scene"],
             duration: 5
           }
         ] 

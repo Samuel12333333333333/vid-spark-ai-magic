@@ -96,10 +96,55 @@ serve(async (req) => {
           updateData.video_url = url;
           // Generate thumbnail URL (Shotstack provides a thumbnail for completed videos)
           updateData.thumbnail_url = url.replace(/\.mp4$/, "-poster.jpg");
+          
+          // Create notification for completed video
+          try {
+            const { data: projectData } = await supabaseClient
+              .from('video_projects')
+              .select('user_id, title')
+              .eq('id', projectId)
+              .single();
+              
+            if (projectData) {
+              await supabaseClient.from('notifications').insert({
+                user_id: projectData.user_id,
+                type: 'video_completed',
+                title: 'Video Ready',
+                message: `Your video "${projectData.title.substring(0, 30)}${projectData.title.length > 30 ? '...' : ''}" is ready to view.`,
+                is_read: false,
+                data: { videoId: projectId }
+              });
+            }
+          } catch (notificationError) {
+            console.error("Error creating notification:", notificationError);
+          }
         }
         
         if (returnStatus === "failed" && error) {
+          updateData.status = "failed";
           updateData.error_message = error;
+          
+          // Create notification for failed video
+          try {
+            const { data: projectData } = await supabaseClient
+              .from('video_projects')
+              .select('user_id, title')
+              .eq('id', projectId)
+              .single();
+              
+            if (projectData) {
+              await supabaseClient.from('notifications').insert({
+                user_id: projectData.user_id,
+                type: 'video_failed',
+                title: 'Video Generation Failed',
+                message: `We couldn't generate your video "${projectData.title.substring(0, 30)}${projectData.title.length > 30 ? '...' : ''}". Please try again.`,
+                is_read: false,
+                data: { videoId: projectId }
+              });
+            }
+          } catch (notificationError) {
+            console.error("Error creating notification:", notificationError);
+          }
         }
         
         const { error: updateError } = await supabaseClient

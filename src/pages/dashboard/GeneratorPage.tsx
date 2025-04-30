@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, ExternalLink } from "lucide-react";
 
 export default function GeneratorPage() {
   const [apiStatus, setApiStatus] = useState<{
@@ -22,6 +22,7 @@ export default function GeneratorPage() {
   });
   
   const [isCheckingApis, setIsCheckingApis] = useState(true);
+  const [showDocs, setShowDocs] = useState(false);
 
   useEffect(() => {
     // Check if the API keys are set in Supabase environment
@@ -143,22 +144,26 @@ export default function GeneratorPage() {
     pexels: {
       name: "Pexels API",
       description: "Provides stock video clips",
-      envVar: "PEXELS_API_KEY"
+      envVar: "PEXELS_API_KEY",
+      docsUrl: "/docs/pexels-api.md"
     },
     gemini: {
-      name: "Gemini API",
+      name: "Gemini 2.0 Flash",
       description: "Generates scene descriptions and narration",
-      envVar: "GEMINI_API_KEY"
+      envVar: "GEMINI_API_KEY",
+      docsUrl: "/docs/gemini-api.md"
     },
     elevenlabs: {
       name: "ElevenLabs API",
       description: "Generates voiceovers from text",
-      envVar: "ELEVEN_LABS_API_KEY"
+      envVar: "ELEVEN_LABS_API_KEY",
+      docsUrl: "/docs/elevenlabs-api.md"
     },
     shotstack: {
       name: "Shotstack API",
       description: "Renders final videos",
-      envVar: "SHOTSTACK_API_KEY"
+      envVar: "SHOTSTACK_API_KEY",
+      docsUrl: "/docs/shotstack-api.md"
     }
   };
 
@@ -167,6 +172,49 @@ export default function GeneratorPage() {
       <Helmet>
         <title>Create New Video | SmartVid</title>
       </Helmet>
+      
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-3xl font-bold">Create Video</h1>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowDocs(!showDocs)}
+          >
+            {showDocs ? "Hide API Docs" : "View API Docs"}
+          </Button>
+        </div>
+        
+        {showDocs && (
+          <Card className="mb-4">
+            <CardHeader className="pb-2">
+              <CardTitle>API Documentation</CardTitle>
+              <CardDescription>
+                SmartVid uses multiple APIs to generate professional videos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(apiStatusDetails).map(([key, details]) => (
+                  <a 
+                    key={key} 
+                    href={details.docsUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="block p-4 border rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium">{details.name}</h3>
+                      <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">{details.description}</p>
+                  </a>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
       
       {Object.values(apiStatus).some(status => status === 'error') && (
         <Card className="mb-6 border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800">

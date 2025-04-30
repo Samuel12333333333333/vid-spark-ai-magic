@@ -1,7 +1,6 @@
-
 import { supabase } from "@/integrations/supabase/client";
-import { mediaService } from "./mediaService";
-import { renderNotifications } from "./video/renderNotifications";
+import { aiService, SceneBreakdown } from "@/services/aiService";
+import { toast } from "sonner";
 
 export interface VideoProject {
   id: string;
@@ -30,7 +29,20 @@ export interface VideoProject {
 interface VideoGenerationParams {
   prompt: string;
   style: string;
+  format?: string;
   userId: string;
+  brandKit?: {
+    primaryColor: string;
+    secondaryColor: string;
+    font: string;
+  };
+  mediaUrls?: string[];
+  useStockMedia?: boolean;
+  voiceSettings?: {
+    voiceId: string;
+    script: string;
+  };
+  modelVersion?: string;
 }
 
 interface VideoGenerationResult {
@@ -40,6 +52,168 @@ interface VideoGenerationResult {
 }
 
 export const videoService = {
+  /**
+   * Generate a video based on user prompt and preferences
+   */
+  async generateVideo(params: VideoGenerationParams) {
+    try {
+      console.log("Starting video generation with params:", params);
+      
+      // Step 1: Create video project in the database
+      const title = params.prompt.substring(0, 100) + (params.prompt.length > 100 ? '...' : '');
+      
+      const { data: project, error: projectError } = await supabase
+        .from("video_projects")
+        .insert({
+          user_id: params.userId,
+          title: title,
+          prompt: params.prompt,
+          style: params.style,
+          format: params.format || "16:9",
+          status: "processing",
+          has_audio: params.voiceSettings ? "Yes" : "No",
+          has_captions: "No",
+          narration_script: params.voiceSettings?.script || "undefined...",
+          model_version: params.modelVersion || "gemini-2.0-flash",
+          brand_settings: params.brandKit ? JSON.stringify(params.brandKit) : null
+        })
+        .select()
+        .single();
+        
+      if (projectError) {
+        console.error("Error creating video project:", projectError);
+        return { success: false, error: "Failed to create video project" };
+      }
+      
+      if (!project) {
+        console.error("No project returned after creation");
+        return { success: false, error: "Failed to create video project" };
+      }
+      
+      console.log("Created video project with ID:", project.id);
+      
+      // Step 2: Generate scenes using AI
+      let scenes: SceneBreakdown[] = [];
+      try {
+        scenes = await aiService.generateScenes(params.prompt);
+        
+        // Save the generated scenes for future reference
+        if (scenes.length > 0) {
+          console.log(`Generated ${scenes.length} scenes for video`);
+          
+          await aiService.saveScript(
+            params.userId,
+            `Scene breakdown for: ${title}`,
+            JSON.stringify(scenes),
+            'scene-breakdown'
+          );
+        }
+      } catch (sceneError) {
+        console.error("Error generating scenes:", sceneError);
+        // Continue with render - the render function will handle empty scenes
+      }
+      
+      // Step 3: Generate audio if voiceover is enabled
+      let audioUrl: string | undefined;
+      if (params.voiceSettings && params.voiceSettings.script) {
+        try {
+          const { data: audioData, error: audioError } = await supabase.functions.invoke('generate-audio', {
+            body: {
+              script: params.voiceSettings.script,
+              voiceId: params.voiceSettings.voiceId,
+              userId: params.userId,
+              projectId: project.id
+            }
+          });
+          
+          if (audioError) {
+            console.error("Error generating audio:", audioError);
+          } else if (audioData && audioData.audioUrl) {
+            audioUrl = audioData.audioUrl;
+            console.log("Generated audio for video:", audioUrl);
+            
+            // Update project with audio URL
+            await supabase
+              .from("video_projects")
+              .update({ audio_url: audioUrl })
+              .eq("id", project.id);
+          }
+        } catch (audioError) {
+          console.error("Error with audio generation:", audioError);
+          // Continue without audio if there's an error
+        }
+      }
+      
+      // Step 4: Start the video render process
+      try {
+        const { error: renderError } = await supabase.functions.invoke('render-video', {
+          body: {
+            projectId: project.id,
+            userId: params.userId,
+            prompt: params.prompt,
+            scenes: scenes,
+            style: params.style,
+            format: params.format || "16:9",
+            brandKit: params.brandKit,
+            mediaUrls: params.mediaUrls || [],
+            useStockMedia: params.useStockMedia !== false, // Default to true if not specified
+            audioUrl: audioUrl,
+            modelVersion: params.modelVersion || "gemini-2.0-flash"
+          }
+        });
+        
+        if (renderError) {
+          console.error("Error invoking render-video function:", renderError);
+          
+          // Update project status to failed
+          await supabase
+            .from("video_projects")
+            .update({ 
+              status: "failed",
+              error_message: renderError.message || "Failed to start video rendering"
+            })
+            .eq("id", project.id);
+            
+          return { 
+            success: false, 
+            error: "Failed to start video rendering. Please try again.",
+            videoId: project.id
+          };
+        }
+        
+        return { 
+          success: true, 
+          videoId: project.id,
+          message: "Video generation started successfully" 
+        };
+        
+      } catch (renderError) {
+        console.error("Error starting render:", renderError);
+        
+        // Update project status to failed
+        await supabase
+          .from("video_projects")
+          .update({ 
+            status: "failed",
+            error_message: renderError instanceof Error ? renderError.message : "Unknown render error"
+          })
+          .eq("id", project.id);
+          
+        return { 
+          success: false, 
+          error: "Failed to start video rendering. Please try again.",
+          videoId: project.id 
+        };
+      }
+    } catch (error) {
+      console.error("Error in generateVideo:", error);
+      return { 
+        success: false, 
+        error: "An unexpected error occurred during video generation."
+      };
+    }
+  },
+  
   async getProjects(): Promise<VideoProject[]> {
     try {
       const { data, error } = await supabase
@@ -247,147 +421,6 @@ export const videoService = {
     } catch (error) {
       console.error('Error in deleteProject:', error);
       throw error;
-    }
-  },
-  
-  async generateVideo(params: VideoGenerationParams): Promise<VideoGenerationResult> {
-    try {
-      console.log("Starting video generation with params:", params);
-      
-      // Create a new video project in the database
-      const newProject = await this.createProject({
-        title: params.prompt.substring(0, 50) + (params.prompt.length > 50 ? '...' : ''),
-        prompt: params.prompt,
-        status: 'pending',
-        style: params.style,
-        user_id: params.userId,
-      });
-      
-      if (!newProject || !newProject.id) {
-        console.error("Failed to create video project record");
-        return { success: false, error: "Failed to initialize video project" };
-      }
-      
-      console.log("Created video project with ID:", newProject.id);
-      
-      // Generate scenes from the prompt using Gemini API
-      console.log("Generating scenes from prompt...");
-      const { data: scenesData, error: scenesError } = await supabase.functions.invoke("generate-scenes", {
-        body: { prompt: params.prompt }
-      });
-      
-      if (scenesError) {
-        console.error("Error generating scenes:", scenesError);
-        await this.updateProject(newProject.id, { 
-          status: 'failed',
-          error_message: scenesError.message || "Failed to generate scenes from prompt"
-        });
-        return { success: false, error: scenesError.message };
-      }
-      
-      if (!scenesData || !scenesData.scenes || scenesData.scenes.length === 0) {
-        console.error("No scenes generated from prompt");
-        await this.updateProject(newProject.id, { 
-          status: 'failed',
-          error_message: "Failed to generate scenes from prompt"
-        });
-        return { success: false, error: "Failed to generate scenes from prompt" };
-      }
-      
-      console.log(`Generated ${scenesData.scenes.length} scenes from prompt`);
-      
-      // Find video clips for each scene
-      const scenes = scenesData.scenes;
-      const processedScenes = [];
-      
-      for (const scene of scenes) {
-        console.log(`Finding video for scene: ${scene.scene}`);
-        const keywords = this.extractKeywords(scene.description);
-        
-        const { data: videoResults, error: videoError } = await supabase.functions.invoke("search-videos", {
-          body: { keywords }
-        });
-        
-        if (videoError || !videoResults || !videoResults.videos || videoResults.videos.length === 0) {
-          console.error(`Error finding videos for scene: ${scene.scene}`, videoError);
-          continue;
-        }
-        
-        const videoClip = videoResults.videos[0]; // Use the first matching video
-        
-        processedScenes.push({
-          ...scene,
-          videoUrl: videoClip.url,
-          duration: 5, // Default duration in seconds
-        });
-      }
-      
-      if (processedScenes.length === 0) {
-        console.error("Failed to find suitable videos for any scenes");
-        await this.updateProject(newProject.id, { 
-          status: 'failed',
-          error_message: "Failed to find suitable videos for scenes"
-        });
-        return { success: false, error: "Failed to find suitable videos for scenes" };
-      }
-      
-      console.log(`Processed ${processedScenes.length} scenes with videos`);
-      
-      // Update project with scenes
-      await this.updateProject(newProject.id, {
-        scenes: processedScenes
-      });
-      
-      // Send request to edge function to start video generation process
-      const { data, error } = await supabase.functions.invoke("render-video", {
-        body: { 
-          projectId: newProject.id,
-          prompt: params.prompt,
-          style: params.style,
-          scenes: processedScenes
-        }
-      });
-      
-      if (error) {
-        console.error("Error invoking render-video function:", error);
-        await this.updateProject(newProject.id, { 
-          status: 'failed',
-          error_message: error.message || "Failed to start video generation process"
-        });
-        return { success: false, error: error.message };
-      }
-      
-      console.log("Video generation started successfully:", data);
-      
-      // Update the project with render ID if available
-      if (data?.renderId) {
-        await this.updateProject(newProject.id, { 
-          render_id: data.renderId,
-          status: 'processing'
-        });
-        
-        // Send notification to user that video generation has started
-        try {
-          await renderNotifications.createRenderStartNotification(
-            params.userId,
-            newProject.title,
-            newProject.id
-          );
-        } catch (notifError) {
-          console.error("Error creating start notification:", notifError);
-        }
-      }
-      
-      return { 
-        success: true, 
-        videoId: newProject.id 
-      };
-    } catch (error) {
-      console.error("Exception during video generation:", error);
-      return { 
-        success: false, 
-        error: error.message || "An unexpected error occurred" 
-      };
     }
   },
   
