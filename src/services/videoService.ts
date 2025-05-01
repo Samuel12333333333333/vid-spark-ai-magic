@@ -477,7 +477,8 @@ export const videoService = {
         narration_script: sanitizedUpdates.narration_script 
           ? (sanitizedUpdates.narration_script.substring(0, 20) + "...") 
           : "No change",
-        scenes: sanitizedUpdates.scenes ? `Present` : "No change"
+        scenes: sanitizedUpdates.scenes ? `Present` : "No change",
+        audio_url: sanitizedUpdates.audio_url || "No change"
       });
       
       const { error } = await supabase
