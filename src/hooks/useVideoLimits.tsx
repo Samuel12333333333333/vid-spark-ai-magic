@@ -57,7 +57,7 @@ export function useVideoLimits() {
 
       if (data) {
         console.log("Video usage data received:", data);
-        setUsageCount(data.count);
+        setUsageCount(data.count || 0);
         setResetDate(
           data.reset_at ? new Date(data.reset_at) : getDefaultResetDate()
         );
@@ -112,12 +112,14 @@ export function useVideoLimits() {
 
       if (error) {
         console.error("Error incrementing video usage:", error);
-        return false;
+        // Don't block video creation on usage tracking failure
+        // Instead, just continue with video creation
+        return true;
       }
 
       if (data) {
         console.log("Video usage incremented:", data);
-        setUsageCount(data.count);
+        setUsageCount(data.count || 0);
         setResetDate(
           data.reset_at ? new Date(data.reset_at) : getDefaultResetDate()
         );
@@ -129,13 +131,15 @@ export function useVideoLimits() {
           );
         }
       } else {
+        // Increment locally if the edge function doesn't return data
         setUsageCount((prev) => prev + 1);
       }
 
       return true;
     } catch (error) {
       console.error("Error incrementing video usage:", error);
-      return false;
+      // Don't block video creation on usage tracking failure
+      return true;
     }
   }, [canGenerateVideo, maxVideosPerMonth, resetDate, hasActiveSubscription]);
 

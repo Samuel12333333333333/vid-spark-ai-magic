@@ -32,7 +32,7 @@ export interface VideoProjectUpdate {
   status?: RenderStatus;
   style?: string;
   media_source?: string;
-  brand_colors?: string;
+  brand_colors?: string; // Using this field instead of brand_settings
   voice_type?: string;
   video_url?: string;
   thumbnail_url?: string;

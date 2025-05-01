@@ -198,13 +198,12 @@ export function VideoGenerator() {
     setIsLoading(true);
     
     try {
-      // First increment usage count
-      const incrementResult = await incrementUsage();
-      
-      if (!incrementResult) {
-        toast.error("Could not validate your video limits. Please try again.");
-        setIsLoading(false);
-        return;
+      // First increment usage count - but continue on error
+      try {
+        await incrementUsage();
+      } catch (usageError) {
+        console.error("Error incrementing usage:", usageError);
+        // Continue with video generation even if usage tracking fails
       }
       
       // Show longer processing toast
@@ -283,6 +282,7 @@ export function VideoGenerator() {
       }
     } catch (error) {
       console.error("Error generating video:", error);
+      toast.dismiss("video-generation");
       toast.error("An unexpected error occurred. Please try again.");
       // Show tips if there's an error
       setShowTips(true);

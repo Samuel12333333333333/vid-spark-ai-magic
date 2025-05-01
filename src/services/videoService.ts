@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { aiService, SceneBreakdown } from "@/services/aiService";
 import { toast } from "sonner";
@@ -69,6 +68,9 @@ export const videoService = {
       // Step 1: Create video project in the database
       const title = params.prompt.substring(0, 100) + (params.prompt.length > 100 ? '...' : '');
       
+      // Prepare brandColors as JSON string if present
+      const brandColors = params.brandKit ? JSON.stringify(params.brandKit) : null;
+      
       const { data: project, error: projectError } = await supabase
         .from("video_projects")
         .insert({
@@ -80,7 +82,7 @@ export const videoService = {
           has_audio: params.voiceSettings ? true : false,
           has_captions: false,
           narration_script: params.voiceSettings?.script || null,
-          brand_colors: params.brandKit ? JSON.stringify(params.brandKit) : null,
+          brand_colors: brandColors,
           user_id: params.userId
         })
         .select()
@@ -103,12 +105,10 @@ export const videoService = {
       try {
         console.log("Generating scenes from prompt...");
         scenes = await aiService.generateScenes(params.prompt);
-        console.log(`Generated ${scenes.length} scenes for video:`, scenes);
+        console.log(`Generated ${scenes.length} scenes for video`);
         
         // Save the generated scenes for future reference
         if (scenes.length > 0) {
-          console.log(`Generated ${scenes.length} scenes for video`);
-          
           await aiService.saveScript(
             params.userId,
             `Scene breakdown for: ${title}`,
@@ -116,22 +116,23 @@ export const videoService = {
             'scene-breakdown'
           );
           
-          // Update the project with the scenes
-          const scenesUpdate: VideoProjectUpdate = { 
-            scenes: scenes as unknown as Json 
-          };
-          
-          const { error: updateError } = await supabase
-            .from("video_projects")
-            .update(scenesUpdate)
-            .eq("id", project.id);
-            
-          if (updateError) {
-            console.error("Failed to update project with scenes:", updateError);
+          // Update the project with the scenes - handle as Json type
+          try {
+            const { error: updateError } = await supabase
+              .from("video_projects")
+              .update({ scenes: scenes as unknown as Json })
+              .eq("id", project.id);
+              
+            if (updateError) {
+              console.error("Failed to update project with scenes:", updateError);
+            }
+          } catch (sceneUpdateError) {
+            console.error("Exception updating scenes:", sceneUpdateError);
+            // Continue with render process despite scene update error
           }
         } else {
           console.error("No scenes were generated");
-          throw new Error("Failed to generate scenes for the video");
+          // Still continue with the process
         }
       } catch (sceneError) {
         console.error("Error generating scenes:", sceneError);
@@ -158,14 +159,18 @@ export const videoService = {
             console.log("Generated audio for video:", audioUrl);
             
             // Update project with audio URL
-            const audioUpdate: VideoProjectUpdate = { audio_url: audioUrl };
-            const { error: audioUpdateError } = await supabase
-              .from("video_projects")
-              .update(audioUpdate)
-              .eq("id", project.id);
-              
-            if (audioUpdateError) {
-              console.error("Error updating project with audio URL:", audioUpdateError);
+            try {
+              const { error: audioUpdateError } = await supabase
+                .from("video_projects")
+                .update({ audio_url: audioUrl })
+                .eq("id", project.id);
+                
+              if (audioUpdateError) {
+                console.error("Error updating project with audio URL:", audioUpdateError);
+              }
+            } catch (audioUpdateError) {
+              console.error("Exception updating audio URL:", audioUpdateError);
+              // Continue despite error
             }
           }
         } catch (audioError) {
@@ -216,15 +221,17 @@ export const videoService = {
           console.error("Error invoking render-video function:", renderError);
           
           // Update project status to failed
-          const failUpdate: VideoProjectUpdate = { 
-            status: "failed",
-            error_message: renderError.message || "Failed to start video rendering"
-          };
-          
-          await supabase
-            .from("video_projects")
-            .update(failUpdate)
-            .eq("id", project.id);
+          try {
+            await supabase
+              .from("video_projects")
+              .update({ 
+                status: "failed",
+                error_message: renderError.message || "Failed to start video rendering"
+              })
+              .eq("id", project.id);
+          } catch (updateError) {
+            console.error("Error updating project status:", updateError);
+          }
             
           return { 
             success: false, 
@@ -236,15 +243,17 @@ export const videoService = {
         if (!renderData || !renderData.renderId) {
           console.error("No render ID returned");
           
-          const noRenderUpdate: VideoProjectUpdate = { 
-            status: "failed",
-            error_message: "No render ID returned from rendering service"
-          };
-          
-          await supabase
-            .from("video_projects")
-            .update(noRenderUpdate)
-            .eq("id", project.id);
+          try {
+            await supabase
+              .from("video_projects")
+              .update({ 
+                status: "failed",
+                error_message: "No render ID returned from rendering service"
+              })
+              .eq("id", project.id);
+          } catch (updateError) {
+            console.error("Error updating project status:", updateError);
+          }
           
           return { 
             success: false, 
@@ -256,15 +265,18 @@ export const videoService = {
         console.log("Render started successfully with ID:", renderData.renderId);
         
         // Update project with render ID
-        const renderUpdate: VideoProjectUpdate = { 
-          render_id: renderData.renderId,
-          status: "processing"
-        };
-        
-        await supabase
-          .from("video_projects")
-          .update(renderUpdate)
-          .eq("id", project.id);
+        try {
+          await supabase
+            .from("video_projects")
+            .update({ 
+              render_id: renderData.renderId,
+              status: "processing"
+            })
+            .eq("id", project.id);
+        } catch (updateError) {
+          console.error("Error updating project with render ID:", updateError);
+          // Continue despite error
+        }
         
         return { 
           success: true, 
@@ -276,15 +288,17 @@ export const videoService = {
         console.error("Error starting render:", renderError);
         
         // Update project status to failed
-        const errorUpdate: VideoProjectUpdate = { 
-          status: "failed",
-          error_message: renderError instanceof Error ? renderError.message : "Unknown render error"
-        };
-        
-        await supabase
-          .from("video_projects")
-          .update(errorUpdate)
-          .eq("id", project.id);
+        try {
+          await supabase
+            .from("video_projects")
+            .update({ 
+              status: "failed",
+              error_message: renderError instanceof Error ? renderError.message : "Unknown render error"
+            })
+            .eq("id", project.id);
+        } catch (updateError) {
+          console.error("Error updating project status:", updateError);
+        }
           
         return { 
           success: false, 

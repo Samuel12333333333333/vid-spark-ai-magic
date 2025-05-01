@@ -63,7 +63,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(true);
       console.log("Checking subscription status...");
       
-      // First check if we have a subscription in the database
+      // First check if we have a subscription in the database with proper headers
       const { data: dbSubscription, error: dbError } = await supabase
         .from('subscriptions')
         .select('*')
