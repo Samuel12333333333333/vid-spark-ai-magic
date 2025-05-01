@@ -1,98 +1,182 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { VideoProject, videoService } from "@/services/videoService";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Share2, Download, ArrowLeft, Trash2, Loader2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { videoService, VideoProject } from "@/services/videoService";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { 
+  Play, 
+  Share2, 
+  Download, 
+  Pencil, 
+  Save, 
+  Trash2, 
+  ArrowLeft, 
+  Copy, 
+  CheckCircle2, 
+  AlertCircle, 
+  Clock, 
+  ClockIcon
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function VideoDetailPage() {
-  const { videoId } = useParams<{ videoId: string }>();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [video, setVideo] = useState<VideoProject | null>(null);
+  const [project, setProject] = useState<VideoProject | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [title, setTitle] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
-  const isMobile = useIsMobile();
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
 
+  // Fetch the video project
   useEffect(() => {
-    const fetchVideo = async () => {
-      if (!videoId) return;
-      
+    const fetchProject = async () => {
       try {
         setIsLoading(true);
-        const videoData = await videoService.getProjectById(videoId);
-        
-        if (!videoData) {
-          toast.error("Video not found");
+        if (!id) return;
+        const projectData = await videoService.getProjectById(id);
+        if (projectData) {
+          setProject(projectData);
+          setTitle(projectData.title);
+        } else {
+          toast.error("Video project not found");
           navigate("/dashboard/videos");
-          return;
         }
-        
-        setVideo(videoData);
       } catch (error) {
-        console.error("Error fetching video:", error);
-        toast.error("Failed to load video");
+        console.error("Error fetching video project:", error);
+        toast.error("Failed to load video project");
       } finally {
         setIsLoading(false);
       }
     };
-    
-    fetchVideo();
-  }, [videoId, navigate]);
 
-  const handleDownload = () => {
-    if (!video?.video_url) {
+    fetchProject();
+
+    // Periodically refresh if video is processing
+    let interval: number | null = null;
+    if (project && project.status === "processing") {
+      interval = window.setInterval(() => {
+        fetchProject();
+      }, 10000); // Check every 10 seconds
+    }
+
+    return () => {
+      if (interval) window.clearInterval(interval);
+    };
+  }, [id, navigate, project?.status]);
+
+  // Handle editing the project title
+  const handleSaveTitle = async () => {
+    if (!project || !id) return;
+    
+    try {
+      await videoService.updateProject(id, { title });
+      toast.success("Video title updated");
+      setProject({ ...project, title });
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error updating video title:", error);
+      toast.error("Failed to update video title");
+    }
+  };
+
+  // Handle video playback
+  const togglePlayback = () => {
+    const videoElement = document.getElementById("project-video") as HTMLVideoElement;
+    if (videoElement) {
+      if (isPlaying) {
+        videoElement.pause();
+      } else {
+        videoElement.play().catch(err => {
+          console.error("Error playing video:", err);
+          toast.error("Unable to play video");
+        });
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  // Handle copying the video link
+  const copyVideoLink = () => {
+    if (!project?.video_url) {
+      toast.error("No video URL available to copy");
+      return;
+    }
+    
+    navigator.clipboard.writeText(project.video_url)
+      .then(() => toast.success("Video link copied to clipboard"))
+      .catch(() => toast.error("Failed to copy link"));
+  };
+
+  // Handle sharing the video
+  const handleShare = async () => {
+    if (!project?.video_url) {
+      toast.error("No video URL available to share");
+      return;
+    }
+    
+    setShareLoading(true);
+    try {
+      // Use Web Share API if available
+      if (navigator.share) {
+        await navigator.share({
+          title: project.title,
+          text: `Check out this video: ${project.title}`,
+          url: project.video_url
+        });
+        toast.success("Shared successfully");
+      } else {
+        // Fallback to copying the link
+        await navigator.clipboard.writeText(project.video_url);
+        toast.success("Link copied to clipboard for sharing");
+      }
+    } catch (error) {
+      console.error("Error sharing:", error);
+      toast.error("Failed to share video");
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  // Handle downloading the video
+  const handleDownload = async () => {
+    if (!project?.video_url) {
       toast.error("No video available to download");
       return;
     }
     
-    // Create a temporary anchor element to trigger download
-    const a = document.createElement('a');
-    a.href = video.video_url;
-    a.download = `${video.title || 'video'}.mp4`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    
-    toast.success("Download started");
-  };
-  
-  const handleShare = async () => {
-    if (!video?.video_url) {
-      toast.error("No video available to share");
-      return;
-    }
-    
+    setDownloadLoading(true);
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: video.title,
-          text: "Check out this video I created with SmartVid!",
-          url: video.video_url,
-        });
-      } else {
-        // Fallback for browsers that don't support the Web Share API
-        await navigator.clipboard.writeText(video.video_url);
-        toast.success("Video URL copied to clipboard");
-      }
+      // Create a temporary anchor element to trigger download
+      const a = document.createElement("a");
+      a.href = project.video_url;
+      a.download = `${project.title.replace(/\s+/g, '_')}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast.success("Download started");
     } catch (error) {
-      console.error("Error sharing video:", error);
-      toast.error("Failed to share video");
+      console.error("Error downloading video:", error);
+      toast.error("Failed to download video");
+    } finally {
+      setDownloadLoading(false);
     }
   };
-  
+
+  // Handle deleting the project
   const handleDelete = async () => {
-    if (!video?.id) return;
+    if (!project || !id) return;
     
-    const confirmed = window.confirm("Are you sure you want to delete this video? This action cannot be undone.");
-    
-    if (confirmed) {
+    if (confirm("Are you sure you want to delete this video? This action cannot be undone.")) {
       try {
-        await videoService.deleteProject(video.id);
+        await videoService.deleteProject(id);
         toast.success("Video deleted successfully");
         navigate("/dashboard/videos");
       } catch (error) {
@@ -102,135 +186,235 @@ export default function VideoDetailPage() {
     }
   };
 
+  // Render loading state
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-smartvid-600" />
+      <div className="flex items-center justify-center min-h-[70vh]">
+        <div className="flex flex-col items-center gap-4">
+          <ClockIcon className="h-12 w-12 animate-spin text-smartvid-600" />
+          <p>Loading video details...</p>
+        </div>
       </div>
     );
   }
 
-  if (!video) {
+  // Render not found state
+  if (!project) {
     return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground mb-4">Video not found</p>
-        <Button asChild>
-          <a href="/dashboard/videos">Back to Videos</a>
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4">
+        <AlertCircle className="h-12 w-12 text-red-500" />
+        <h2 className="text-xl font-semibold">Video Not Found</h2>
+        <p className="text-muted-foreground">The video you're looking for doesn't exist or was deleted.</p>
+        <Button onClick={() => navigate("/dashboard/videos")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Videos
         </Button>
       </div>
     );
   }
 
-  const getBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'completed': 
-        return 'default';
-      case 'processing': 
-        return 'secondary';
-      case 'pending': 
-        return 'outline';
-      case 'failed': 
-        return 'destructive';
-      default: 
-        return 'outline';
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <Button variant="outline" size="sm" onClick={() => navigate("/dashboard/videos")}>
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" onClick={() => navigate("/dashboard/videos")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Videos
         </Button>
         
         <div className="flex gap-2">
-          {video.video_url && (
+          {project.status === "completed" && (
             <>
-              <Button variant="outline" size="sm" onClick={handleShare}>
-                <Share2 className="mr-2 h-4 w-4" />
-                Share
+              <Button variant="outline" onClick={copyVideoLink}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copy Link
               </Button>
-              <Button variant="outline" size="sm" onClick={handleDownload}>
+              <Button variant="outline" onClick={handleShare} disabled={shareLoading}>
+                <Share2 className="mr-2 h-4 w-4" />
+                {shareLoading ? "Sharing..." : "Share"}
+              </Button>
+              <Button variant="outline" onClick={handleDownload} disabled={downloadLoading}>
                 <Download className="mr-2 h-4 w-4" />
-                Download
+                {downloadLoading ? "Starting..." : "Download"}
               </Button>
             </>
           )}
-          <Button variant="destructive" size="sm" onClick={handleDelete}>
+          <Button variant="destructive" onClick={handleDelete}>
             <Trash2 className="mr-2 h-4 w-4" />
             Delete
           </Button>
         </div>
       </div>
       
-      <Card className="overflow-hidden">
-        <div className="relative bg-black">
-          {video.video_url ? (
-            <div className="w-full aspect-video">
+      <div className="flex flex-col md:flex-row gap-8">
+        <div className="w-full md:w-2/3">
+          <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
+            {project.status === "completed" && project.video_url ? (
               <video 
-                className="w-full h-full object-contain"
-                poster={video.thumbnail_url}
+                id="project-video"
+                src={project.video_url} 
+                className="w-full h-full" 
+                poster={project.thumbnail_url || "/placeholder.svg"}
                 controls
-                playsInline
+                onClick={togglePlayback}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
-              >
-                <source src={video.video_url} type="video/mp4" />
-                Your browser does not support video playback.
-              </video>
-            </div>
-          ) : (
-            <div className="w-full aspect-video flex items-center justify-center bg-gray-900">
-              {video.status === 'processing' ? (
-                <div className="text-center">
-                  <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-white/70" />
-                  <p className="text-white">Video is being processed...</p>
-                </div>
-              ) : video.status === 'failed' ? (
-                <p className="text-white">Video generation failed</p>
-              ) : (
-                <p className="text-white">No video available</p>
-              )}
-            </div>
-          )}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                {project.status === "processing" ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <Clock className="h-12 w-12 animate-spin text-smartvid-600" />
+                    <p className="text-white text-center">Your video is being processed...</p>
+                  </div>
+                ) : project.status === "failed" ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <AlertCircle className="h-12 w-12 text-red-500" />
+                    <p className="text-white text-center">Video generation failed</p>
+                    {project.error_message && (
+                      <p className="text-white text-sm opacity-75 max-w-md text-center">
+                        Error: {project.error_message}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <img 
+                    src={project.thumbnail_url || "/placeholder.svg"} 
+                    alt={project.title} 
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </div>
+            )}
+          </div>
         </div>
         
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold">{video.title}</h1>
-                <Badge variant={getBadgeVariant(video.status)}>
-                  {video.status.charAt(0).toUpperCase() + video.status.slice(1)}
-                </Badge>
+        <div className="w-full md:w-1/3">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                {isEditing ? (
+                  <div className="w-full space-y-2">
+                    <Input 
+                      value={title} 
+                      onChange={(e) => setTitle(e.target.value)}
+                      className="text-xl font-bold"
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleSaveTitle}>
+                        <Save className="mr-2 h-4 w-4" />
+                        Save
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setTitle(project.title);
+                        setIsEditing(false);
+                      }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <CardTitle className="mb-2">{project.title}</CardTitle>
+                      <CardDescription>
+                        Created {formatDistanceToNow(new Date(project.created_at), { addSuffix: true })}
+                      </CardDescription>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium mb-1">Status</h3>
+                <div className="flex items-center">
+                  {project.status === "completed" ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
+                      <span>Completed</span>
+                    </>
+                  ) : project.status === "processing" ? (
+                    <>
+                      <Clock className="h-4 w-4 text-orange-500 mr-2" />
+                      <span>Processing</span>
+                    </>
+                  ) : project.status === "failed" ? (
+                    <>
+                      <AlertCircle className="h-4 w-4 text-red-500 mr-2" />
+                      <span>Failed</span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="h-4 w-4 text-muted-foreground mr-2" />
+                      <span>Pending</span>
+                    </>
+                  )}
+                </div>
               </div>
               
-              <p className="text-muted-foreground">
-                Created {formatDistanceToNow(new Date(video.created_at), { addSuffix: true })}
-              </p>
+              <div>
+                <h3 className="text-sm font-medium mb-1">Prompt</h3>
+                <p className="text-sm text-muted-foreground">{project.prompt}</p>
+              </div>
               
-              {video.duration && (
-                <p className="text-sm text-muted-foreground">
-                  Duration: {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}
-                </p>
+              {project.style && (
+                <div>
+                  <h3 className="text-sm font-medium mb-1">Style</h3>
+                  <p className="text-sm text-muted-foreground capitalize">{project.style}</p>
+                </div>
               )}
-            </div>
-          </div>
-          
-          <div className="mt-6">
-            <h3 className="text-lg font-medium mb-2">Prompt</h3>
-            <p className="whitespace-pre-wrap rounded-md bg-muted p-4">{video.prompt}</p>
-          </div>
-          
-          {video.style && (
-            <div className="mt-4">
-              <h3 className="text-lg font-medium mb-2">Style</h3>
-              <p>{video.style}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              
+              {project.has_audio !== undefined && (
+                <div>
+                  <h3 className="text-sm font-medium mb-1">Audio</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {project.has_audio ? "Audio included" : "No audio"}
+                  </p>
+                </div>
+              )}
+              
+              {project.has_captions !== undefined && (
+                <div>
+                  <h3 className="text-sm font-medium mb-1">Captions</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {project.has_captions ? "Captions included" : "No captions"}
+                  </p>
+                </div>
+              )}
+              
+              {project.narration_script && (
+                <div>
+                  <h3 className="text-sm font-medium mb-1">Narration Script</h3>
+                  <Textarea 
+                    value={project.narration_script} 
+                    readOnly 
+                    className="text-sm h-20 resize-none"
+                  />
+                </div>
+              )}
+            </CardContent>
+            <CardFooter>
+              {project.status === "completed" && project.video_url && (
+                <Button className="w-full" onClick={togglePlayback}>
+                  {isPlaying ? (
+                    <>Pause Video</>
+                  ) : (
+                    <><Play className="mr-2 h-4 w-4" /> Play Video</>
+                  )}
+                </Button>
+              )}
+              {project.status === "failed" && (
+                <Button className="w-full" onClick={() => navigate("/dashboard/generator", { state: { projectToRetry: project } })}>
+                  Try Again
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

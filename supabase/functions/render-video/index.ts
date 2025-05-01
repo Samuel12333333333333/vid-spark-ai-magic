@@ -1,209 +1,244 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
-  // Handle CORS preflight request
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: corsHeaders
-    });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const API_KEY = Deno.env.get("SHOTSTACK_API_KEY");
-    if (!API_KEY) {
-      console.error("SHOTSTACK_API_KEY is not defined");
-      return new Response(
-        JSON.stringify({ 
-          error: "API key is missing. Please check your environment variables.",
-          details: "The SHOTSTACK_API_KEY environment variable is not set."
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    console.log("Render video function called");
     
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-      console.error("Supabase credentials are not defined");
-      return new Response(
-        JSON.stringify({ 
-          error: "Supabase credentials are missing", 
-          details: "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set"
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
+    // Initialize Shotstack client with API key
+    const shotstackApiKey = Deno.env.get("SHOTSTACK_API_KEY");
+    if (!shotstackApiKey) {
+      console.error("SHOTSTACK_API_KEY is not set");
+      throw new Error("Shotstack API key is not configured");
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-
-    const { scenes, userId, projectId } = await req.json();
+    // Create Supabase client to update project status
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Supabase environment variables are not set");
+      throw new Error("Supabase configuration is missing");
+    }
+    
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Parse request body
+    let params;
+    try {
+      params = await req.json();
+      console.log("Received render request with params:", JSON.stringify(params));
+    } catch (parseError) {
+      console.error("Error parsing request body:", parseError);
+      throw new Error("Invalid request body");
+    }
+    
+    const { 
+      projectId, 
+      scenes, 
+      audioUrl, 
+      has_audio, 
+      has_captions,
+      captionsFile 
+    } = params;
+    
+    // Validate required parameters
+    if (!projectId) {
+      throw new Error("Project ID is required");
+    }
     
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Scenes array is required" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
+      throw new Error("Valid scenes array is required");
     }
-
-    if (!userId || !projectId) {
-      return new Response(
-        JSON.stringify({ error: "User ID and Project ID are required" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
-    }
-
-    console.log(`Rendering video for project ${projectId} with ${scenes.length} scenes`);
-
-    // Calculate total duration for reference
-    const totalDuration = scenes.reduce((sum, scene) => sum + scene.duration, 0);
-    console.log(`Total video duration: ${totalDuration} seconds`);
-
-    // Validate video URLs in scenes
-    const validScenes = scenes.filter(scene => scene.videoUrl && typeof scene.videoUrl === 'string');
     
-    if (validScenes.length === 0) {
-      console.error("No valid video URLs found in scenes");
-      return new Response(
-        JSON.stringify({ error: "No valid video URLs found in scenes" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
-    }
-
-    // Create Shotstack timeline from scenes
+    console.log(`Creating video for project ${projectId} with ${scenes.length} scenes`);
+    
+    // Create Shotstack timeline
     const timeline = {
-      soundtrack: {
-        src: "https://shotstack-assets.s3.ap-southeast-2.amazonaws.com/music/unminus/lit.mp3",
-        effect: "fadeOut"
-      },
       background: "#000000",
-      tracks: [
-        // Video track
-        {
-          clips: validScenes.map((scene, index) => {
-            // Calculate start position based on previous scenes
-            const startPosition = validScenes
-              .slice(0, index)
-              .reduce((sum, s) => sum + s.duration, 0);
-            
-            return {
-              asset: {
-                type: "video",
-                src: scene.videoUrl
-              },
-              start: startPosition,
-              length: scene.duration,
-              effect: index % 2 === 0 ? "zoomIn" : "slideUp", // Alternate effects for visual interest
-              transition: {
-                in: index === 0 ? "fade" : "fade",
-                out: index === scenes.length - 1 ? "fade" : "fade"
-              },
-              fit: "cover"
-            };
-          })
-        },
-        // Text overlay track
-        {
-          clips: validScenes.map((scene, index) => {
-            // Calculate start position based on previous scenes
-            const startPosition = validScenes
-              .slice(0, index)
-              .reduce((sum, s) => sum + s.duration, 0);
-            
-            return {
-              asset: {
-                type: "title",
-                text: scene.scene,
-                style: "minimal",
-                size: "medium",
-                position: "bottom"
-              },
-              start: startPosition,
-              length: scene.duration
-            };
-          })
-        }
-      ]
+      tracks: []
     };
-
+    
+    // Add scenes to timeline
+    const videoClipTrack = { clips: [] };
+    const captionTrack = has_captions ? { clips: [] } : null;
+    
+    let currentTime = 0;
+    const sceneDuration = 5; // Default duration per scene in seconds
+    
+    // Process each scene
+    scenes.forEach((scene, index) => {
+      if (!scene.videoUrl) {
+        console.warn(`Scene ${index} has no video URL, skipping`);
+        return;
+      }
+      
+      // Add video clip
+      videoClipTrack.clips.push({
+        asset: {
+          type: "video",
+          src: scene.videoUrl,
+          trim: 0,
+        },
+        start: currentTime,
+        length: sceneDuration,
+        effect: "zoomIn",
+        transition: {
+          in: index === 0 ? "fade" : "slideLeft",
+          out: index === scenes.length - 1 ? "fade" : null,
+        }
+      });
+      
+      // Add caption if enabled
+      if (has_captions && captionTrack) {
+        captionTrack.clips.push({
+          asset: {
+            type: "title",
+            text: scene.scene || `Scene ${index + 1}`,
+            style: "minimal",
+            size: "small",
+            position: "bottom"
+          },
+          start: currentTime,
+          length: sceneDuration
+        });
+      }
+      
+      currentTime += sceneDuration;
+    });
+    
+    // Add tracks to timeline
+    timeline.tracks.push(videoClipTrack);
+    if (captionTrack) {
+      timeline.tracks.push(captionTrack);
+    }
+    
+    // Add audio if provided
+    if (has_audio && audioUrl) {
+      console.log("Adding audio to timeline:", audioUrl);
+      timeline.soundtrack = {
+        src: audioUrl,
+        effect: "fadeOut"
+      };
+    }
+    
+    // Create output configuration
     const output = {
       format: "mp4",
-      resolution: "sd",
-      aspectRatio: "16:9"
+      resolution: "sd" // Standard definition (480p)
     };
-
-    const shotstackPayload = {
+    
+    // Create full render request
+    const renderRequest = {
       timeline,
-      output,
-      callback: null // Optional webhook URL could be configured here
+      output
     };
-
-    console.log("Sending request to Shotstack API");
-
+    
+    console.log("Sending render request to Shotstack API");
+    
+    // Call Shotstack API to render video
+    const response = await fetch("https://api.shotstack.io/stage/render", {
+      method: "POST",
+      headers: {
+        "x-api-key": shotstackApiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(renderRequest),
+    });
+    
+    // Handle response
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Shotstack API error (${response.status}): ${errorText}`);
+      throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log("Shotstack render response:", JSON.stringify(data));
+    
+    // Get render ID from response
+    const renderId = data.response?.id;
+    if (!renderId) {
+      throw new Error("No render ID returned from Shotstack");
+    }
+    
+    console.log(`Got render ID: ${renderId}, updating project`);
+    
+    // Update project with render ID and status
     try {
-      // Call Shotstack API to render the video
-      const response = await fetch("https://api.shotstack.io/stage/render", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY
-        },
-        body: JSON.stringify(shotstackPayload)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Shotstack API error response:", errorText);
-        throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const renderId = data.response.id;
-      console.log("Shotstack render ID:", renderId);
-
-      // Update the project in Supabase with the render ID
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseClient
         .from("video_projects")
         .update({
           render_id: renderId,
-          status: "processing"
+          status: "processing",
+          has_audio: Boolean(has_audio),
+          has_captions: Boolean(has_captions),
+          updated_at: new Date().toISOString()
         })
         .eq("id", projectId);
         
       if (updateError) {
-        console.error("Error updating project in database:", updateError);
-        // Still continue since we have the render ID to return
+        console.error("Error updating project:", updateError);
       }
-
-      return new Response(
-        JSON.stringify({ 
-          renderId,
-          estimatedDuration: totalDuration
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } catch (apiError) {
-      console.error("Error calling Shotstack API:", apiError);
-      return new Response(
-        JSON.stringify({ 
-          error: "Error rendering video with Shotstack API", 
-          details: apiError.message 
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
+    } catch (dbError) {
+      console.error("Database error:", dbError);
+      // Continue execution even if DB update fails
     }
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        renderId,
+        message: "Video rendering started successfully"
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+    
   } catch (error) {
     console.error("Error in render-video function:", error);
+    
+    // Try to update project status to failed if there's a projectId
+    try {
+      const { projectId } = await req.json().catch(() => ({}));
+      if (projectId) {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL");
+        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        
+        if (supabaseUrl && supabaseServiceKey) {
+          const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+          await supabaseClient
+            .from("video_projects")
+            .update({
+              status: "failed",
+              error_message: error.message || "Unknown error during video rendering",
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", projectId);
+        }
+      }
+    } catch (updateError) {
+      console.error("Error updating project status:", updateError);
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      JSON.stringify({
+        error: error.message || "An error occurred during video rendering",
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
     );
   }
 });

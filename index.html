@@ -3,18 +3,67 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>vid-spark-ai-magic</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
+    <title>SmartVideofy - AI-Powered Video Generator</title>
+    <meta name="description" content="Transform text into stunning videos with AI. SmartVideofy helps creators, marketers, educators, and startups bring their ideas to life with professional quality videos." />
+    <meta name="author" content="SmartVideofy" />
 
-    <meta property="og:title" content="vid-spark-ai-magic" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <!-- Open Graph / Facebook -->
+    <meta property="og:title" content="SmartVideofy - AI-Powered Video Generator" />
+    <meta property="og:description" content="Transform text into stunning videos with AI in minutes, not hours. No design skills required." />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://smartvideofy.com/" />
     <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
+    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
+    <meta name="twitter:site" content="@smartvideofy" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "SmartVideofy",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "Web",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "description": "AI-powered video generation platform that transforms text into stunning videos in minutes"
+      }
+    </script>
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://smartvideofy.com/" />
+    
+    <!-- Favicon -->
+    <link rel="icon" href="/favicon.ico" />
+    
+    <!-- Sitemap Reference -->
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- n8n Chat Widget CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/@n8n/chat/dist/style.css" rel="stylesheet" />
+    
+    <!-- Mailchimp Embed Form CSS -->
+    <link href="//cdn-images.mailchimp.com/embedcode/classic-061523.css" rel="stylesheet" type="text/css">
+    <style type="text/css">
+      #mc_embed_signup{
+        background:#fff;
+        clear:left;
+        font:14px Helvetica,Arial,sans-serif;
+        width: 100%;
+        max-width: 600px;
+      }
+    </style>
   </head>
 
   <body>
@@ -22,5 +71,96 @@
     <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Custom CSS for n8n chat widget theming -->
+    <style>
+      :root {
+        --chat--color-primary: #6366F1;
+        --chat--color-primary-shade-50: #5558d9;
+        --chat--color-primary-shade-100: #4749c2;
+        --chat--color-secondary: #06B6D4;
+        --chat--color-secondary-shade-50: #22D3EE;
+        --chat--color-light: #f8fafc;
+        --chat--color-dark: #0f172a;
+        
+        --chat--spacing: 1.25rem;
+        --chat--border-radius: 0.75rem;
+        --chat--transition-duration: 0.2s;
+        
+        --chat--window--width: 380px;
+        --chat--window--height: 600px;
+        
+        --chat--header--background: var(--chat--color-primary);
+        --chat--header--color: var(--chat--color-light);
+        --chat--header--padding: 1.5rem;
+        --chat--heading--font-size: 1.25rem;
+        --chat--subtitle--font-size: 0.875rem;
+        
+        --chat--message--font-size: 0.938rem;
+        --chat--message--padding: 1rem 1.25rem;
+        --chat--message--border-radius: 1rem;
+        --chat--message--line-height: 1.6;
+        --chat--message--bot--background: #f1f5f9;
+        --chat--message--bot--color: #0f172a;
+        --chat--message--user--background: var(--chat--color-primary);
+        --chat--message--user--color: white;
+        
+        --chat--toggle--background: var(--chat--color-primary);
+        --chat--toggle--hover--background: var(--chat--color-primary-shade-50);
+        --chat--toggle--active--background: var(--chat--color-primary-shade-100);
+        --chat--toggle--color: white;
+        --chat--toggle--size: 56px;
+      }
+
+      .dark {
+        --chat--color-light: #0f172a;
+        --chat--color-dark: #f8fafc;
+        --chat--message--bot--background: rgba(255, 255, 255, 0.1);
+        --chat--message--bot--color: #f8fafc;
+      }
+    </style>
+
+    <!-- n8n Chat Widget -->
+    <script type="module">
+      import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat/dist/chat.bundle.es.js';
+
+      function initChat() {
+        const path = window.location.pathname;
+        const isMarketingPage = path === '/' || 
+                               !path.startsWith('/dashboard') && 
+                               !path.startsWith('/login') && 
+                               !path.startsWith('/register');
+        
+        if (isMarketingPage) {
+          createChat({
+            webhookUrl: 'https://smartvid.app.n8n.cloud/webhook/f406671e-c954-4691-b39a-66c90aa2f103/chat',
+            mode: 'window',
+            showWelcomeScreen: true,
+            initialMessages: [
+              'Hi! 👋 I\'m your SmartVid assistant.',
+              'How can I help you create amazing videos today?'
+            ],
+            i18n: {
+              en: {
+                title: 'SmartVid Assistant',
+                subtitle: 'Get help with video creation 24/7',
+                inputPlaceholder: 'Ask about SmartVid...',
+                getStarted: 'Start a new conversation',
+                footer: 'Powered by AI'
+              },
+            },
+          });
+        }
+      }
+
+      initChat();
+      
+      window.addEventListener('popstate', initChat);
+      const pushState = history.pushState;
+      history.pushState = function() {
+        pushState.apply(history, arguments);
+        initChat();
+      };
+    </script>
   </body>
 </html>

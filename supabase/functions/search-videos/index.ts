@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight request
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, {
       headers: corsHeaders
@@ -15,108 +15,124 @@ serve(async (req) => {
   }
 
   try {
-    const API_KEY = Deno.env.get("PEXELS_API_KEY");
-    if (!API_KEY) {
-      console.error("PEXELS_API_KEY is not defined");
-      return new Response(
-        JSON.stringify({ 
-          error: "API key is missing. Please check your environment variables.",
-          details: "The PEXELS_API_KEY environment variable is not set."
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-
     const { keywords } = await req.json();
+    
+    // Log the request for debugging
+    console.log("Request data received:", { keywords });
+    
+    // Validate input
     if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
       return new Response(
         JSON.stringify({ error: "Keywords array is required" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
-
-    // Join keywords with a space for the search query
-    const searchQuery = keywords.join(" ");
-    console.log("Searching videos for query:", searchQuery);
-
-    try {
-      // Call Pexels API to search for videos
-      const response = await fetch(
-        `https://api.pexels.com/videos/search?query=${encodeURIComponent(searchQuery)}&per_page=3&orientation=landscape`,
-        {
-          method: "GET",
-          headers: {
-            "Authorization": API_KEY
-          }
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Pexels API error response:", errorText);
-        throw new Error(`Pexels API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log(`Found ${data.videos?.length || 0} videos for query: ${searchQuery}`);
-
-      // Check if videos array exists
-      if (!data.videos || !Array.isArray(data.videos)) {
-        console.error("Unexpected Pexels API response structure:", data);
-        return new Response(
-          JSON.stringify({ 
-            error: "Invalid response from Pexels API", 
-            videos: [] 
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-        );
-      }
-
-      // Transform Pexels response to our format
-      const videos = data.videos.map(video => {
-        // Find HD quality video file
-        const videoFile = video.video_files.find(file => 
-          file.quality === "hd" && file.width >= 1280
-        ) || video.video_files[0];
-
-        // Use the first picture as preview
-        const preview = video.video_pictures.length > 0 
-          ? video.video_pictures[0].picture 
-          : video.image;
-
-        return {
-          id: video.id.toString(),
-          url: videoFile.link,
-          preview: preview,
-          duration: video.duration,
-          width: videoFile.width,
-          height: videoFile.height
-        };
-      });
-
+    
+    // Combine keywords for search query
+    const query = keywords.join(' ');
+    
+    console.log(`Searching Pexels videos for query: ${query}`);
+    
+    const API_KEY = Deno.env.get("PEXELS_API_KEY");
+    if (!API_KEY) {
       return new Response(
-        JSON.stringify({ videos }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } catch (apiError) {
-      console.error("Error calling Pexels API:", apiError);
-      return new Response(
-        JSON.stringify({ 
-          error: "Error fetching videos from Pexels", 
-          details: apiError.message,
-          videos: [] 
-        }),
+        JSON.stringify({ error: "Pexels API key is not configured" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
-  } catch (error) {
-    console.error("Error in search-videos function:", error);
+    
+    // Alternative queries to try if the main one fails
+    const queryAlternatives = [
+      query,
+      keywords[0], // Try just the first keyword
+      "business", // Generic fallbacks
+      "nature",
+      "technology"
+    ];
+    
+    let videos = [];
+    let currentQuery = queryAlternatives[0];
+    let queryIndex = 0;
+    
+    while (videos.length === 0 && queryIndex < queryAlternatives.length) {
+      currentQuery = queryAlternatives[queryIndex];
+      
+      const url = `https://api.pexels.com/videos/search?query=${encodeURIComponent(currentQuery)}&per_page=10&orientation=landscape`;
+      
+      const response = await fetch(url, {
+        headers: {
+          "Authorization": API_KEY
+        }
+      });
+      
+      if (!response.ok) {
+        console.error(`Pexels API error: ${response.status} ${response.statusText}`);
+        queryIndex++;
+        continue;
+      }
+      
+      const data = await response.json();
+      
+      if (data && data.videos && data.videos.length > 0) {
+        // Map Pexels response to our internal format
+        videos = data.videos.map((video) => {
+          const bestVideo = video.video_files.reduce((prev, curr) => {
+            // Choose HD or close to it, but not too large
+            if (curr.quality === "hd" && curr.width <= 1280) {
+              return curr;
+            }
+            if (!prev || (curr.width > prev.width && curr.width <= 1280)) {
+              return curr;
+            }
+            return prev;
+          }, null);
+          
+          return {
+            id: video.id.toString(),
+            url: bestVideo ? bestVideo.link : video.video_files[0].link,
+            image: video.image,
+            width: bestVideo ? bestVideo.width : video.video_files[0].width,
+            height: bestVideo ? bestVideo.height : video.video_files[0].height,
+            duration: video.duration,
+            user: {
+              name: video.user.name,
+              url: video.user.url
+            }
+          };
+        });
+        
+        console.log(`Found ${videos.length} videos for query: ${currentQuery}`);
+        break;
+      } else {
+        queryIndex++;
+        console.log(`No videos found for "${currentQuery}", trying alternative query`);
+      }
+    }
+    
+    if (videos.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          error: "No videos found for the given keywords",
+          videos: [], 
+          query,
+          triedQueries: queryAlternatives.slice(0, queryIndex + 1)
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+      );
+    }
+    
     return new Response(
       JSON.stringify({ 
-        error: "An unexpected error occurred", 
-        details: error.message,
-        videos: [] 
+        videos,
+        query: currentQuery,
+        originalQuery: query
       }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Error:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }

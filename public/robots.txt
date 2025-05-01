@@ -1,14 +1,33 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
 
 User-agent: *
 Allow: /
+
+# Allow search engines to crawl all pages
+Allow: /
+Allow: /features
+Allow: /pricing
+Allow: /product
+Allow: /templates
+Allow: /integrations
+Allow: /use-cases
+Allow: /blog
+Allow: /blog/*
+Allow: /help
+Allow: /community
+Allow: /api-docs
+Allow: /about
+Allow: /careers
+Allow: /contact
+Allow: /terms
+Allow: /privacy
+Allow: /cookies
+Allow: /sitemap
+
+# Admin and auth pages are allowed but won't appear in search results
+Allow: /dashboard/
+Allow: /login/
+Allow: /register/
+Allow: /logout/
+
+# Sitemap location
+Sitemap: https://smartvideofy.com/sitemap.xml

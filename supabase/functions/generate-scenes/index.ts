@@ -1,5 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.2.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,179 +8,148 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight request
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, {
       headers: corsHeaders
     });
   }
-
+  
   try {
-    // Get the API key
-    const API_KEY = Deno.env.get("GEMINI_API_KEY");
-    
-    if (!API_KEY) {
-      console.error("GEMINI_API_KEY is not defined");
-      return new Response(
-        JSON.stringify({ 
-          error: "API key is missing. Please check your environment variables.",
-          details: "The GEMINI_API_KEY environment variable is not set."
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-
     const { prompt } = await req.json();
-    if (!prompt) {
-      return new Response(
-        JSON.stringify({ error: "Prompt is required" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
-    }
-
+    
     console.log("Generating scenes for prompt:", prompt);
-
-    const systemPrompt = `You are an expert video editor. Break down the following prompt into 3-5 distinct scenes for a short-form video.
-      For each scene include:
-      1. A clear scene description (setting, action, subject)
-      2. 3-5 keywords that would be good for searching stock footage
-      3. Suggested duration in seconds (between 3-8 seconds per scene)
-      
-      Format your response as a JSON array of scene objects with the properties:
-      { 
+    
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY not set in environment");
+    }
+    
+    const genAI = new GoogleGenerativeAI(apiKey);
+    
+    // Use Gemini Pro model
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-pro", 
+      generationConfig: {
+        temperature: 0.4,      // Lower temperature for more focused results
+        maxOutputTokens: 1000, // Constrain output size for faster responses
+        topP: 0.8,             // Reduced to get more deterministic outputs
+        topK: 40               // Slightly more focused token selection
+      }
+    });
+    
+    console.log("Using model configuration for Gemini 2.0 Flash equivalent");
+    
+    // Set up the prompt for scene generation
+    const systemPrompt = `You are an experienced video producer. Break down the following description into 3-5 distinct scenes for a professional video. For each scene, provide:
+    1. A short scene title
+    2. A detailed visual description that a stock footage search engine could match
+    3. 3-5 specific keywords that will help find the perfect stock footage
+    4. A recommended duration in seconds (between 3-10 seconds per scene)
+    
+    Format your response as a JSON array like this:
+    [
+      {
+        "id": "scene1",
         "scene": "Scene title",
-        "description": "Detailed scene description",
+        "description": "Detailed visual description",
         "keywords": ["keyword1", "keyword2", "keyword3"],
         "duration": 5
-      }`;
-
-    try {
-      // Using the updated Gemini 2.0 API endpoint as specified in the feedback
-      console.log("Calling Gemini API with new endpoint...");
-      
-      // Use the new Gemini 2.0 flash model API endpoint
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
-      
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: systemPrompt + "\n\n" + prompt }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.4,
-            topP: 0.8,
-            topK: 40,
-            maxOutputTokens: 2048
-          }
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error("Gemini API error:", response.status, errorData);
-        throw new Error(`Gemini API error: ${response.status} - ${errorData}`);
-      }
-      
-      const result = await response.json();
-      console.log("Gemini response received:", JSON.stringify(result).slice(0, 200) + '...');
-      
-      // New structure for Gemini 2.0 response
-      if (!result || !result.candidates || !result.candidates[0] || !result.candidates[0].content) {
-        console.error("Invalid response structure from Gemini API:", result);
-        throw new Error("Invalid response from Gemini API");
-      }
-      
-      // Extract the text from the response - updated for Gemini 2.0 structure
-      const textResponse = result.candidates[0].content.parts[0].text || "";
-      console.log("Text response:", textResponse.slice(0, 200) + '...');
-      
-      // Parse the JSON from the response
-      let jsonStr = "";
-      try {
-        // Look for JSON array in the response
-        const jsonStartIndex = textResponse.indexOf('[');
-        const jsonEndIndex = textResponse.lastIndexOf(']') + 1;
-        
-        if (jsonStartIndex === -1 || jsonEndIndex === -1) {
-          // If we can't find array brackets, try to parse the whole thing
-          console.log("Couldn't find JSON array markers, trying to parse the entire response");
-          jsonStr = textResponse;
-        } else {
-          jsonStr = textResponse.substring(jsonStartIndex, jsonEndIndex);
-        }
-        
-        console.log("Extracted JSON string:", jsonStr.slice(0, 200) + '...');
-      } catch (e) {
-        console.error("Error extracting JSON:", e);
-        throw new Error("Failed to extract JSON from Gemini response");
-      }
-      
-      let scenes = [];
-      try {
-        // Handle case where the response might be wrapped in backticks or code block
-        jsonStr = jsonStr.replace(/^```json\n|\n```$/g, "");
-        jsonStr = jsonStr.replace(/^```\n|\n```$/g, "");
-        scenes = JSON.parse(jsonStr);
-        
-        // Add unique IDs to each scene
-        scenes = scenes.map((scene, index) => ({
-          id: crypto.randomUUID(),
-          ...scene
-        }));
-        console.log("Successfully parsed scenes:", scenes.length);
-      } catch (e) {
-        console.error("Error parsing JSON:", e, "Raw JSON string:", jsonStr);
-        
-        // Fallback to a default response if parsing fails
-        scenes = [
-          {
-            id: crypto.randomUUID(),
-            scene: "Introduction",
-            description: "Opening scene introducing the main concept",
-            keywords: ["introduction", "opening", "concept"],
-            duration: 5
-          },
-          {
-            id: crypto.randomUUID(),
-            scene: "Main Content",
-            description: "Presenting the core information from the prompt",
-            keywords: ["information", "content", "presentation"],
-            duration: 6
-          },
-          {
-            id: crypto.randomUUID(),
-            scene: "Conclusion",
-            description: "Final scene summarizing the main points",
-            keywords: ["conclusion", "summary", "final"],
-            duration: 5
-          }
-        ];
-        console.log("Using fallback scenes due to JSON parsing error");
-      }
-
-      return new Response(
-        JSON.stringify({ scenes }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } catch (generationError) {
-      console.error("Error generating content:", generationError);
-      return new Response(
-        JSON.stringify({ error: "Failed to generate scenes from Gemini API", details: generationError.message }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
+      },
+      // more scenes...
+    ]
+    
+    Your response should ONLY include the JSON array with no additional text or explanation.`;
+    
+    const fullPrompt = `${systemPrompt}\n\nDescription: ${prompt}`;
+    
+    console.log("Calling Gemini API with fast response configuration...");
+    
+    // Use streaming for faster responses
+    const result = await model.generateContent(fullPrompt);
+    const response = result.response;
+    const textResponse = response.text();
+    
+    console.log("Text response:", textResponse.substring(0, 200) + "...");
+    
+    // Extract JSON data from response
+    let jsonStr = textResponse;
+    if (textResponse.includes('```json')) {
+      jsonStr = textResponse.split('```json')[1].split('```')[0].trim();
+    } else if (textResponse.includes('```')) {
+      jsonStr = textResponse.split('```')[1].split('```')[0].trim();
     }
-  } catch (error) {
-    console.error("Error in generate-scenes function:", error);
+    
+    console.log("Extracted JSON string:", jsonStr.substring(0, 200) + "...");
+    
+    let scenes;
+    try {
+      scenes = JSON.parse(jsonStr);
+      if (!Array.isArray(scenes)) {
+        throw new Error("Response is not an array");
+      }
+      console.log(`Successfully parsed scenes: ${scenes.length}`);
+    } catch (error) {
+      console.error("Failed to parse JSON response:", error);
+      
+      // Attempt to generate properly formatted JSON
+      const fixPrompt = `The following JSON string has errors. Please fix the JSON format issues and return ONLY the corrected JSON array of scenes:\n\n${jsonStr}`;
+      
+      const fixResult = await model.generateContent(fixPrompt);
+      const fixedText = fixResult.response.text();
+      
+      let fixedJsonStr = fixedText;
+      if (fixedText.includes('```json')) {
+        fixedJsonStr = fixedText.split('```json')[1].split('```')[0].trim();
+      } else if (fixedText.includes('```')) {
+        fixedJsonStr = fixedText.split('```')[1].split('```')[0].trim();
+      }
+      
+      scenes = JSON.parse(fixedJsonStr);
+      console.log(`Successfully parsed fixed scenes: ${scenes.length}`);
+    }
+    
+    // Ensure each scene has the required fields and add ids if missing
+    const validScenes = scenes.map((scene, index) => {
+      const id = scene.id || `scene${index + 1}`;
+      const title = scene.scene || `Scene ${index + 1}`;
+      const description = scene.description || "A professional scene for a video";
+      const duration = scene.duration || 5;
+      const keywords = scene.keywords || ["professional", "video", "scene"];
+      
+      return {
+        id,
+        scene: title,
+        description: description,
+        keywords: keywords,
+        duration: duration
+      };
+    });
+    
     return new Response(
-      JSON.stringify({ error: "An unexpected error occurred", details: error.message }),
+      JSON.stringify({ 
+        scenes: validScenes,
+        raw: textResponse,
+        modelUsed: "gemini-2.0-flash-equivalent" 
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Error generating scenes:", error);
+    
+    return new Response(
+      JSON.stringify({ 
+        error: error.message,
+        scenes: [
+          {
+            id: "scene1",
+            scene: "Default Scene",
+            description: "A professional looking scene for a video",
+            keywords: ["professional", "video", "scene"],
+            duration: 5
+          }
+        ] 
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }

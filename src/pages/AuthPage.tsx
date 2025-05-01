@@ -1,4 +1,3 @@
-
 import { useLocation } from "react-router-dom";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -26,20 +25,14 @@ export default function AuthPage() {
         </div>
         
         {/* Right side - Image/Decoration */}
-        <div className="hidden lg:block w-1/2 bg-smartvid-600 dark:bg-gray-900 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-smartvid-600 to-smartvid-purple dark:from-gray-900 dark:to-smartvid-900 opacity-90"></div>
+        <div className="hidden lg:block w-1/2 bg-gray-900 dark:bg-black relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-gray-800 opacity-90"></div>
           <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-white">
-            <h2 className="text-3xl font-bold mb-6">Transform Text Into Videos with AI</h2>
-            <p className="text-xl mb-8 max-w-md text-center">
-              Create professional videos from text prompts in minutes, not hours. Perfect for marketers, educators, and content creators.
-            </p>
-            <div className="w-full max-w-md aspect-video rounded-lg overflow-hidden shadow-xl border border-white/20">
-              <img 
-                src="/placeholder.svg" 
-                alt="SmartVid Demo" 
-                className="w-full h-full object-cover"
-              />
-            </div>
+            <img
+              src="/lovable-uploads/e8a25181-6ae2-4a00-bcd6-c668ef806534.png"
+              alt="SmartVid AI Video Generation"
+              className="w-full max-w-2xl mx-auto mb-8 drop-shadow-2xl"
+            />
           </div>
         </div>
       </div>
