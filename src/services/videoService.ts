@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { mediaService } from "@/services/mediaService";
 import { renderNotifications } from "@/services/video/renderNotifications";
 import { VideoProjectUpdate } from "@/services/video/types";
+import { Json } from "@/integrations/supabase/types";
 
 export interface VideoProject {
   id: string;
@@ -25,7 +26,7 @@ export interface VideoProject {
   has_audio?: boolean;
   has_captions?: boolean;
   narration_script?: string;
-  scenes?: SceneBreakdown[]; 
+  scenes?: SceneBreakdown[] | Json; 
   audio_data?: string;
   error_message?: string;
   audio_url?: string;
@@ -79,8 +80,7 @@ export const videoService = {
           has_audio: params.voiceSettings ? true : false,
           has_captions: false,
           narration_script: params.voiceSettings?.script || null,
-          model_version: "gemini-2.0-flash", // Always use the flash model
-          brand_settings: params.brandKit ? JSON.stringify(params.brandKit) : null,
+          brand_colors: params.brandKit ? JSON.stringify(params.brandKit) : null,
           user_id: params.userId
         })
         .select()
@@ -117,9 +117,13 @@ export const videoService = {
           );
           
           // Update the project with the scenes
+          const scenesUpdate: VideoProjectUpdate = { 
+            scenes: scenes as unknown as Json 
+          };
+          
           const { error: updateError } = await supabase
             .from("video_projects")
-            .update({ scenes: scenes })
+            .update(scenesUpdate)
             .eq("id", project.id);
             
           if (updateError) {
@@ -154,9 +158,10 @@ export const videoService = {
             console.log("Generated audio for video:", audioUrl);
             
             // Update project with audio URL
+            const audioUpdate: VideoProjectUpdate = { audio_url: audioUrl };
             const { error: audioUpdateError } = await supabase
               .from("video_projects")
-              .update({ audio_url: audioUrl })
+              .update(audioUpdate)
               .eq("id", project.id);
               
             if (audioUpdateError) {
@@ -211,12 +216,14 @@ export const videoService = {
           console.error("Error invoking render-video function:", renderError);
           
           // Update project status to failed
+          const failUpdate: VideoProjectUpdate = { 
+            status: "failed",
+            error_message: renderError.message || "Failed to start video rendering"
+          };
+          
           await supabase
             .from("video_projects")
-            .update({ 
-              status: "failed",
-              error_message: renderError.message || "Failed to start video rendering"
-            })
+            .update(failUpdate)
             .eq("id", project.id);
             
           return { 
@@ -229,12 +236,14 @@ export const videoService = {
         if (!renderData || !renderData.renderId) {
           console.error("No render ID returned");
           
+          const noRenderUpdate: VideoProjectUpdate = { 
+            status: "failed",
+            error_message: "No render ID returned from rendering service"
+          };
+          
           await supabase
             .from("video_projects")
-            .update({ 
-              status: "failed",
-              error_message: "No render ID returned from rendering service"
-            })
+            .update(noRenderUpdate)
             .eq("id", project.id);
           
           return { 
@@ -247,12 +256,14 @@ export const videoService = {
         console.log("Render started successfully with ID:", renderData.renderId);
         
         // Update project with render ID
+        const renderUpdate: VideoProjectUpdate = { 
+          render_id: renderData.renderId,
+          status: "processing"
+        };
+        
         await supabase
           .from("video_projects")
-          .update({ 
-            render_id: renderData.renderId,
-            status: "processing"
-          })
+          .update(renderUpdate)
           .eq("id", project.id);
         
         return { 
@@ -265,12 +276,14 @@ export const videoService = {
         console.error("Error starting render:", renderError);
         
         // Update project status to failed
+        const errorUpdate: VideoProjectUpdate = { 
+          status: "failed",
+          error_message: renderError instanceof Error ? renderError.message : "Unknown render error"
+        };
+        
         await supabase
           .from("video_projects")
-          .update({ 
-            status: "failed",
-            error_message: renderError instanceof Error ? renderError.message : "Unknown render error"
-          })
+          .update(errorUpdate)
           .eq("id", project.id);
           
         return { 
@@ -307,7 +320,7 @@ export const videoService = {
         has_captions: Boolean(project.has_captions)
       }));
       
-      return processedData as VideoProject[];
+      return processedData as unknown as VideoProject[];
     } catch (error) {
       console.error('Error in getProjects:', error);
       throw error;
@@ -334,7 +347,7 @@ export const videoService = {
         has_captions: Boolean(project.has_captions)
       }));
       
-      return processedData as VideoProject[];
+      return processedData as unknown as VideoProject[];
     } catch (error) {
       console.error('Error in getRecentProjects:', error);
       throw error;
@@ -365,7 +378,7 @@ export const videoService = {
         data.has_captions = Boolean(data.has_captions);
       }
       
-      return data as VideoProject;
+      return data as unknown as VideoProject;
     } catch (error) {
       console.error('Error in getProjectById:', error);
       throw error;
@@ -387,16 +400,17 @@ export const videoService = {
         narration_script: project.narration_script?.substring(0, 20) + "..." || "None provided"
       });
       
-      const projectWithDefaults = {
+      const projectToInsert = {
         ...project,
         has_audio: Boolean(project.has_audio),
         has_captions: Boolean(project.has_captions),
-        narration_script: project.narration_script || null
+        narration_script: project.narration_script || null,
+        scenes: project.scenes ? (project.scenes as unknown as Json) : null
       };
 
       const { data, error } = await supabase
         .from('video_projects')
-        .insert(projectWithDefaults)
+        .insert(projectToInsert)
         .select()
         .single();
         
@@ -406,7 +420,7 @@ export const videoService = {
       }
       
       console.log("Video project created successfully with ID:", data.id);
-      return data as VideoProject;
+      return data as unknown as VideoProject;
     } catch (error) {
       console.error('Error in createProject:', error);
       throw error;
@@ -421,7 +435,7 @@ export const videoService = {
       }
       
       // Only include specific properties to update and ensure scenes is properly handled
-      const sanitizedUpdates: Record<string, any> = {};
+      const sanitizedUpdates: VideoProjectUpdate = {};
       
       // Only copy the properties we want to update
       if (updates.title !== undefined) sanitizedUpdates.title = updates.title;
@@ -440,7 +454,7 @@ export const videoService = {
       if (updates.duration !== undefined) sanitizedUpdates.duration = updates.duration;
       if (updates.render_id !== undefined) sanitizedUpdates.render_id = updates.render_id;
       if (updates.audio_url !== undefined) sanitizedUpdates.audio_url = updates.audio_url;
-      if (updates.scenes !== undefined) sanitizedUpdates.scenes = updates.scenes;
+      if (updates.scenes !== undefined) sanitizedUpdates.scenes = updates.scenes as unknown as Json;
 
       console.log(`Updating video project ${id} with data:`, {
         status: sanitizedUpdates.status,
@@ -449,7 +463,7 @@ export const videoService = {
         narration_script: sanitizedUpdates.narration_script 
           ? (sanitizedUpdates.narration_script.substring(0, 20) + "...") 
           : "No change",
-        scenes: sanitizedUpdates.scenes ? `${sanitizedUpdates.scenes.length} scenes` : "No change"
+        scenes: sanitizedUpdates.scenes ? `Present` : "No change"
       });
       
       const { error } = await supabase

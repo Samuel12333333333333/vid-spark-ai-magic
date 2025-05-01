@@ -1,5 +1,6 @@
 
 import { VideoProject } from "../videoService";
+import { Json } from "@/integrations/supabase/types";
 
 export type RenderStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -21,11 +22,10 @@ export interface RenderStartOptions {
   narrationScript?: string;
   brandColors?: string;
   includeCaptions?: boolean;
-  scenes?: any[];
+  scenes?: Json;
   audioBase64?: string;
 }
 
-// This interface was missing the scenes property
 export interface VideoProjectUpdate {
   title?: string;
   prompt?: string;
@@ -43,6 +43,6 @@ export interface VideoProjectUpdate {
   duration?: number;
   render_id?: string;
   updated_at?: string;
-  scenes?: any[];
+  scenes?: Json;
   audio_url?: string;
 }
