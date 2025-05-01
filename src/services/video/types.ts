@@ -44,5 +44,5 @@ export interface VideoProjectUpdate {
   render_id?: string;
   updated_at?: string;
   scenes?: Json;
-  audio_url?: string;
+  audio_url?: string; // Added this field to fix the TypeScript error
 }
