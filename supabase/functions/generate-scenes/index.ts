@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.2.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,20 +24,10 @@ serve(async (req) => {
       throw new Error("GEMINI_API_KEY not set in environment");
     }
     
-    const genAI = new GoogleGenerativeAI(apiKey);
+    // Use the correct URL for gemini-2.0-flash model
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
     
-    // Use Gemini Pro model
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-pro", 
-      generationConfig: {
-        temperature: 0.4,      // Lower temperature for more focused results
-        maxOutputTokens: 1000, // Constrain output size for faster responses
-        topP: 0.8,             // Reduced to get more deterministic outputs
-        topK: 40               // Slightly more focused token selection
-      }
-    });
-    
-    console.log("Using model configuration for Gemini 2.0 Flash equivalent");
+    console.log("Using Gemini 2.0 Flash model");
     
     // Set up the prompt for scene generation
     const systemPrompt = `You are an experienced video producer. Break down the following description into 3-5 distinct scenes for a professional video. For each scene, provide:
@@ -63,12 +52,53 @@ serve(async (req) => {
     
     const fullPrompt = `${systemPrompt}\n\nDescription: ${prompt}`;
     
-    console.log("Calling Gemini API with fast response configuration...");
+    console.log("Calling Gemini 2.0 Flash API...");
     
-    // Use streaming for faster responses
-    const result = await model.generateContent(fullPrompt);
-    const response = result.response;
-    const textResponse = response.text();
+    // Make the API request with the correct format for gemini-2.0-flash
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: fullPrompt
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.4,
+          topK: 40,
+          topP: 0.8,
+          maxOutputTokens: 1000,
+        }
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("Gemini API error:", errorData);
+      throw new Error(`Gemini API returned ${response.status}: ${errorData}`);
+    }
+    
+    const responseData = await response.json();
+    console.log("Received response from Gemini");
+    
+    // Extract the text from the response
+    let textResponse = "";
+    if (responseData.candidates && 
+        responseData.candidates[0] && 
+        responseData.candidates[0].content && 
+        responseData.candidates[0].content.parts) {
+      
+      textResponse = responseData.candidates[0].content.parts
+        .map(part => part.text || "")
+        .join("");
+    }
     
     console.log("Text response:", textResponse.substring(0, 200) + "...");
     
@@ -95,8 +125,44 @@ serve(async (req) => {
       // Attempt to generate properly formatted JSON
       const fixPrompt = `The following JSON string has errors. Please fix the JSON format issues and return ONLY the corrected JSON array of scenes:\n\n${jsonStr}`;
       
-      const fixResult = await model.generateContent(fixPrompt);
-      const fixedText = fixResult.response.text();
+      // Make another API call to fix the JSON
+      const fixResponse = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: fixPrompt
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 1000,
+          }
+        })
+      });
+      
+      if (!fixResponse.ok) {
+        throw new Error(`Failed to fix JSON: ${await fixResponse.text()}`);
+      }
+      
+      const fixResponseData = await fixResponse.json();
+      let fixedText = "";
+      
+      if (fixResponseData.candidates && 
+          fixResponseData.candidates[0] && 
+          fixResponseData.candidates[0].content &&
+          fixResponseData.candidates[0].content.parts) {
+        fixedText = fixResponseData.candidates[0].content.parts
+          .map(part => part.text || "")
+          .join("");
+      }
       
       let fixedJsonStr = fixedText;
       if (fixedText.includes('```json')) {
@@ -130,7 +196,7 @@ serve(async (req) => {
       JSON.stringify({ 
         scenes: validScenes,
         raw: textResponse,
-        modelUsed: "gemini-2.0-flash-equivalent" 
+        modelUsed: "gemini-2.0-flash" 
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

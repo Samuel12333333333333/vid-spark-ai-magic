@@ -78,7 +78,7 @@ export const videoService = {
           has_audio: params.voiceSettings ? true : false,
           has_captions: false,
           narration_script: params.voiceSettings?.script || null,
-          model_version: params.modelVersion || "gemini-2.0-flash",
+          model_version: "gemini-2.0-flash", // Always use the flash model
           brand_settings: params.brandKit ? JSON.stringify(params.brandKit) : null,
           user_id: params.userId
         })
@@ -101,6 +101,7 @@ export const videoService = {
       let scenes: SceneBreakdown[] = [];
       try {
         scenes = await aiService.generateScenes(params.prompt);
+        console.log(`Generated ${scenes.length} scenes for video:`, scenes);
         
         // Save the generated scenes for future reference
         if (scenes.length > 0) {
@@ -112,6 +113,15 @@ export const videoService = {
             JSON.stringify(scenes),
             'scene-breakdown'
           );
+          
+          // Also update the project with the scenes
+          await supabase
+            .from("video_projects")
+            .update({ scenes: scenes })
+            .eq("id", project.id);
+        } else {
+          console.error("No scenes were generated");
+          throw new Error("Failed to generate scenes for the video");
         }
       } catch (sceneError) {
         console.error("Error generating scenes:", sceneError);
@@ -137,11 +147,10 @@ export const videoService = {
             audioUrl = audioData.audioUrl;
             console.log("Generated audio for video:", audioUrl);
             
-            // Update project with audio URL - Use specific type casting to avoid TypeScript errors
-            const updateData: any = { audio_url: audioUrl };
+            // Update project with audio URL using type assertion for compatibility
             await supabase
               .from("video_projects")
-              .update(updateData)
+              .update({ audio_url: audioUrl } as any)
               .eq("id", project.id);
           }
         } catch (audioError) {
@@ -152,7 +161,9 @@ export const videoService = {
       
       // Step 4: Start the video render process
       try {
-        const { error: renderError } = await supabase.functions.invoke('render-video', {
+        console.log("Starting render with scenes:", scenes);
+        
+        const { data: renderData, error: renderError } = await supabase.functions.invoke('render-video', {
           body: {
             projectId: project.id,
             userId: params.userId,
@@ -164,7 +175,9 @@ export const videoService = {
             mediaUrls: params.mediaUrls || [],
             useStockMedia: params.useStockMedia !== false, // Default to true if not specified
             audioUrl: audioUrl,
-            modelVersion: params.modelVersion || "gemini-2.0-flash"
+            has_audio: params.voiceSettings ? true : false,
+            has_captions: false,
+            modelVersion: "gemini-2.0-flash" // Always use the flash model
           }
         });
         
@@ -186,6 +199,35 @@ export const videoService = {
             videoId: project.id
           };
         }
+        
+        if (!renderData || !renderData.renderId) {
+          console.error("No render ID returned");
+          
+          await supabase
+            .from("video_projects")
+            .update({ 
+              status: "failed",
+              error_message: "No render ID returned from rendering service"
+            })
+            .eq("id", project.id);
+          
+          return { 
+            success: false, 
+            error: "Failed to get render ID. Please try again.",
+            videoId: project.id
+          };
+        }
+        
+        console.log("Render started successfully with ID:", renderData.renderId);
+        
+        // Update project with render ID
+        await supabase
+          .from("video_projects")
+          .update({ 
+            render_id: renderData.renderId,
+            status: "processing"
+          })
+          .eq("id", project.id);
         
         return { 
           success: true, 

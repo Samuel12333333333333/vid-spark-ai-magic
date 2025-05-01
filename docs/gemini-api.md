@@ -10,35 +10,52 @@ API keys are stored in Supabase secrets under `GEMINI_API_KEY`.
 ## Implementation Example
 
 ```typescript
-import { GoogleGenerativeAI } from "@google/genai";
-
-// Initialize the API with your API key
-const genAI = new GoogleGenerativeAI(apiKey);
-
-// Access a specific model
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+// Using the correct Gemini Flash API
+const apiKey = Deno.env.get("GEMINI_API_KEY");
+const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
 // Generate content
 async function generateScenes(prompt: string) {
   const systemPrompt = `You are an expert video editor. Break down the following prompt into scenes...`;
   
-  const result = await model.generateContent([
-    systemPrompt,
-    prompt
-  ]);
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [
+            {
+              text: `${systemPrompt}\n\n${prompt}`
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.4,
+        maxOutputTokens: 1000
+      }
+    })
+  });
   
-  const response = result.response.text();
-  return JSON.parse(response);
+  const responseData = await response.json();
+  const textResponse = responseData.candidates[0].content.parts
+    .map(part => part.text || "")
+    .join("");
+  
+  return JSON.parse(textResponse);
 }
 ```
 
 ## Model Options
-- `gemini-pro`: Text-only model optimized for chat and text generation
-- `gemini-pro-vision`: Multimodal model that accepts text and image inputs
+- `gemini-2.0-flash`: Our primary model for scene generation - faster and more efficient
+- `gemini-2.0-pro`: Optional more powerful model for complex content (not currently in use)
 
 ## Error Handling
 Always implement robust error handling for API calls:
-- JSON parsing errors (Gemini may not always return perfect JSON)
+- JSON parsing errors
 - Rate limiting considerations
 - Network failures
 
