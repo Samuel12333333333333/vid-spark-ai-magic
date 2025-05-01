@@ -32,7 +32,7 @@ export interface VideoProjectUpdate {
   status?: RenderStatus;
   style?: string;
   media_source?: string;
-  brand_colors?: string; // Using this field instead of brand_settings
+  brand_colors?: string; 
   voice_type?: string;
   video_url?: string;
   thumbnail_url?: string;
@@ -44,5 +44,5 @@ export interface VideoProjectUpdate {
   render_id?: string;
   updated_at?: string;
   scenes?: Json;
-  audio_url?: string;  // Added the missing audio_url property
+  audio_url?: string;
 }
