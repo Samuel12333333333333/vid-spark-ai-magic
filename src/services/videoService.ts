@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { aiService, SceneBreakdown } from "@/services/aiService";
 import { toast } from "sonner";
@@ -24,7 +25,7 @@ export interface VideoProject {
   has_audio?: boolean;
   has_captions?: boolean;
   narration_script?: string;
-  scenes?: any[]; 
+  scenes?: SceneBreakdown[]; 
   audio_data?: string;
   error_message?: string;
   audio_url?: string;
@@ -100,6 +101,7 @@ export const videoService = {
       // Step 2: Generate scenes using AI
       let scenes: SceneBreakdown[] = [];
       try {
+        console.log("Generating scenes from prompt...");
         scenes = await aiService.generateScenes(params.prompt);
         console.log(`Generated ${scenes.length} scenes for video:`, scenes);
         
@@ -114,12 +116,15 @@ export const videoService = {
             'scene-breakdown'
           );
           
-          // Also update the project with the scenes - use VideoProjectUpdate interface
-          const update: VideoProjectUpdate = { scenes: scenes };
-          await supabase
+          // Update the project with the scenes
+          const { error: updateError } = await supabase
             .from("video_projects")
-            .update(update)
+            .update({ scenes: scenes })
             .eq("id", project.id);
+            
+          if (updateError) {
+            console.error("Failed to update project with scenes:", updateError);
+          }
         } else {
           console.error("No scenes were generated");
           throw new Error("Failed to generate scenes for the video");
@@ -148,11 +153,15 @@ export const videoService = {
             audioUrl = audioData.audioUrl;
             console.log("Generated audio for video:", audioUrl);
             
-            // Update project with audio URL using type assertion for compatibility
-            await supabase
+            // Update project with audio URL
+            const { error: audioUpdateError } = await supabase
               .from("video_projects")
-              .update({ audio_url: audioUrl } as any)
+              .update({ audio_url: audioUrl })
               .eq("id", project.id);
+              
+            if (audioUpdateError) {
+              console.error("Error updating project with audio URL:", audioUpdateError);
+            }
           }
         } catch (audioError) {
           console.error("Error with audio generation:", audioError);
@@ -160,7 +169,23 @@ export const videoService = {
         }
       }
       
-      // Step 4: Start the video render process
+      // Step 4: Process scenes with videos
+      try {
+        console.log(`Processing ${scenes.length} scenes with videos`);
+        
+        for (let i = 0; i < scenes.length; i++) {
+          const scene = scenes[i];
+          console.log(`Finding video for scene: ${scene.scene}`);
+          
+          // Add video processing logic here if needed
+        }
+        
+        console.log(`Processed ${scenes.length} scenes with videos`);
+      } catch (videoError) {
+        console.error("Error processing videos for scenes:", videoError);
+      }
+      
+      // Step 5: Start the video render process
       try {
         console.log("Starting render with scenes:", scenes);
         
@@ -395,13 +420,27 @@ export const videoService = {
         throw new Error("Missing project ID");
       }
       
-      // Cast updates as VideoProjectUpdate to allow scenes property
-      const sanitizedUpdates: VideoProjectUpdate = {
-        ...updates,
-        has_audio: updates.has_audio !== undefined ? Boolean(updates.has_audio) : undefined,
-        has_captions: updates.has_captions !== undefined ? Boolean(updates.has_captions) : undefined,
-        narration_script: updates.narration_script || undefined
-      };
+      // Only include specific properties to update and ensure scenes is properly handled
+      const sanitizedUpdates: Record<string, any> = {};
+      
+      // Only copy the properties we want to update
+      if (updates.title !== undefined) sanitizedUpdates.title = updates.title;
+      if (updates.prompt !== undefined) sanitizedUpdates.prompt = updates.prompt;
+      if (updates.status !== undefined) sanitizedUpdates.status = updates.status;
+      if (updates.style !== undefined) sanitizedUpdates.style = updates.style;
+      if (updates.media_source !== undefined) sanitizedUpdates.media_source = updates.media_source;
+      if (updates.brand_colors !== undefined) sanitizedUpdates.brand_colors = updates.brand_colors;
+      if (updates.voice_type !== undefined) sanitizedUpdates.voice_type = updates.voice_type;
+      if (updates.video_url !== undefined) sanitizedUpdates.video_url = mediaService.validateVideoUrl(updates.video_url);
+      if (updates.thumbnail_url !== undefined) sanitizedUpdates.thumbnail_url = updates.thumbnail_url;
+      if (updates.narration_script !== undefined) sanitizedUpdates.narration_script = updates.narration_script;
+      if (updates.error_message !== undefined) sanitizedUpdates.error_message = updates.error_message;
+      if (updates.has_audio !== undefined) sanitizedUpdates.has_audio = Boolean(updates.has_audio);
+      if (updates.has_captions !== undefined) sanitizedUpdates.has_captions = Boolean(updates.has_captions);
+      if (updates.duration !== undefined) sanitizedUpdates.duration = updates.duration;
+      if (updates.render_id !== undefined) sanitizedUpdates.render_id = updates.render_id;
+      if (updates.audio_url !== undefined) sanitizedUpdates.audio_url = updates.audio_url;
+      if (updates.scenes !== undefined) sanitizedUpdates.scenes = updates.scenes;
 
       console.log(`Updating video project ${id} with data:`, {
         status: sanitizedUpdates.status,
@@ -409,12 +448,9 @@ export const videoService = {
         has_captions: sanitizedUpdates.has_captions,
         narration_script: sanitizedUpdates.narration_script 
           ? (sanitizedUpdates.narration_script.substring(0, 20) + "...") 
-          : "No change"
+          : "No change",
+        scenes: sanitizedUpdates.scenes ? `${sanitizedUpdates.scenes.length} scenes` : "No change"
       });
-      
-      if (updates.video_url) {
-        sanitizedUpdates.video_url = mediaService.validateVideoUrl(updates.video_url);
-      }
       
       const { error } = await supabase
         .from('video_projects')

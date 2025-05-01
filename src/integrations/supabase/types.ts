@@ -235,6 +235,7 @@ export type Database = {
           narration_script: string | null
           prompt: string
           render_id: string | null
+          scenes: Json | null
           status: string
           style: string | null
           thumbnail_url: string | null
@@ -256,6 +257,7 @@ export type Database = {
           narration_script?: string | null
           prompt: string
           render_id?: string | null
+          scenes?: Json | null
           status?: string
           style?: string | null
           thumbnail_url?: string | null
@@ -277,6 +279,7 @@ export type Database = {
           narration_script?: string | null
           prompt?: string
           render_id?: string | null
+          scenes?: Json | null
           status?: string
           style?: string | null
           thumbnail_url?: string | null
