@@ -9,30 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      blog_posts: {
-        Row: {
-          content: string
-          created_at: string
-          id: string
-          summary: string
-          title: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          id?: string
-          summary: string
-          title: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          id?: string
-          summary?: string
-          title?: string
-        }
-        Relationships: []
-      }
       brand_kits: {
         Row: {
           created_at: string
@@ -65,39 +41,6 @@ export type Database = {
           primary_color?: string | null
           secondary_color?: string | null
           updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      notifications: {
-        Row: {
-          created_at: string
-          id: string
-          is_read: boolean
-          message: string
-          metadata: Json | null
-          title: string
-          type: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_read?: boolean
-          message: string
-          metadata?: Json | null
-          title: string
-          type: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_read?: boolean
-          message?: string
-          metadata?: Json | null
-          title?: string
-          type?: string
           user_id?: string
         }
         Relationships: []
@@ -156,42 +99,6 @@ export type Database = {
         }
         Relationships: []
       }
-      subscriptions: {
-        Row: {
-          created_at: string | null
-          current_period_end: string | null
-          id: string
-          plan_name: string
-          status: string
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          current_period_end?: string | null
-          id?: string
-          plan_name: string
-          status: string
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          current_period_end?: string | null
-          id?: string
-          plan_name?: string
-          status?: string
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       templates: {
         Row: {
           category: string
@@ -227,12 +134,8 @@ export type Database = {
           brand_colors: string | null
           created_at: string
           duration: number | null
-          error_message: string | null
-          has_audio: boolean | null
-          has_captions: boolean | null
           id: string
           media_source: string | null
-          narration_script: string | null
           prompt: string
           render_id: string | null
           status: string
@@ -248,12 +151,8 @@ export type Database = {
           brand_colors?: string | null
           created_at?: string
           duration?: number | null
-          error_message?: string | null
-          has_audio?: boolean | null
-          has_captions?: boolean | null
           id?: string
           media_source?: string | null
-          narration_script?: string | null
           prompt: string
           render_id?: string | null
           status?: string
@@ -269,12 +168,8 @@ export type Database = {
           brand_colors?: string | null
           created_at?: string
           duration?: number | null
-          error_message?: string | null
-          has_audio?: boolean | null
-          has_captions?: boolean | null
           id?: string
           media_source?: string | null
-          narration_script?: string | null
           prompt?: string
           render_id?: string | null
           status?: string
