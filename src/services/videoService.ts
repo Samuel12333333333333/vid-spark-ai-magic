@@ -1,9 +1,9 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { aiService, SceneBreakdown } from "@/services/aiService";
 import { toast } from "sonner";
 import { mediaService } from "@/services/mediaService";
 import { renderNotifications } from "@/services/video/renderNotifications";
+import { VideoProjectUpdate } from "@/services/video/types";
 
 export interface VideoProject {
   id: string;
@@ -114,10 +114,11 @@ export const videoService = {
             'scene-breakdown'
           );
           
-          // Also update the project with the scenes
+          // Also update the project with the scenes - use VideoProjectUpdate interface
+          const update: VideoProjectUpdate = { scenes: scenes };
           await supabase
             .from("video_projects")
-            .update({ scenes: scenes })
+            .update(update)
             .eq("id", project.id);
         } else {
           console.error("No scenes were generated");
@@ -394,7 +395,8 @@ export const videoService = {
         throw new Error("Missing project ID");
       }
       
-      const sanitizedUpdates: any = {
+      // Cast updates as VideoProjectUpdate to allow scenes property
+      const sanitizedUpdates: VideoProjectUpdate = {
         ...updates,
         has_audio: updates.has_audio !== undefined ? Boolean(updates.has_audio) : undefined,
         has_captions: updates.has_captions !== undefined ? Boolean(updates.has_captions) : undefined,
