@@ -158,11 +158,11 @@ export const videoService = {
             audioUrl = audioData.audioUrl;
             console.log("Generated audio for video:", audioUrl);
             
-            // Update project with audio URL
+            // Update project with audio URL - This is line 165 where the error occurs
             try {
               const { error: audioUpdateError } = await supabase
                 .from("video_projects")
-                .update({ audio_url: audioUrl })
+                .update({ audio_url: audioUrl }) // Now this property should be recognized
                 .eq("id", project.id);
                 
               if (audioUpdateError) {
