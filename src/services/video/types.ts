@@ -44,5 +44,5 @@ export interface VideoProjectUpdate {
   render_id?: string;
   updated_at?: string;
   scenes?: Json;
-  audio_url?: string; // This property was missing and is now properly added
+  audio_url?: string;
 }
