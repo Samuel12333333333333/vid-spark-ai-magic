@@ -46,6 +46,11 @@ export const renderNotifications = {
   
   async createVideoDeletedNotification(userId: string, title: string): Promise<void> {
     try {
+      if (!userId) {
+        console.warn("Missing userId for video deletion notification");
+        return;
+      }
+      
       const { error } = await supabase
         .from('notifications')
         .insert({
@@ -59,6 +64,8 @@ export const renderNotifications = {
         
       if (error) {
         console.error("Error creating notification:", error);
+      } else {
+        console.log("✅ Video deletion notification created successfully");
       }
     } catch (error) {
       console.error("Error in createVideoDeletedNotification:", error);

@@ -257,16 +257,16 @@ export function VideoGenerator() {
         script: voiceScript,
       } : undefined;
       
+      // Remove format that doesn't exist in the DB schema
       const result = await videoService.generateVideo({
         prompt,
         style,
-        format,
         userId: session?.user.id || '',
         brandKit,
         mediaUrls,
         useStockMedia: mediaSource === 'stock',
         voiceSettings,
-        modelVersion: 'gemini-2.0-flash', // Explicitly use Gemini 2.0 Flash
+        modelVersion: 'gemini-2.0-flash', // Always use the flash model
       });
       
       // Dismiss loading toast

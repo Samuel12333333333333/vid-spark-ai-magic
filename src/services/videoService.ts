@@ -34,7 +34,7 @@ export interface VideoProject {
 interface VideoGenerationParams {
   prompt: string;
   style: string;
-  format?: string;
+  format?: string; // Make this optional since it might not be supported in the database
   userId: string;
   brandKit?: {
     primaryColor: string;
