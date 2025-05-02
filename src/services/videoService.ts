@@ -158,11 +158,12 @@ export const videoService = {
             audioUrl = audioData.audioUrl;
             console.log("Generated audio for video:", audioUrl);
             
-            // Update project with audio URL
+            // Update project with audio URL - using the proper type
             try {
+              const updateData: VideoProjectUpdate = { audio_url: audioUrl };
               const { error: audioUpdateError } = await supabase
                 .from("video_projects")
-                .update({ audio_url: audioUrl })
+                .update(updateData)
                 .eq("id", project.id);
                 
               if (audioUpdateError) {
