@@ -94,6 +94,28 @@ export function HeroSection() {
             </div>
           </div>
         </div>
+
+        {/* Client Logos Section */}
+        <div className="mt-16 md:mt-20">
+          <p className="text-center text-sm text-muted-foreground mb-6">TRUSTED BY INNOVATIVE COMPANIES</p>
+          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16">
+            <div className="grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300">
+              <div className="h-8 md:h-10 w-24 md:w-32 bg-gray-200 dark:bg-gray-800 rounded flex items-center justify-center text-xs font-semibold">ACME INC</div>
+            </div>
+            <div className="grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300">
+              <div className="h-8 md:h-10 w-24 md:w-32 bg-gray-200 dark:bg-gray-800 rounded flex items-center justify-center text-xs font-semibold">GLOBALTECH</div>
+            </div>
+            <div className="grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300">
+              <div className="h-8 md:h-10 w-24 md:w-32 bg-gray-200 dark:bg-gray-800 rounded flex items-center justify-center text-xs font-semibold">FUTUREWAVE</div>
+            </div>
+            <div className="grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300">
+              <div className="h-8 md:h-10 w-24 md:w-32 bg-gray-200 dark:bg-gray-800 rounded flex items-center justify-center text-xs font-semibold">NEXGEN</div>
+            </div>
+            <div className="grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300">
+              <div className="h-8 md:h-10 w-24 md:w-32 bg-gray-200 dark:bg-gray-800 rounded flex items-center justify-center text-xs font-semibold">INNOVATECH</div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );

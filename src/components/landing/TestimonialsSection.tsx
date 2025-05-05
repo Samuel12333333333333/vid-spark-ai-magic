@@ -9,6 +9,9 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export function TestimonialsSection() {
   const [isMounted, setIsMounted] = useState(false);
@@ -23,32 +26,40 @@ export function TestimonialsSection() {
       role: "Marketing Director",
       company: "GrowthWave",
       image: "JP",
+      avatarUrl: "/lovable-uploads/41e5161f-9671-4119-b3c6-2ac2b15d7071.png",
       content: "SmartVid has completely transformed our content creation process. We create 5x more videos in half the time it used to take us. The quality is outstanding and our engagement metrics have improved dramatically.",
-      stars: 5
+      stars: 5,
+      companyWebsite: "#"
     },
     {
       name: "Sarah Lee",
       role: "Content Creator",
       company: "Influencer",
       image: "SL",
+      avatarUrl: "/lovable-uploads/53d616b6-9d69-4e9b-8f19-32becc22e534.png",
       content: "As a solo creator, SmartVid has been a game-changer for my workflow. I can now create professional videos without any technical skills, which has freed up my time to focus on growing my audience.",
-      stars: 5
+      stars: 5,
+      companyWebsite: "#"
     },
     {
       name: "Michael Rodriguez",
       role: "Education Specialist",
       company: "LearnQuest Academy",
       image: "MR",
+      avatarUrl: "/lovable-uploads/8a1dbf1f-e165-4056-bd06-a594c9b170cd.png",
       content: "We use SmartVid to create educational content for our students. The quality and speed have exceeded our expectations, and the students love the engaging format of our new videos.",
-      stars: 5
+      stars: 5,
+      companyWebsite: "#"
     },
     {
       name: "Emily Chen",
       role: "Digital Marketing Manager",
       company: "TechSolutions Inc.",
       image: "EC",
+      avatarUrl: "/lovable-uploads/e8a25181-6ae2-4a00-bcd6-c668ef806534.png",
       content: "The AI capabilities of SmartVid are truly impressive. We've been able to produce consistent, high-quality video content across all our products with minimal effort. Highly recommended!",
-      stars: 5
+      stars: 5,
+      companyWebsite: "#"
     },
     {
       name: "David Wilson",
@@ -56,7 +67,8 @@ export function TestimonialsSection() {
       company: "NexGen",
       image: "DW",
       content: "SmartVid helped us create professional pitch videos on a startup budget. The templates are modern, and the AI saves us countless hours of work. Worth every penny.",
-      stars: 5
+      stars: 5,
+      companyWebsite: "#"
     },
     {
       name: "Olivia Martinez",
@@ -64,7 +76,8 @@ export function TestimonialsSection() {
       company: "BrandBurst",
       image: "OM",
       content: "I manage content for multiple brands, and SmartVid has become my secret weapon. I can quickly produce videos that would normally require an entire production team.",
-      stars: 5
+      stars: 5,
+      companyWebsite: "#"
     }
   ];
 
@@ -91,6 +104,47 @@ export function TestimonialsSection() {
           </p>
         </div>
         
+        {/* Featured Testimonial */}
+        <div className="max-w-4xl mx-auto mb-16">
+          <Card className="border-0 shadow-lg dark:bg-gray-900 overflow-hidden">
+            <CardContent className="p-0">
+              <div className="flex flex-col md:flex-row">
+                <div className="md:w-2/5 bg-primary/10 p-8 flex items-center justify-center">
+                  <div className="rounded-full overflow-hidden w-32 h-32 border-4 border-white dark:border-gray-800 shadow-lg">
+                    <img 
+                      src="/lovable-uploads/41e5161f-9671-4119-b3c6-2ac2b15d7071.png" 
+                      alt="James Peterson"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = "https://via.placeholder.com/150";
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="md:w-3/5 p-8">
+                  <div className="flex mb-3">
+                    {[...Array(5)].map((_, i) => (
+                      <StarIcon key={i} className="h-5 w-5 text-yellow-400" />
+                    ))}
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-300 text-lg italic mb-6">
+                    "SmartVid has completely transformed our content creation process. We create 5x more videos in half the time it used to take us. The quality is outstanding and our engagement metrics have improved dramatically."
+                  </p>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-lg">James Peterson</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Marketing Director, GrowthWave</span>
+                    <a href="#" className="text-primary text-sm mt-2 flex items-center hover:underline">
+                      <span>Visit GrowthWave</span>
+                      <ExternalLink className="ml-1 h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
         {/* Testimonial Cards Carousel */}
         {isMounted && (
           <Carousel
@@ -107,9 +161,29 @@ export function TestimonialsSection() {
                     <Card className="border-0 shadow-md hover:shadow-xl transition-all duration-300 h-full dark:bg-gray-900 hover:scale-105">
                       <CardContent className="p-6 h-full flex flex-col">
                         <div className="flex items-center mb-4">
-                          <div className="w-12 h-12 rounded-full bg-primary/10 dark:bg-primary/30 flex items-center justify-center text-primary font-semibold text-lg mr-4">
-                            {testimonial.image}
-                          </div>
+                          {testimonial.avatarUrl ? (
+                            <div className="w-12 h-12 rounded-full overflow-hidden mr-4 border-2 border-primary/20">
+                              <img 
+                                src={testimonial.avatarUrl} 
+                                alt={testimonial.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.onerror = null;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    parent.innerHTML = testimonial.image;
+                                    parent.className += " flex items-center justify-center bg-primary/10 dark:bg-primary/30 text-primary font-semibold text-lg";
+                                  }
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-primary/10 dark:bg-primary/30 flex items-center justify-center text-primary font-semibold text-lg mr-4">
+                              {testimonial.image}
+                            </div>
+                          )}
                           <div>
                             <h3 className="font-bold text-lg">{testimonial.name}</h3>
                             <p className="text-sm text-gray-500 dark:text-gray-400">{testimonial.role}, {testimonial.company}</p>
@@ -123,6 +197,10 @@ export function TestimonialsSection() {
                         <p className="text-gray-600 dark:text-gray-300 flex-grow">
                           "{testimonial.content}"
                         </p>
+                        <a href={testimonial.companyWebsite} className="text-primary text-sm mt-4 flex items-center hover:underline">
+                          <span>Visit {testimonial.company}</span>
+                          <ExternalLink className="ml-1 h-3 w-3" />
+                        </a>
                       </CardContent>
                     </Card>
                   </div>
@@ -155,11 +233,9 @@ export function TestimonialsSection() {
                 <div className="font-semibold">Trusted by industry leaders</div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">Join thousands of satisfied customers</div>
               </div>
-              <div className="flex space-x-3">
-                <div className="w-20 h-8 bg-gray-200 dark:bg-gray-800 rounded flex items-center justify-center text-xs font-semibold">BRAND 1</div>
-                <div className="w-20 h-8 bg-gray-200 dark:bg-gray-800 rounded flex items-center justify-center text-xs font-semibold">BRAND 2</div>
-                <div className="w-20 h-8 bg-gray-200 dark:bg-gray-800 rounded flex items-center justify-center text-xs font-semibold">BRAND 3</div>
-              </div>
+              <Button asChild className="bg-primary hover:bg-primary/90 transition-all duration-300">
+                <Link to="/register">Try It Free</Link>
+              </Button>
             </div>
           </div>
         </div>

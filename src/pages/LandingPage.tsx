@@ -12,6 +12,9 @@ import { Footer } from "@/components/landing/Footer";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
+import { CaseStudiesSection } from "@/components/landing/CaseStudiesSection";
+import { PerformanceMetricsSection } from "@/components/landing/PerformanceMetricsSection";
+import { AwardsSection } from "@/components/landing/AwardsSection";
 
 export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -151,8 +154,11 @@ export default function LandingPage() {
 
       <main className="flex-1">
         <HeroSection />
+        <PerformanceMetricsSection />
         <FeaturesSection />
         <TestimonialsSection />
+        <CaseStudiesSection />
+        <AwardsSection />
         <PricingSection />
         <FAQSection />
         <CTASection />
