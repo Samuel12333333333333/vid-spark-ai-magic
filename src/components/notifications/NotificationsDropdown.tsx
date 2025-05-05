@@ -15,6 +15,7 @@ import { Notification, notificationService } from '@/services/notificationServic
 import { NotificationItem } from './NotificationItem';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
+import { showErrorToast } from '@/lib/error-handler';
 
 export function NotificationsDropdown() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -34,6 +35,7 @@ export function NotificationsDropdown() {
       setNotifications(fetchedNotifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);
+      showErrorToast(error);
     } finally {
       setIsLoading(false);
     }
@@ -102,6 +104,7 @@ export function NotificationsDropdown() {
       );
     } catch (error) {
       console.error("Error marking notification as read:", error);
+      showErrorToast(error);
     }
   };
   
@@ -114,6 +117,7 @@ export function NotificationsDropdown() {
       );
     } catch (error) {
       console.error("Error deleting notification:", error);
+      showErrorToast(error);
     }
   };
   
@@ -127,6 +131,7 @@ export function NotificationsDropdown() {
       );
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
+      showErrorToast(error);
     }
   };
   

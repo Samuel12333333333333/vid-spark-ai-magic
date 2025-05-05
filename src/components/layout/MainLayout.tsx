@@ -4,6 +4,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { MainHeader } from './MainHeader';
 import Footer from './Footer';
 import { Toaster } from "sonner";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 export default function MainLayout() {
   const { pathname, hash } = useLocation();
@@ -28,10 +29,12 @@ export default function MainLayout() {
     <div className="min-h-screen flex flex-col">
       <MainHeader />
       <main className="flex-1">
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </main>
       <Footer />
-      <Toaster />
+      <Toaster position="top-right" closeButton richColors />
     </div>
   );
 }

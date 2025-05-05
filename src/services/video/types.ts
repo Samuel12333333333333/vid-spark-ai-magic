@@ -10,6 +10,9 @@ export interface RenderResponse {
   thumbnail?: string;
   error?: string;
   projectId?: string;
+  renderId?: string;
+  progress?: number;
+  estimatedTimeRemaining?: number;
 }
 
 export interface RenderStartOptions {
@@ -45,4 +48,13 @@ export interface VideoProjectUpdate {
   updated_at?: string;
   scenes?: Json;
   audio_url?: string;
+}
+
+export interface VideoAnalytics {
+  totalVideos: number;
+  completedVideos: number;
+  failedVideos: number;
+  processingVideos: number;
+  averageDuration: number;
+  usageByDay: { date: string; count: number }[];
 }

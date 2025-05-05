@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { RenderResponse, RenderStatus } from "./types";
 import { renderNotifications } from "./renderNotifications";
+import { showErrorToast } from "@/lib/error-handler";
 
 export const renderStatusService = {
   async updateRenderStatus(projectId: string, renderId: string): Promise<RenderStatus> {
@@ -19,11 +20,13 @@ export const renderStatusService = {
       
       if (error) {
         console.error("Error checking render status:", error);
+        showErrorToast(`Failed to check render status: ${error.message}`);
         return 'failed';
       }
       
       if (!data || !data.status) {
         console.error("Invalid response from render status check");
+        showErrorToast("Invalid response from render status check");
         return 'failed';
       }
       
@@ -42,6 +45,7 @@ export const renderStatusService = {
       return newStatus;
     } catch (error) {
       console.error("Error in updateRenderStatus:", error);
+      showErrorToast(error);
       return 'failed';
     }
   },
@@ -73,12 +77,14 @@ export const renderStatusService = {
           .update({
             status,
             video_url: data.url,
-            thumbnail_url: data.thumbnail || null
+            thumbnail_url: data.thumbnail || null,
+            updated_at: new Date().toISOString()
           })
           .eq('id', projectId);
           
         if (updateError) {
           console.error("Failed to update video project:", updateError);
+          showErrorToast("Failed to update video project status");
         } else {
           console.log(`Project ${projectId} updated with completed status and URL`);
           await renderNotifications.handleRenderCompletedFlow(userId, title, projectId, data.url);
@@ -89,12 +95,14 @@ export const renderStatusService = {
           .from('video_projects')
           .update({ 
             status,
-            error_message: data.error || "Unknown error"
+            error_message: data.error || "Unknown error",
+            updated_at: new Date().toISOString()
           })
           .eq('id', projectId);
           
         if (updateError) {
           console.error("Failed to update video project status to failed:", updateError);
+          showErrorToast("Failed to update video project status");
         } else {
           console.log(`Project ${projectId} updated with failed status`);
           await renderNotifications.handleRenderFailedFlow(userId, title, projectId, data.error || "Unknown error");
@@ -103,17 +111,22 @@ export const renderStatusService = {
         // For other statuses, just update the project
         const { error: updateError } = await supabase
           .from('video_projects')
-          .update({ status })
+          .update({ 
+            status,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', projectId);
           
         if (updateError) {
           console.error(`Failed to update project to ${status} status:`, updateError);
+          showErrorToast("Failed to update video project status");
         } else {
           console.log(`Project ${projectId} updated with ${status} status`);
         }
       }
     } catch (error) {
       console.error("Error updating project status:", error);
+      showErrorToast(error);
     }
   }
 };

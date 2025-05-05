@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle2, ExternalLink } from "lucide-react";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { showErrorToast } from "@/lib/error-handler";
 
 export default function GeneratorPage() {
   const [apiStatus, setApiStatus] = useState<{
@@ -130,7 +132,7 @@ export default function GeneratorPage() {
         }
       } catch (error) {
         console.error('Error in checkApiKeys:', error);
-        toast.error("Error checking API connections. See console for details.");
+        showErrorToast(error);
       } finally {
         setIsCheckingApis(false);
       }
@@ -283,7 +285,9 @@ export default function GeneratorPage() {
         </Card>
       )}
       
-      <VideoGenerator />
+      <ErrorBoundary>
+        <VideoGenerator />
+      </ErrorBoundary>
     </div>
   );
 }

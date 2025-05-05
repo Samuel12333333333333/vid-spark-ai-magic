@@ -1,3 +1,4 @@
+
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -6,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { HelmetProvider } from "react-helmet-async";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 // Layouts
 import MainLayout from "@/components/layout/MainLayout";
@@ -51,17 +53,29 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { session, isLoading } = useAuth();
   
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
   }
   
   if (!session) {
     return <Navigate to="/login" replace />;
   }
   
-  return children;
+  return <ErrorBoundary>{children}</ErrorBoundary>;
 };
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => {
   return (
@@ -72,64 +86,66 @@ const App = () => {
             <HelmetProvider>
               <TooltipProvider>
                 <Toaster />
-                <Sonner />
-                <Routes>
-                  {/* Public Routes */}
-                  <Route path="/" element={<LandingPage />} />
-                  <Route path="/login" element={<AuthPage />} />
-                  <Route path="/register" element={<AuthPage />} />
-                  
-                  {/* Payment success page - public but typically accessed after payment */}
-                  <Route path="/payment-success" element={<PaymentSuccessPage />} />
-                  
-                  {/* HTML Sitemap page */}
-                  <Route path="/sitemap" element={<SitemapPage />} />
-                  
-                  {/* New marketing pages with MainLayout */}
-                  <Route element={<MainLayout />}>
-                    <Route path="/product" element={<ProductOverviewPage />} />
-                    <Route path="/features" element={<FeaturesPage />} />
-                    <Route path="/pricing" element={<PricingPage />} />
-                    <Route path="/templates" element={<TemplatesPage />} />
-                    <Route path="/integrations" element={<IntegrationsPage />} />
-                    <Route path="/use-cases" element={<UseCasesPage />} />
-                    <Route path="/blog" element={<BlogPage />} />
-                    <Route path="/blog/:slug" element={<BlogPostPage />} />
-                    <Route path="/help" element={<HelpCenterPage />} />
-                    <Route path="/community" element={<CommunityPage />} />
-                    <Route path="/api-docs" element={<APIDocsPage />} />
-                    <Route path="/about" element={<AboutPage />} />
-                    <Route path="/careers" element={<CareersPage />} />
-                    <Route path="/contact" element={<ContactPage />} />
-                    <Route path="/privacy" element={<PrivacyPage />} />
-                    <Route path="/terms" element={<TermsPage />} />
-                    <Route path="/cookies" element={<CookiesPage />} />
-                  </Route>
-                  
-                  {/* Dashboard Routes - Protected */}
-                  <Route
-                    path="/dashboard"
-                    element={
-                      <ProtectedRoute>
-                        <DashboardLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<DashboardHome />} />
-                    <Route path="videos" element={<VideosPage />} />
-                    <Route path="videos/:id" element={<VideoDetailPage />} />
-                    <Route path="templates" element={<TemplatesPage />} />
-                    <Route path="scripts" element={<ScriptsPage />} />
-                    <Route path="generator" element={<GeneratorPage />} />
-                    <Route path="brand" element={<BrandKitPage />} />
-                    <Route path="settings" element={<SettingsPage />} />
-                    <Route path="upgrade" element={<UpgradePage />} />
-                    <Route path="notifications" element={<NotificationsPage />} />
-                  </Route>
-                  
-                  {/* 404 Route */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
+                <Sonner position="top-right" closeButton />
+                <ErrorBoundary>
+                  <Routes>
+                    {/* Public Routes */}
+                    <Route path="/" element={<LandingPage />} />
+                    <Route path="/login" element={<AuthPage />} />
+                    <Route path="/register" element={<AuthPage />} />
+                    
+                    {/* Payment success page - public but typically accessed after payment */}
+                    <Route path="/payment-success" element={<PaymentSuccessPage />} />
+                    
+                    {/* HTML Sitemap page */}
+                    <Route path="/sitemap" element={<SitemapPage />} />
+                    
+                    {/* New marketing pages with MainLayout */}
+                    <Route element={<MainLayout />}>
+                      <Route path="/product" element={<ProductOverviewPage />} />
+                      <Route path="/features" element={<FeaturesPage />} />
+                      <Route path="/pricing" element={<PricingPage />} />
+                      <Route path="/templates" element={<TemplatesPage />} />
+                      <Route path="/integrations" element={<IntegrationsPage />} />
+                      <Route path="/use-cases" element={<UseCasesPage />} />
+                      <Route path="/blog" element={<BlogPage />} />
+                      <Route path="/blog/:slug" element={<BlogPostPage />} />
+                      <Route path="/help" element={<HelpCenterPage />} />
+                      <Route path="/community" element={<CommunityPage />} />
+                      <Route path="/api-docs" element={<APIDocsPage />} />
+                      <Route path="/about" element={<AboutPage />} />
+                      <Route path="/careers" element={<CareersPage />} />
+                      <Route path="/contact" element={<ContactPage />} />
+                      <Route path="/privacy" element={<PrivacyPage />} />
+                      <Route path="/terms" element={<TermsPage />} />
+                      <Route path="/cookies" element={<CookiesPage />} />
+                    </Route>
+                    
+                    {/* Dashboard Routes - Protected */}
+                    <Route
+                      path="/dashboard"
+                      element={
+                        <ProtectedRoute>
+                          <DashboardLayout />
+                        </ProtectedRoute>
+                      }
+                    >
+                      <Route index element={<DashboardHome />} />
+                      <Route path="videos" element={<VideosPage />} />
+                      <Route path="videos/:id" element={<VideoDetailPage />} />
+                      <Route path="templates" element={<TemplatesPage />} />
+                      <Route path="scripts" element={<ScriptsPage />} />
+                      <Route path="generator" element={<GeneratorPage />} />
+                      <Route path="brand" element={<BrandKitPage />} />
+                      <Route path="settings" element={<SettingsPage />} />
+                      <Route path="upgrade" element={<UpgradePage />} />
+                      <Route path="notifications" element={<NotificationsPage />} />
+                    </Route>
+                    
+                    {/* 404 Route */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </ErrorBoundary>
               </TooltipProvider>
             </HelmetProvider>
           </SubscriptionProvider>

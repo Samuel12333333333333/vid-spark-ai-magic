@@ -16,7 +16,9 @@ export function NotificationItem({ notification, onMarkAsRead, onDelete }: Notif
   
   const getIcon = () => {
     switch (notification.type) {
-      case 'video':
+      case 'video_complete':
+      case 'video_failed':
+      case 'video_deleted':
         return <Video className="h-4 w-4 text-blue-500" />;
       case 'payment':
         return <CreditCard className="h-4 w-4 text-green-500" />;

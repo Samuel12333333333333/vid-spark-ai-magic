@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { RenderResponse, RenderStatus } from "./types";
 import { toast } from "sonner";
+import { showErrorToast, withRetry } from "@/lib/error-handler";
 
 export const videoRenderService = {
   async startRender(
@@ -28,36 +29,44 @@ export const videoRenderService = {
       
       if (error) {
         console.error("Error starting render:", error);
+        showErrorToast(error);
         return { success: false, error: error.message };
       }
       
       if (!data || !data.renderId) {
-        console.error("No render ID returned");
-        return { success: false, error: "No render ID returned" };
+        const errorMsg = "No render ID returned";
+        console.error(errorMsg);
+        showErrorToast(errorMsg);
+        return { success: false, error: errorMsg };
       }
       
       return { success: true, renderId: data.renderId };
     } catch (error) {
       console.error("Exception in startRender:", error);
-      return { success: false, error: error.message };
+      showErrorToast(error);
+      return { success: false, error: String(error) };
     }
   },
   
   async checkRenderStatus(renderId: string, projectId: string): Promise<RenderResponse> {
     try {
-      const { data, error } = await supabase.functions.invoke("check-render-status", {
-        body: { renderId, projectId }
-      });
+      const { data, error } = await withRetry(() => 
+        supabase.functions.invoke("check-render-status", {
+          body: { renderId, projectId }
+        })
+      );
       
       if (error) {
         console.error("Error checking render status:", error);
+        showErrorToast(error);
         return { status: 'failed', error: error.message };
       }
       
       return data as RenderResponse;
     } catch (error) {
       console.error("Exception in checkRenderStatus:", error);
-      return { status: 'failed', error: error.message };
+      showErrorToast(error);
+      return { status: 'failed', error: String(error) };
     }
   },
   
