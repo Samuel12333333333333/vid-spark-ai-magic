@@ -1,5 +1,4 @@
-
-import { Sparkles, Clock, Film, Layers, Upload, Palette, MessageSquare, Users, ShieldCheck, TextToSpeech, Sliders, Monitor, Languages, Share2, Tags, Zap } from "lucide-react";
+import { Sparkles, Clock, Film, Layers, Upload, Palette, MessageSquare, Users, ShieldCheck, Sliders, Monitor, Languages, Share2, Tags, Zap } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { useRef } from "react";
 import { useInView } from "framer-motion";
@@ -7,6 +6,27 @@ import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+
+// Custom Text-to-Speech icon since lucide-react doesn't provide one
+const TextToSpeech = () => (
+  <svg
+    width="24" 
+    height="24" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 18v-12" />
+    <path d="M8 18v-12" />
+    <path d="M4 14v-4" />
+    <path d="M16 14v-4" />
+    <path d="M20 18v-12" />
+  </svg>
+);
 
 // Custom Text-to-Video icon
 const TextToVideo = () => (
@@ -199,7 +219,7 @@ export function FeaturesSection() {
                   <feature.icon className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
-                <p className="text-gray-500 dark:text-gray-400 flex-grow">{feature.description}</p>
+                <p className="text-gray-500 dark:text-gray-400">{feature.description}</p>
               </Card>
             </motion.div>
           ))}
