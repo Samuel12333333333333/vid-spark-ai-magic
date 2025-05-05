@@ -1,324 +1,121 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ELEVEN_LABS_API_KEY = Deno.env.get("ELEVEN_LABS_API_KEY");
-
-const AVAILABLE_VOICES = [
-  { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel - Warm and conversational" },
-  { id: "AZnzlk1XvdvUeBnXmlld", name: "Domi - Strong and confident" },
-  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah - Professional and clear" },
-  { id: "MF3mGyEYCl7XYWbV9V6O", name: "Elli - Approachable and friendly" },
-  { id: "pNInz6obpgDQGcFmaJgB", name: "Adam - Deep and authoritative" },
-  { id: "yoZ06aMxZJJ28mfd3POQ", name: "Josh - Warm and engaging" }
-];
-
-// Function to generate narration script
-async function generateNarrationScript(scenes) {
-  try {
-    // Use the GEMINI_API_KEY for generating narration
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    
-    if (!GEMINI_API_KEY) {
-      console.error("GEMINI_API_KEY is not defined");
-      throw new Error("Gemini API key is missing");
-    }
-    
-    // Extract just the scene descriptions, not the full technical details
-    let scenesContent = "";
-    
-    if (Array.isArray(scenes)) {
-      scenesContent = scenes.map(scene => {
-        // Extract just the description part, not the technical details
-        return scene.description || scene.scene || "";
-      }).join(". ");
-    } else if (typeof scenes === 'string') {
-      scenesContent = scenes;
-    } else {
-      throw new Error("Invalid scenes format");
-    }
-    
-    console.log("Using scenes content for narration:", scenesContent.substring(0, 100) + "...");
-    
-    // Clean the scenes content for better narration
-    scenesContent = scenesContent
-      .replace(/\.\.+/g, '.') // Replace multiple periods with a single one
-      .replace(/\s+/g, ' ')   // Replace multiple spaces with a single one
-      .trim();               // Trim whitespace
-    
-    // Create prompt for narration generation
-    const prompt = `
-    Generate a short, emotionally resonant voiceover script for this video topic:
-    
-    "${scenesContent}"
-    
-    Requirements:
-    1. The narration should be 30-60 words total.
-    2. Use natural, conversational language.
-    3. Focus on the emotional journey or key message.
-    4. Be inspirational and engaging.
-    
-    Provide ONLY the voiceover script with no extra formatting, labels, or quotes.
-    `;
-    
-    console.log("Generating narration script with prompt:", prompt.substring(0, 100) + "...");
-    
-    // Update the URL to use the correct Gemini API endpoint
-    try {
-      const response = await fetch("https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": GEMINI_API_KEY
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 100
-          }
-        })
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error from Gemini API:", errorText);
-        throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts) {
-        console.error("Unexpected response format from Gemini API:", JSON.stringify(data).substring(0, 200));
-        throw new Error("Invalid response format from Gemini API");
-      }
-      
-      const narration = data.candidates[0].content.parts[0].text.trim();
-      
-      console.log("Generated narration script:", narration);
-      
-      return narration;
-    } catch (apiError) {
-      console.error("API error when generating narration:", apiError);
-      throw apiError;
-    }
-  } catch (error) {
-    console.error("Error generating narration script:", error);
-    // Return a fallback narration that will work with ElevenLabs
-    return "Journey with us through this moment of beauty and wonder. Let's explore this together.";
-  }
-}
-
-// Sanitize script for better ElevenLabs processing
-function sanitizeScript(script) {
-  if (!script) return "Welcome to our video.";
-  
-  return script
-    .replace(/\.\.+/g, '.') // Replace multiple periods with a single one
-    .replace(/\s+/g, ' ')   // Replace multiple spaces with a single one
-    .trim();               // Trim whitespace
-}
-
 serve(async (req) => {
-  // Handle CORS preflight request
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: corsHeaders
-    });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    if (!ELEVEN_LABS_API_KEY) {
-      console.error("ELEVEN_LABS_API_KEY is not defined");
-      return new Response(
-        JSON.stringify({ 
-          error: "API key is missing. Please check your environment variables.",
-          details: "The ELEVEN_LABS_API_KEY environment variable is not set."
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-
-    const requestData = await req.json();
-    console.log("Request received:", JSON.stringify({
-      scriptLength: requestData.script?.length || 0,
-      voiceId: requestData.voiceId,
-      userId: requestData.userId,
-      projectId: requestData.projectId,
-      scenesProvided: !!requestData.scenes
-    }));
+    // Parse request body
+    const { text, title, voice = "alloy" } = await req.json();
     
-    const { scenes, script, voiceId, userId, projectId } = requestData;
-    
-    // Generate or use provided script
-    let narrationScript;
-    if (script && script.trim() !== "") {
-      console.log("Using provided script:", script);
-      narrationScript = sanitizeScript(script);
-    } else if (scenes) {
-      // Generate narration based on scenes
-      console.log("Generating narration from scenes");
-      narrationScript = await generateNarrationScript(scenes);
-      narrationScript = sanitizeScript(narrationScript);
-    } else {
-      return new Response(
-        JSON.stringify({ error: "Either script or scenes are required" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
+    if (!text) {
+      throw new Error("Text is required");
     }
     
-    if (!narrationScript || narrationScript.trim() === "") {
-      console.error("Failed to generate narration script");
-      return new Response(
-        JSON.stringify({ error: "Failed to generate a narration script" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
+    console.log(`Generating audio for text length: ${text.length}, title: ${title}, voice: ${voice}`);
+    
+    // Validate request
+    if (text.length > 4000) {
+      throw new Error("Text is too long (max 4000 characters)");
     }
 
-    // Check if narration script is too long (ElevenLabs has character limits)
-    if (narrationScript.length > 1000) {
-      console.log("Narration script too long, truncating to 1000 characters");
-      narrationScript = narrationScript.substring(0, 1000) + "...";
-    }
-
-    // Default to Rachel if no voice ID is provided
-    const selectedVoiceId = voiceId || "21m00Tcm4TlvDq8ikWAM";
-    
-    console.log(`Generating audio for project ${projectId} with voice ${selectedVoiceId}`);
-    console.log(`Final narration script: "${narrationScript}"`);
-
-    // Use a more compatible model
-    const ttsPayload = {
-      text: narrationScript,
-      model_id: "eleven_monolingual_v1",
-      voice_settings: {
-        stability: 0.75, // Increased stability for clearer audio
-        similarity_boost: 0.85 // Increased similarity boost for better voice match
-      }
-    };
-
-    // Add a retry mechanism for ElevenLabs API calls
-    let retries = 0;
-    const maxRetries = 3;
-    let audioBuffer = null;
-    let audioError = null;
-    
-    while (retries <= maxRetries && !audioBuffer) {
-      try {
-        console.log(`ElevenLabs API call attempt ${retries + 1} with voice ID: ${selectedVoiceId}`);
-        
-        // Make the API call with proper error handling
-        const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "xi-api-key": ELEVEN_LABS_API_KEY,
-            "Accept": "audio/mpeg"
-          },
-          body: JSON.stringify(ttsPayload)
-        });
-
-        if (!response.ok) {
-          let errorDetails = "";
-          try {
-            const errorData = await response.json();
-            errorDetails = JSON.stringify(errorData);
-            console.error(`ElevenLabs API error response (attempt ${retries + 1}):`, errorDetails);
-          } catch (e) {
-            const errorText = await response.text();
-            errorDetails = errorText.substring(0, 500);
-            console.error(`ElevenLabs API error response (text) (attempt ${retries + 1}):`, errorDetails);
-          }
-          
-          retries++;
-          if (retries <= maxRetries) {
-            console.log(`Retrying ElevenLabs API call (${retries}/${maxRetries})...`);
-            // Use an exponential backoff for retries
-            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries - 1))); 
-            continue;
-          }
-          
-          throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}. Details: ${errorDetails}`);
-        }
-
-        // Get audio data as ArrayBuffer
-        audioBuffer = await response.arrayBuffer();
-        
-        if (!audioBuffer || audioBuffer.byteLength === 0) {
-          console.error(`Received empty audio data from ElevenLabs (attempt ${retries + 1})`);
-          retries++;
-          if (retries <= maxRetries) {
-            console.log(`Retrying ElevenLabs API call (${retries}/${maxRetries})...`);
-            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries - 1)));
-            continue;
-          }
-          
-          throw new Error("Received empty audio data from ElevenLabs after multiple attempts");
-        }
-        
-        console.log(`Received audio data with size: ${audioBuffer.byteLength} bytes`);
-        break;
-      } catch (attemptError) {
-        console.error(`Error in ElevenLabs API call attempt ${retries + 1}:`, attemptError);
-        audioError = attemptError;
-        retries++;
-        if (retries <= maxRetries) {
-          console.log(`Retrying ElevenLabs API call (${retries}/${maxRetries})...`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries - 1)));
-        }
-      }
+    // Get OpenAI API key from environment
+    const openAiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openAiApiKey) {
+      throw new Error("OpenAI API key is not configured");
     }
     
-    // If we couldn't get audio after all retries, throw the last error
-    if (!audioBuffer) {
-      throw audioError || new Error('Failed to generate audio after multiple attempts');
-    }
-    
-    // Convert to base64 for storage - using a safer approach with chunks
-    let base64Audio = '';
-    const chunks = [];
-    const bytes = new Uint8Array(audioBuffer);
-    const chunkSize = 1024;
-    
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = bytes.slice(i, i + chunkSize);
-      chunks.push(String.fromCharCode.apply(null, chunk));
-    }
-    
-    base64Audio = btoa(chunks.join(''));
-    
-    console.log(`Audio data converted to base64 (length: ${base64Audio.length})`);
-    console.log("Audio generation successful, returning data");
-
-    return new Response(
-      JSON.stringify({ 
-        audioBase64: base64Audio,
-        format: "mp3",
-        voiceId: selectedVoiceId,
-        narrationScript: narrationScript,
-        voiceName: AVAILABLE_VOICES.find(v => v.id === selectedVoiceId)?.name || "Unknown Voice"
+    // Generate audio from text
+    console.log("Calling OpenAI TTS API...");
+    const response = await fetch("https://api.openai.com/v1/audio/speech", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${openAiApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "tts-1",
+        input: text,
+        voice: voice,
+        response_format: "mp3",
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("OpenAI API error:", errorData);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
+    }
+    
+    console.log("Successfully generated audio from OpenAI");
+    
+    // Convert audio to base64
+    const audioBuffer = await response.arrayBuffer();
+    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+    
+    // Add this audio to cache using Supabase for future requests
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      
+      if (supabaseUrl && supabaseServiceKey) {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        
+        // Create a hash of the text to use as a cache key
+        const textHash = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(text)
+        );
+        const hashArray = Array.from(new Uint8Array(textHash));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        // Store in cache table (assuming a table named 'audio_cache' exists)
+        await supabase.from('audio_cache').upsert({
+          text_hash: hashHex,
+          title: title,
+          voice: voice,
+          audio_content: base64Audio,
+          created_at: new Date().toISOString()
+        });
+        
+        console.log("Cached audio for future use");
+      }
+    } catch (cacheError) {
+      // Don't fail the request if caching fails
+      console.error("Error caching audio:", cacheError);
+    }
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        audioContent: base64Audio,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      }
     );
   } catch (error) {
-    console.error("Error in generate-audio function:", error);
+    console.error("Error generating audio:", error);
     
-    // Improved error response
     return new Response(
-      JSON.stringify({ 
-        error: "Failed to generate audio with ElevenLabs API", 
-        details: error.message 
+      JSON.stringify({
+        success: false,
+        error: error.message || "Failed to generate audio",
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      }
     );
   }
 });

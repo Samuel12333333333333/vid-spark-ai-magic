@@ -2,9 +2,20 @@
 import { useBlogPosts } from '@/hooks/useBlogPosts';
 import { BlogPost } from '@/components/blog/BlogPost';
 import SEOMetadata from '@/components/SEOMetadata';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useState } from 'react';
+import { Search } from 'lucide-react';
 
 export default function BlogPage() {
   const { posts, loading, error } = useBlogPosts();
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Filter posts based on search term
+  const filteredPosts = posts.filter(post => 
+    post.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    post.summary.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <>
@@ -20,12 +31,34 @@ export default function BlogPage() {
           Blog
         </h1>
         
-        <div className="text-center mb-12">
-          <p className="text-xl text-muted-foreground">
+        <div className="text-center mb-8">
+          <p className="text-xl text-muted-foreground mb-8">
             {loading 
               ? "Loading blog posts..." 
               : "Read the latest articles from our team."}
           </p>
+
+          {/* Search box */}
+          <div className="max-w-md mx-auto relative">
+            <Input
+              type="text"
+              placeholder="Search articles..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            {searchTerm && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 px-2"
+                onClick={() => setSearchTerm('')}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
         </div>
 
         {error && (
@@ -35,13 +68,15 @@ export default function BlogPage() {
         )}
 
         <div className="space-y-6">
-          {!loading && posts.length === 0 && (
+          {!loading && filteredPosts.length === 0 && (
             <p className="text-xl text-muted-foreground text-center">
-              No blog posts available at the moment.
+              {searchTerm 
+                ? "No matching posts found. Try a different search term." 
+                : "No blog posts available at the moment."}
             </p>
           )}
 
-          {posts.map((post) => (
+          {filteredPosts.map((post) => (
             <BlogPost key={post.id} {...post} />
           ))}
         </div>
