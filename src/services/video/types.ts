@@ -58,3 +58,13 @@ export interface VideoAnalytics {
   averageDuration: number;
   usageByDay: { date: string; count: number }[];
 }
+
+// The notification type that can be used across the application
+export type NotificationType = 
+  | 'video' 
+  | 'payment' 
+  | 'account' 
+  | 'newsletter'
+  | 'video_complete'
+  | 'video_failed'
+  | 'video_deleted';

@@ -2,13 +2,14 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Json } from "@/integrations/supabase/types";
+import { NotificationType } from "./video/types";
 
 export interface Notification {
   id: string;
   user_id: string;
   title: string;
   message: string;
-  type: 'video' | 'payment' | 'account' | 'newsletter';
+  type: NotificationType;
   is_read: boolean;
   created_at: string;
   metadata?: Record<string, any>;
@@ -53,7 +54,7 @@ export const notificationService = {
     userId: string;
     title: string;
     message: string;
-    type: 'video' | 'payment' | 'account' | 'newsletter';
+    type: NotificationType;
     metadata?: Record<string, any>;
   }): Promise<Notification | null> {
     try {
@@ -139,7 +140,7 @@ export const notificationService = {
     userId: string, 
     title: string, 
     message: string, 
-    type: 'video' | 'payment' | 'account' | 'newsletter'
+    type: NotificationType
   ): Promise<Notification | null> {
     try {
       console.log("❌ All attempts failed, trying simplified notification");
@@ -187,6 +188,9 @@ export const notificationService = {
 
     switch (type) {
       case 'video':
+      case 'video_complete':
+      case 'video_failed':
+      case 'video_deleted':
         toast.info(title, toastOptions);
         break;
       case 'payment':
@@ -205,10 +209,14 @@ export const notificationService = {
   },
   
   // Helper method to validate notification types
-  validateNotificationType(type: string): 'video' | 'payment' | 'account' | 'newsletter' {
-    const validTypes = ['video', 'payment', 'account', 'newsletter'];
+  validateNotificationType(type: string): NotificationType {
+    const validTypes = [
+      'video', 'payment', 'account', 'newsletter', 
+      'video_complete', 'video_failed', 'video_deleted'
+    ];
+    
     return validTypes.includes(type) 
-      ? type as 'video' | 'payment' | 'account' | 'newsletter'
+      ? type as NotificationType
       : 'account'; // Default fallback type
   },
   

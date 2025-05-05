@@ -19,6 +19,7 @@ export function NotificationItem({ notification, onMarkAsRead, onDelete }: Notif
       case 'video_complete':
       case 'video_failed':
       case 'video_deleted':
+      case 'video':
         return <Video className="h-4 w-4 text-blue-500" />;
       case 'payment':
         return <CreditCard className="h-4 w-4 text-green-500" />;

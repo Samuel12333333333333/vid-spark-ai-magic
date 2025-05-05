@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { NotificationType } from "./types";
 
 export const renderNotifications = {
   async createVideoCompleteNotification(userId: string, projectId: string, title: string): Promise<void> {
@@ -8,7 +9,7 @@ export const renderNotifications = {
         .from('notifications')
         .insert({
           user_id: userId,
-          type: 'video_complete',
+          type: 'video_complete' as NotificationType,
           title: 'Video Generation Complete',
           message: `Your video "${title}" is ready to view!`,
           link: `/dashboard/videos/${projectId}`,
@@ -34,7 +35,7 @@ export const renderNotifications = {
         .from('notifications')
         .insert({
           user_id: userId,
-          type: 'video_failed',
+          type: 'video_failed' as NotificationType,
           title: 'Video Generation Failed',
           message: `We couldn't create your video "${title}". ${errorMessage ? `Error: ${errorMessage}` : 'Please try again.'}`,
           link: `/dashboard/videos/${projectId}`,
@@ -66,7 +67,7 @@ export const renderNotifications = {
         .from('notifications')
         .insert({
           user_id: userId,
-          type: 'video_deleted',
+          type: 'video_deleted' as NotificationType,
           title: 'Video Deleted',
           message: `Your video "${title}" has been deleted.`,
           link: `/dashboard/videos`,
