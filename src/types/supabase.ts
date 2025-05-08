@@ -25,6 +25,7 @@ export type BlogPost = {
   created_at: string | null;
   updated_at: string | null;
   slug?: string;
+  summary?: string; // Add the summary property that's used in BlogPage
 };
 
 export type Template = {
@@ -44,7 +45,7 @@ export type VideoProject = {
   title: string;
   prompt: string | null;
   status: string | null;
-  style: string | null;
+  style?: string | null; // Make style optional to match with videoService definition
   media_source: string | null;
   brand_colors: string | null;
   voice_type: string | null;

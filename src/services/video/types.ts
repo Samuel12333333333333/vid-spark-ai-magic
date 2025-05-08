@@ -1,6 +1,6 @@
 
-import { VideoProject } from "../videoService";
-import { Json } from "@/integrations/supabase/types";
+import type { VideoProject } from "@/services/videoService";
+import type { Json } from "@/types/supabase";
 
 export type RenderStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -59,12 +59,5 @@ export interface VideoAnalytics {
   usageByDay: { date: string; count: number }[];
 }
 
-// The notification type that can be used across the application
-export type NotificationType = 
-  | 'video' 
-  | 'payment' 
-  | 'account' 
-  | 'newsletter'
-  | 'video_complete'
-  | 'video_failed'
-  | 'video_deleted';
+// Use the NotificationType from the central types file
+export type { NotificationType } from "@/types/supabase";

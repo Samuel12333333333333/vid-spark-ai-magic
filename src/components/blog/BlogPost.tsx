@@ -1,51 +1,62 @@
 
 import { Link } from "react-router-dom";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
-import { SocialShare } from "./SocialShare";
+import { ArrowRight } from "lucide-react";
+import { BlogPost as BlogPostType } from "@/types/supabase";
 
-interface BlogPostProps {
-  id: string;
-  title: string;
-  summary: string;
-  content: string;
-  created_at: string;
-  slug?: string;
+export interface BlogPostProps extends BlogPostType {
+  summary: string; // Required for display, derived from description if needed
 }
 
-export function BlogPost({ id, title, summary, created_at, slug }: BlogPostProps) {
-  // Use slug for URL if available, otherwise fall back to ID
-  const urlPath = slug || id;
-  const fullUrl = `${window.location.origin}/blog/${urlPath}`;
-  
+export function BlogPost({ id, title, summary, thumbnail, category, created_at, slug }: BlogPostProps) {
+  // Format the created_at date if it exists
+  const formattedDate = created_at 
+    ? formatDistanceToNow(new Date(created_at), { addSuffix: true }) 
+    : "Recently";
+    
+  // Use slug if available, otherwise use ID
+  const postUrl = slug ? `/blog/${slug}` : `/blog/${id}`;
+
   return (
-    <Card className="mb-6 overflow-hidden hover:shadow-md transition-shadow duration-300">
-      <CardHeader>
-        <div className="space-y-1">
-          <div className="flex justify-between items-start">
-            <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
-            <SocialShare 
-              title={title}
-              url={fullUrl}
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
+    <Card className="overflow-hidden">
+      <div className="flex flex-col md:flex-row">
+        {thumbnail && (
+          <Link to={postUrl} className="md:w-1/3">
+            <img
+              src={thumbnail}
+              alt={title}
+              className="w-full h-48 md:h-full object-cover"
             />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Posted {formatDistanceToNow(new Date(created_at))} ago
-          </p>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-gray-600 dark:text-gray-300">{summary}</p>
-        <div className="flex items-center justify-between mt-4">
-          <Link 
-            to={`/blog/${urlPath}`}
-            className="inline-block text-primary hover:underline"
-          >
-            Read more...
           </Link>
+        )}
+        <div className={`flex-1 ${!thumbnail ? 'md:w-full' : ''}`}>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              {category && (
+                <span className="text-xs font-medium px-2.5 py-1 rounded bg-muted">
+                  {category}
+                </span>
+              )}
+              <span className="text-xs text-muted-foreground">{formattedDate}</span>
+            </div>
+            <CardTitle className="mt-2">
+              <Link to={postUrl} className="hover:underline">
+                {title}
+              </Link>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground line-clamp-2 mb-4">{summary}</p>
+            <Button variant="outline" asChild>
+              <Link to={postUrl}>
+                Read More <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </CardContent>
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }

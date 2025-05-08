@@ -14,7 +14,7 @@ export default function BlogPage() {
   // Filter posts based on search term
   const filteredPosts = posts.filter(post => 
     post.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    post.summary.toLowerCase().includes(searchTerm.toLowerCase())
+    (post.description && post.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -77,7 +77,11 @@ export default function BlogPage() {
           )}
 
           {filteredPosts.map((post) => (
-            <BlogPost key={post.id} {...post} />
+            <BlogPost 
+              key={post.id} 
+              {...post} 
+              summary={post.description || ''} // Use description as summary
+            />
           ))}
         </div>
       </div>

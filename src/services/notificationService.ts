@@ -1,8 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Notification, NotificationType } from "@/types/supabase";
+import type { Notification, NotificationType } from "@/types/supabase";
 
-export { Notification, NotificationType };
+export type { Notification, NotificationType };
 
 export const notificationService = {
   async getUserNotifications(userId: string): Promise<Notification[]> {

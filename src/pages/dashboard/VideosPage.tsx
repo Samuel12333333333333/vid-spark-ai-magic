@@ -7,9 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, SlidersHorizontal, Rows3, Grid2X2, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { RecentProjects } from "@/components/dashboard/RecentProjects";
-import { VideoProject, videoService } from "@/services/videoService";
+import { videoService } from "@/services/videoService";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { VideoProject } from "@/types/supabase";
 
 export default function VideosPage() {
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -24,7 +25,8 @@ export default function VideosPage() {
     try {
       setIsLoading(true);
       const allVideos = await videoService.getProjects();
-      setVideos(allVideos);
+      // Explicitly cast to the VideoProject type from supabase.ts
+      setVideos(allVideos as unknown as VideoProject[]);
     } catch (error) {
       console.error("Error fetching videos:", error);
       toast.error("Failed to load videos");
@@ -54,7 +56,7 @@ export default function VideosPage() {
     .filter(video => 
       searchTerm === "" || 
       video.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      video.prompt.toLowerCase().includes(searchTerm.toLowerCase())
+      (video.prompt && video.prompt.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
   const getVideosForTab = (tab: string) => {
@@ -151,7 +153,7 @@ export default function VideosPage() {
               <Loader2 className="h-8 w-8 animate-spin text-smartvid-600" />
             </div>
           ) : getVideosForTab("all").length > 0 ? (
-            <RecentProjects projects={getVideosForTab("all")} />
+            <RecentProjects projects={getVideosForTab("all") as VideoProject[]} />
           ) : (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">No videos found matching your criteria</p>
@@ -168,7 +170,7 @@ export default function VideosPage() {
               <Loader2 className="h-8 w-8 animate-spin text-smartvid-600" />
             </div>
           ) : getVideosForTab("recent").length > 0 ? (
-            <RecentProjects projects={getVideosForTab("recent")} />
+            <RecentProjects projects={getVideosForTab("recent") as VideoProject[]} />
           ) : (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">No recent videos found</p>
