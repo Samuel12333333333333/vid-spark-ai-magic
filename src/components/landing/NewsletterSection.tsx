@@ -1,107 +1,84 @@
 
-import { useState } from 'react';
-import { toast } from 'sonner';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useAuth } from '@/contexts/AuthContext';
-import { notificationService } from '@/services/notificationService';
-
-const newsletterSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address" }),
-});
-
-type NewsletterFormValues = z.infer<typeof newsletterSchema>;
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { notificationService } from "@/services/notificationService"; 
 
 export function NewsletterSection() {
-  const { user } = useAuth();
+  const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const form = useForm<NewsletterFormValues>({
-    resolver: zodResolver(newsletterSchema),
-    defaultValues: {
-      email: user?.email || '',
-    },
-  });
+  const { user } = useAuth();
 
-  const onSubmit = async (data: NewsletterFormValues) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    if (!email || !email.includes('@')) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
-      // Here you would normally send this to your backend
-      console.log("Subscribing email:", data.email);
+      // In a real app, you would send this to your newsletter service
       
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      toast.success("Successfully subscribed to our newsletter!");
+      toast.success("Thank you for subscribing to our newsletter!");
       
       // Create a notification if user is logged in
       if (user) {
         await notificationService.createNotification({
-          userId: user.id,
-          title: "Newsletter Subscription Confirmed",
-          message: "You've been successfully subscribed to our newsletter.",
-          type: 'newsletter'
+          user_id: user.id, // Using the correct property name
+          title: "Newsletter Subscription",
+          message: "Thank you for subscribing to our newsletter. You'll receive updates about new features and tips.",
+          type: 'newsletter',
+          metadata: { 
+            email, 
+            subscribed_at: new Date().toISOString() 
+          }
         });
       }
       
-      form.reset();
+      setEmail("");
     } catch (error) {
       console.error("Error subscribing to newsletter:", error);
-      toast.error("Failed to subscribe. Please try again.");
+      toast.error("Failed to subscribe. Please try again later.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <section className="py-12 md:py-16 bg-muted/50">
-      <div className="container px-4 md:px-6">
-        <div className="flex flex-col items-center text-center max-w-md mx-auto">
-          <h2 className="text-2xl md:text-3xl font-bold tracking-tighter mb-4">
-            Get AI Video Updates
-          </h2>
-          <p className="text-muted-foreground mb-6 md:mb-8">
-            Subscribe to our newsletter for the latest AI video generation tips, tutorials, and industry news.
-          </p>
-          
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="sr-only">Email</FormLabel>
-                    <FormControl>
-                      <div className="flex w-full max-w-sm items-center space-x-2">
-                        <Input
-                          {...field}
-                          type="email"
-                          placeholder="Enter your email"
-                          className="flex-1"
-                          aria-label="Email address for newsletter"
-                          disabled={isSubmitting}
-                        />
-                        <Button type="submit" disabled={isSubmitting}>
-                          {isSubmitting ? "Subscribing..." : "Subscribe"}
-                        </Button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+    <section className="bg-muted/50 py-16">
+      <div className="container px-4 mx-auto max-w-5xl">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+          <div className="lg:w-1/2">
+            <h2 className="text-3xl font-bold tracking-tight">
+              Stay updated with our newsletter
+            </h2>
+            <p className="mt-3 text-muted-foreground">
+              Get the latest SmartVid updates, tips, and special offers delivered straight to your inbox.
+            </p>
+          </div>
+          <div className="lg:w-1/2">
+            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
+              <Input
+                type="email"
+                placeholder="Enter your email"
+                className="flex-1"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
               />
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Subscribing..." : "Subscribe"}
+              </Button>
             </form>
-          </Form>
-          
-          <p className="text-xs text-muted-foreground mt-4">
-            We respect your privacy. Unsubscribe at any time.
-          </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              We respect your privacy. Unsubscribe at any time.
+            </p>
+          </div>
         </div>
       </div>
     </section>

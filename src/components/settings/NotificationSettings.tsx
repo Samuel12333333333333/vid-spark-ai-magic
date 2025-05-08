@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -39,7 +38,7 @@ export function NotificationSettings() {
     const fetchNotifications = async () => {
       setIsLoading(true);
       try {
-        const data = await notificationService.getUserNotifications(user.id);
+        const data = await notificationService.getNotifications(user.id);
         setNotifications(data);
       } catch (error) {
         console.error("Error fetching notifications:", error);

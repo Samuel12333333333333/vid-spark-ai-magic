@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { notificationService, Notification } from '@/services/notificationService';
+import { notificationService, Notification, NotificationType } from '@/services/notificationService';
 import { NotificationItem } from './NotificationItem';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +29,7 @@ export function NotificationsDropdown() {
     try {
       setIsLoading(true);
       console.log("Fetching notifications for user:", user.id);
-      const fetchedNotifications = await notificationService.getUserNotifications(user.id);
+      const fetchedNotifications = await notificationService.getNotifications(user.id);
       console.log("Fetched notifications:", fetchedNotifications);
       setNotifications(fetchedNotifications);
     } catch (error) {

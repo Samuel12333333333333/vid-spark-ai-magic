@@ -68,7 +68,7 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
       if (user?.id) {
         // Create notification for video deletion
         await notificationService.createNotification({
-          userId: user.id,
+          user_id: user.id, // Using the correct property name
           title: "Video Deleted",
           message: `Your video "${title || 'Untitled'}" has been deleted.`,
           type: 'video_deleted',

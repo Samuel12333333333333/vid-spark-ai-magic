@@ -5,6 +5,26 @@ import type { Notification, NotificationType } from "@/types/supabase";
 
 export type { Notification, NotificationType };
 
+// Define a function to validate notification types
+const validateNotificationType = (type: string): NotificationType => {
+  const validTypes: NotificationType[] = [
+    'video',
+    'payment',
+    'account',
+    'newsletter',
+    'video_complete',
+    'video_failed',
+    'video_deleted'
+  ];
+  
+  if (validTypes.includes(type as NotificationType)) {
+    return type as NotificationType;
+  }
+  
+  console.warn(`Invalid notification type: ${type}, defaulting to 'account'`);
+  return 'account';
+};
+
 export const notificationService = {
   async getNotifications(userId: string): Promise<Notification[]> {
     try {
@@ -24,6 +44,11 @@ export const notificationService = {
       console.error('Error in getNotifications:', error);
       return [];
     }
+  },
+  
+  // Alias for getNotifications to maintain backward compatibility
+  getUserNotifications(userId: string): Promise<Notification[]> {
+    return this.getNotifications(userId);
   },
   
   async getUnreadCount(userId: string): Promise<number> {
@@ -102,11 +127,35 @@ export const notificationService = {
     }
   },
   
-  async createNotification(notification: Omit<Notification, 'id' | 'created_at' | 'updated_at'>): Promise<Notification | null> {
+  async createNotification(notification: {
+    userId?: string;
+    user_id?: string;
+    title: string;
+    message: string;
+    type: string;
+    metadata?: any;
+    is_read?: boolean;
+  }): Promise<Notification | null> {
     try {
+      // Handle both userId and user_id for backward compatibility
+      const user_id = notification.user_id || notification.userId;
+      if (!user_id) {
+        throw new Error('User ID is required for creating notifications');
+      }
+      
+      // Extract only the valid properties for the database
+      const notificationData = {
+        user_id,
+        title: notification.title,
+        message: notification.message,
+        type: validateNotificationType(notification.type),
+        metadata: notification.metadata || null,
+        is_read: notification.is_read !== undefined ? notification.is_read : false
+      };
+      
       const { data, error } = await supabase
         .from('notifications')
-        .insert(notification)
+        .insert(notificationData)
         .select()
         .single();
         
@@ -120,7 +169,10 @@ export const notificationService = {
       console.error('Error in createNotification:', error);
       return null;
     }
-  }
+  },
+  
+  // Add validateNotificationType method
+  validateNotificationType
 };
 
 export default notificationService;

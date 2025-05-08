@@ -25,7 +25,7 @@ export default function PaymentSuccessPage() {
         
         // Use the notification service instead of direct DB access
         await notificationService.createNotification({
-          userId: session.user.id,
+          user_id: session.user.id, // Using the correct property name
           title: "Payment Successful",
           message: "Your subscription payment was processed successfully. Thank you for your support!",
           type: 'payment',

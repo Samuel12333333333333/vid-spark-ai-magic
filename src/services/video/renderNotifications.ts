@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { notificationService } from "@/services/notificationService";
 
 export const renderNotifications = {
   async createVideoCompletedNotification(userId: string, videoId: string, title: string): Promise<void> {
@@ -81,6 +82,35 @@ export const renderNotifications = {
     toast.error(`Video generation failed: ${errorMessage || 'Unknown error'}`, {
       duration: 5000
     });
+  },
+  
+  // Add the missing handler methods
+  async handleRenderCompletedFlow(userId: string, title: string, projectId: string, videoUrl: string): Promise<void> {
+    try {
+      // Create notification
+      await this.createVideoCompletedNotification(userId, projectId, title);
+      
+      // Show toast
+      this.showVideoCompletedToast(title);
+      
+      console.log(`Render completed flow executed for project ${projectId}`);
+    } catch (error) {
+      console.error("Error in handleRenderCompletedFlow:", error);
+    }
+  },
+  
+  async handleRenderFailedFlow(userId: string, title: string, projectId: string, errorMessage: string): Promise<void> {
+    try {
+      // Create notification
+      await this.createVideoFailedNotification(userId, projectId, title, errorMessage);
+      
+      // Show toast
+      this.showVideoFailedToast(title, errorMessage);
+      
+      console.log(`Render failed flow executed for project ${projectId}: ${errorMessage}`);
+    } catch (error) {
+      console.error("Error in handleRenderFailedFlow:", error);
+    }
   }
 };
 
