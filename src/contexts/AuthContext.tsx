@@ -7,7 +7,7 @@ interface AuthContextProps {
   session: Session | null;
   user: User | null;
   loading: boolean;
-  isLoading: boolean; // Added the missing property
+  isLoading: boolean;
   error: Error | null;
   signIn: (email: string, password: string, captchaToken?: string) => Promise<void>;
   signUp: (email: string, password: string, captchaToken?: string) => Promise<void>;
@@ -133,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         user,
         loading,
-        isLoading: loading, // Map loading to isLoading for backward compatibility
+        isLoading: loading,
         error,
         signIn,
         signUp,

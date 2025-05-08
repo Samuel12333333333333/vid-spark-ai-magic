@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -14,9 +13,8 @@ import { toast } from "sonner";
 import { useToast } from "@/hooks/use-toast";
 import ReCAPTCHA from "react-google-recaptcha";
 
-// Replace this with your reCAPTCHA site key
-// In production, this should be set in your environment variables
-const RECAPTCHA_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"; // This is Google's test key
+// Your real reCAPTCHA site key
+const RECAPTCHA_SITE_KEY = "6LejqDIrAAAAAChE_mJOIA66CuKB1KxdoiVo3Fr0";
 
 type AuthMode = "login" | "register";
 

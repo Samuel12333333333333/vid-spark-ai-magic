@@ -37,5 +37,5 @@ verify_jwt = true
 # Enable captcha protection for authentication
 [auth.captcha]
 enabled = true
-secret = "" # Get your secret key from hCaptcha or reCAPTCHA (add to Supabase secrets)
-provider = "hcaptcha" # or "recaptcha"
+secret = "6LejqDIrAAAAAGX1tBtP_N7qLN8L_d8-Z_yRJKGN" # Your reCAPTCHA secret key
+provider = "recaptcha" # Using recaptcha provider
