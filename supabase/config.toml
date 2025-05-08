@@ -33,3 +33,9 @@ verify_jwt = true
 
 [functions.increment_video_usage]
 verify_jwt = true
+
+# Enable captcha protection for authentication
+[auth.captcha]
+enabled = true
+secret = "" # Get your secret key from hCaptcha or reCAPTCHA (add to Supabase secrets)
+provider = "hcaptcha" # or "recaptcha"

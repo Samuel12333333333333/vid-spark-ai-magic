@@ -29,7 +29,7 @@ export function NewsletterSection() {
       // Create a notification if user is logged in
       if (user) {
         await notificationService.createNotification({
-          user_id: user.id, // Using the correct property name
+          user_id: user.id,
           title: "Newsletter Subscription",
           message: "Thank you for subscribing to our newsletter. You'll receive updates about new features and tips.",
           type: 'newsletter',

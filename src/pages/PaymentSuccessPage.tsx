@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import SEOMetadata from "@/components/SEOMetadata";
 import { notificationService } from "@/services/notificationService";
@@ -25,7 +24,7 @@ export default function PaymentSuccessPage() {
         
         // Use the notification service instead of direct DB access
         await notificationService.createNotification({
-          user_id: session.user.id, // Using the correct property name
+          user_id: session.user.id,
           title: "Payment Successful",
           message: "Your subscription payment was processed successfully. Thank you for your support!",
           type: 'payment',

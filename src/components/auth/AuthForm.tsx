@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,11 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useToast } from "@/hooks/use-toast";
+import ReCAPTCHA from "react-google-recaptcha";
+
+// Replace this with your reCAPTCHA site key
+// In production, this should be set in your environment variables
+const RECAPTCHA_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"; // This is Google's test key
 
 type AuthMode = "login" | "register";
 
@@ -21,9 +27,11 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   
   const navigate = useNavigate();
   const { toast: uiToast } = useToast();
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -48,6 +56,17 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
     };
   }, [navigate]);
 
+  const onCaptchaChange = (token: string | null) => {
+    setCaptchaToken(token);
+  };
+
+  const resetCaptcha = () => {
+    if (recaptchaRef.current) {
+      recaptchaRef.current.reset();
+    }
+    setCaptchaToken(null);
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -61,6 +80,12 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
       setError("Passwords don't match");
       return;
     }
+
+    // Check if captcha token is available
+    if (!captchaToken) {
+      setError("Please complete the captcha verification");
+      return;
+    }
     
     setIsLoading(true);
     
@@ -69,6 +94,9 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
+          options: {
+            captchaToken
+          }
         });
         
         if (error) throw error;
@@ -78,6 +106,7 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
           password,
           options: {
             emailRedirectTo: window.location.origin,
+            captchaToken,
             data: {
               email_confirmed: true
             }
@@ -91,6 +120,7 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
           setMode("login");
           setPassword("");
           setConfirmPassword("");
+          resetCaptcha();
           return;
         } else if (data?.session) {
           toast.success("Account created successfully!");
@@ -99,12 +129,16 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Authentication failed";
       
-      if (errorMessage.includes("500") || errorMessage.includes("confirmation email")) {
+      if (errorMessage.includes("captcha")) {
+        setError("Captcha verification failed. Please try again.");
+      } else if (errorMessage.includes("500") || errorMessage.includes("confirmation email")) {
         setError("We're unable to send confirmation emails right now. Please try logging in if you've already created an account, or try again later.");
         toast.error("Error with email confirmation. For development purposes, you may want to disable email confirmation in the Supabase Console.");
       } else {
         setError(errorMessage);
       }
+
+      resetCaptcha();
     } finally {
       setIsLoading(false);
     }
@@ -189,12 +223,20 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
                     required
                   />
                 </div>
+                
+                <div className="flex justify-center my-4">
+                  <ReCAPTCHA
+                    ref={recaptchaRef}
+                    sitekey={RECAPTCHA_SITE_KEY}
+                    onChange={onCaptchaChange}
+                  />
+                </div>
               </CardContent>
               <CardFooter className="flex flex-col space-y-4">
                 <Button
                   type="submit"
                   className="w-full bg-smartvid-600 hover:bg-smartvid-700"
-                  disabled={isLoading}
+                  disabled={isLoading || !captchaToken}
                 >
                   {isLoading ? (
                     <>
@@ -287,12 +329,20 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
                     required
                   />
                 </div>
+                
+                <div className="flex justify-center my-4">
+                  <ReCAPTCHA
+                    ref={recaptchaRef}
+                    sitekey={RECAPTCHA_SITE_KEY}
+                    onChange={onCaptchaChange}
+                  />
+                </div>
               </CardContent>
               <CardFooter className="flex flex-col space-y-4">
                 <Button
                   type="submit"
                   className="w-full bg-smartvid-600 hover:bg-smartvid-700"
-                  disabled={isLoading}
+                  disabled={isLoading || !captchaToken}
                 >
                   {isLoading ? (
                     <>

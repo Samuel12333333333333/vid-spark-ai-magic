@@ -9,8 +9,8 @@ interface AuthContextProps {
   loading: boolean;
   isLoading: boolean; // Added the missing property
   error: Error | null;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string, captchaToken?: string) => Promise<void>;
+  signUp: (email: string, password: string, captchaToken?: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
@@ -47,10 +47,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, captchaToken?: string) => {
     try {
       setError(null);
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password,
+        options: {
+          captchaToken
+        }
+      });
       if (error) throw error;
     } catch (error) {
       console.error("Error signing in:", error);
@@ -59,10 +65,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, captchaToken?: string) => {
     try {
       setError(null);
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          captchaToken,
+          emailRedirectTo: `${window.location.origin}/reset-password`,
+          data: {
+            email_confirmed: true
+          }
+        }
+      });
       if (error) throw error;
     } catch (error) {
       console.error("Error signing up:", error);

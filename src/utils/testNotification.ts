@@ -9,7 +9,7 @@ export const testNotification = async (userId: string) => {
   console.log("Method 1: Using notificationService...");
   try {
     const notif1 = await notificationService.createNotification({
-      user_id: userId, // Using the correct property name
+      user_id: userId, 
       title: "Test Notification (Service)",
       message: "This is a test notification using the notification service.",
       type: 'video',
