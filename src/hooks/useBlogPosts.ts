@@ -2,16 +2,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import type { Database } from '@/integrations/supabase/types';
+import { BlogPost } from '@/types/supabase';
 import { slugify } from '@/utils/slugify';
-
-// Define the base BlogPost type from the database
-type BaseBlogPost = Database['public']['Tables']['blog_posts']['Row'];
-
-// Extend the type to include the slug property
-export type BlogPost = BaseBlogPost & {
-  slug?: string;
-};
 
 export function useBlogPosts() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -58,7 +50,7 @@ export function useBlogPosts() {
             table: 'blog_posts'
           },
           (payload) => {
-            const newPost = payload.new as BaseBlogPost;
+            const newPost = payload.new as BlogPost;
             // Add slug to new posts
             const postWithSlug: BlogPost = {
               ...newPost,

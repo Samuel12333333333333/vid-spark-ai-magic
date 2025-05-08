@@ -1,7 +1,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Template } from "@/types/template";
+import type { Template } from "@/types/supabase";
 
 export function useTemplates(category?: string) {
   return useQuery({

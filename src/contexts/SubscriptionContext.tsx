@@ -1,19 +1,8 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-interface Subscription {
-  id: string;
-  user_id: string;
-  stripe_customer_id: string;
-  stripe_subscription_id: string;
-  plan_name: string;
-  status: string;
-  current_period_end: string;
-  created_at: string;
-}
+import { Subscription } from "@/types/supabase";
 
 interface SubscriptionContextType {
   hasActiveSubscription: boolean;

@@ -5,11 +5,12 @@ import { Helmet } from 'react-helmet-async';
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDistanceToNow } from "date-fns";
 import { useBlogPosts } from "@/hooks/useBlogPosts";
+import { BlogPost } from "@/types/supabase";
 
 export default function BlogPostPage() {
   const { id } = useParams();
   const { posts, loading, error } = useBlogPosts();
-  const [post, setPost] = useState<any>(null);
+  const [post, setPost] = useState<BlogPost | null>(null);
 
   useEffect(() => {
     if (!loading && posts.length > 0) {
@@ -56,7 +57,7 @@ export default function BlogPostPage() {
         <title>{post.title} | SmartVid Blog</title>
         <meta 
           name="description" 
-          content={post.summary} 
+          content={post.description || ''} 
         />
       </Helmet>
       
@@ -64,14 +65,14 @@ export default function BlogPostPage() {
         <div className="space-y-2 mb-8">
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight">{post.title}</h1>
           <p className="text-sm text-muted-foreground">
-            Posted {formatDistanceToNow(new Date(post.created_at))} ago
+            Posted {formatDistanceToNow(new Date(post.created_at || ''), { addSuffix: true })}
           </p>
         </div>
         
         <Card className="mb-8">
           <CardContent className="pt-6">
             <div className="prose dark:prose-invert max-w-none">
-              <div dangerouslySetInnerHTML={{ __html: post.content }} />
+              <div dangerouslySetInnerHTML={{ __html: post.content || '' }} />
             </div>
           </CardContent>
         </Card>

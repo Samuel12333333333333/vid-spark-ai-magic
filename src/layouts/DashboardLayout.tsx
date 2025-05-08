@@ -1,4 +1,3 @@
-
 import { Outlet, useNavigate } from "react-router-dom";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -13,10 +12,11 @@ import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { NotificationsDropdown } from "@/components/notifications/NotificationsDropdown";
+import { Profile } from "@/types/supabase";
 
 export function DashboardLayout() {
   const { user, signOut } = useAuth();
-  const [profile, setProfile] = useState<{ username?: string, avatar_url?: string } | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -37,7 +37,7 @@ export function DashboardLayout() {
           return;
         }
         
-        setProfile(data);
+        setProfile(data as Profile);
       } catch (error) {
         console.error('Error in profile fetch:', error);
       }

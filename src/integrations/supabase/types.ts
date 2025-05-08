@@ -9,13 +9,293 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      blog_posts: {
+        Row: {
+          category: string | null
+          content: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_premium: boolean | null
+          thumbnail: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          content?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_premium?: boolean | null
+          thumbnail?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          content?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_premium?: boolean | null
+          thumbnail?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          metadata: Json | null
+          title: string
+          type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          metadata?: Json | null
+          title: string
+          type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          metadata?: Json | null
+          title?: string
+          type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          id: string
+          updated_at?: string | null
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          created_at: string | null
+          current_period_end: string | null
+          id: string
+          plan_name: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_period_end?: string | null
+          id?: string
+          plan_name: string
+          status: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_period_end?: string | null
+          id?: string
+          plan_name?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      templates: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_premium: boolean | null
+          name: string
+          thumbnail: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_premium?: boolean | null
+          name: string
+          thumbnail?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_premium?: boolean | null
+          name?: string
+          thumbnail?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      video_projects: {
+        Row: {
+          audio_url: string | null
+          brand_colors: string | null
+          created_at: string | null
+          duration: number | null
+          error_message: string | null
+          has_audio: boolean | null
+          has_captions: boolean | null
+          id: string
+          media_source: string | null
+          narration_script: string | null
+          prompt: string | null
+          render_id: string | null
+          scenes: Json | null
+          status: string | null
+          style: string | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+          video_url: string | null
+          voice_type: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          brand_colors?: string | null
+          created_at?: string | null
+          duration?: number | null
+          error_message?: string | null
+          has_audio?: boolean | null
+          has_captions?: boolean | null
+          id?: string
+          media_source?: string | null
+          narration_script?: string | null
+          prompt?: string | null
+          render_id?: string | null
+          scenes?: Json | null
+          status?: string | null
+          style?: string | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+          video_url?: string | null
+          voice_type?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          brand_colors?: string | null
+          created_at?: string | null
+          duration?: number | null
+          error_message?: string | null
+          has_audio?: boolean | null
+          has_captions?: boolean | null
+          id?: string
+          media_source?: string | null
+          narration_script?: string | null
+          prompt?: string | null
+          render_id?: string | null
+          scenes?: Json | null
+          status?: string | null
+          style?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          video_url?: string | null
+          voice_type?: string | null
+        }
+        Relationships: []
+      }
+      video_usage: {
+        Row: {
+          count: number | null
+          created_at: string | null
+          id: string
+          reset_at: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          count?: number | null
+          created_at?: string | null
+          id?: string
+          reset_at: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          count?: number | null
+          created_at?: string | null
+          id?: string
+          reset_at?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_video_usage: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          count: number
+          reset_at: string
+        }[]
+      }
+      increment_video_usage: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          count: number
+          reset_at: string
+        }[]
+      }
+      reset_video_usage: {
+        Args: { user_id_param: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

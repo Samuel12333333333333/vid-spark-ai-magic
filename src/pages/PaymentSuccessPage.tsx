@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import SEOMetadata from "@/components/SEOMetadata";
+import { notificationService } from "@/services/notificationService";
 
 export default function PaymentSuccessPage() {
   const navigate = useNavigate();
@@ -22,14 +23,14 @@ export default function PaymentSuccessPage() {
       try {
         console.log("Creating payment success notification");
         
-        // Direct DB insertion for maximum reliability
-        await supabase.from('notifications').insert([{
-          user_id: session.user.id,
+        // Use the notification service instead of direct DB access
+        await notificationService.createNotification({
+          userId: session.user.id,
           title: "Payment Successful",
           message: "Your subscription payment was processed successfully. Thank you for your support!",
           type: 'payment',
-          is_read: false,
-        }]);
+          metadata: { source: 'payment_success_page' }
+        });
         
         console.log("Payment notification created");
         
