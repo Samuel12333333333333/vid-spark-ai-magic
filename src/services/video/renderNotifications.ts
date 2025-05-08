@@ -1,122 +1,87 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { NotificationType } from "./types";
+import { toast } from "sonner";
 
 export const renderNotifications = {
-  async createVideoCompleteNotification(userId: string, projectId: string, title: string): Promise<void> {
+  async createVideoCompletedNotification(userId: string, videoId: string, title: string): Promise<void> {
     try {
       const { error } = await supabase
         .from('notifications')
         .insert({
           user_id: userId,
-          type: 'video_complete' as NotificationType,
-          title: 'Video Generation Complete',
-          message: `Your video "${title}" is ready to view!`,
-          link: `/dashboard/videos/${projectId}`,
+          title: "Video Ready",
+          message: `Your video "${title.substring(0, 30)}${title.length > 30 ? '...' : ''}" is ready to view.`,
+          type: "video_complete",
           is_read: false,
-          metadata: { 
-            status: 'completed', 
-            projectId,
-            completedAt: new Date().toISOString()
-          }
+          metadata: { videoId, timestamp: new Date().toISOString() }
         });
         
       if (error) {
-        console.error("Error creating notification:", error);
+        console.error("Error creating video completed notification:", error);
       }
     } catch (error) {
-      console.error("Error in createVideoCompleteNotification:", error);
+      console.error("Exception in createVideoCompletedNotification:", error);
     }
   },
   
-  async createVideoFailedNotification(userId: string, projectId: string, title: string, errorMessage?: string): Promise<void> {
+  async createVideoFailedNotification(userId: string, videoId: string, title: string, errorMessage?: string): Promise<void> {
     try {
       const { error } = await supabase
         .from('notifications')
         .insert({
           user_id: userId,
-          type: 'video_failed' as NotificationType,
-          title: 'Video Generation Failed',
-          message: `We couldn't create your video "${title}". ${errorMessage ? `Error: ${errorMessage}` : 'Please try again.'}`,
-          link: `/dashboard/videos/${projectId}`,
+          title: "Video Generation Failed",
+          message: `We couldn't generate your video "${title.substring(0, 30)}${title.length > 30 ? '...' : ''}". Please try again.`,
+          type: "video_failed",
           is_read: false,
           metadata: { 
-            status: 'failed', 
-            projectId,
-            failedAt: new Date().toISOString(),
-            errorMessage
+            videoId, 
+            errorMessage,
+            timestamp: new Date().toISOString() 
           }
         });
         
       if (error) {
-        console.error("Error creating notification:", error);
+        console.error("Error creating video failed notification:", error);
       }
     } catch (error) {
-      console.error("Error in createVideoFailedNotification:", error);
+      console.error("Exception in createVideoFailedNotification:", error);
     }
   },
   
   async createVideoDeletedNotification(userId: string, title: string): Promise<void> {
     try {
-      if (!userId) {
-        console.warn("Missing userId for video deletion notification");
-        return;
-      }
-      
       const { error } = await supabase
         .from('notifications')
         .insert({
           user_id: userId,
-          type: 'video_deleted' as NotificationType,
-          title: 'Video Deleted',
-          message: `Your video "${title}" has been deleted.`,
-          link: `/dashboard/videos`,
+          title: "Video Deleted",
+          message: `Your video "${title.substring(0, 30)}${title.length > 30 ? '...' : ''}" has been deleted.`,
+          type: "video_deleted",
           is_read: false,
-          metadata: {
-            action: 'delete',
-            deletedAt: new Date().toISOString()
-          }
+          metadata: { action: "delete", timestamp: new Date().toISOString() }
         });
         
       if (error) {
-        console.error("Error creating notification:", error);
-      } else {
-        console.log("✅ Video deletion notification created successfully");
+        console.error("Error creating video deleted notification:", error);
       }
     } catch (error) {
-      console.error("Error in createVideoDeletedNotification:", error);
+      console.error("Exception in createVideoDeletedNotification:", error);
     }
   },
-  
-  async handleRenderCompletedFlow(userId: string, title: string, projectId: string, videoUrl: string): Promise<void> {
-    try {
-      console.log(`Video render completed for project ${projectId}`);
-      
-      // Create notification for user
-      await this.createVideoCompleteNotification(userId, projectId, title);
-      
-      // You could add additional actions here like:
-      // - Send an email notification
-      // - Update usage statistics
-      // - Generate sharing links
-    } catch (error) {
-      console.error("Error in handleRenderCompletedFlow:", error);
-    }
+
+  // Show UI toast for video-related events
+  showVideoCompletedToast(title: string): void {
+    toast.success(`Your video "${title.substring(0, 30)}${title.length > 30 ? '...' : ''}" is ready to view.`, {
+      duration: 5000
+    });
   },
   
-  async handleRenderFailedFlow(userId: string, title: string, projectId: string, errorMessage: string): Promise<void> {
-    try {
-      console.log(`Video render failed for project ${projectId}: ${errorMessage}`);
-      
-      // Create notification for user
-      await this.createVideoFailedNotification(userId, projectId, title, errorMessage);
-      
-      // Additional actions for failed renders:
-      // - Log to error tracking system
-      // - Notify admins about critical failures
-      // - Suggest troubleshooting steps
-    } catch (error) {
-      console.error("Error in handleRenderFailedFlow:", error);
-    }
+  showVideoFailedToast(title: string, errorMessage?: string): void {
+    toast.error(`Video generation failed: ${errorMessage || 'Unknown error'}`, {
+      duration: 5000
+    });
   }
 };
+
+export default renderNotifications;

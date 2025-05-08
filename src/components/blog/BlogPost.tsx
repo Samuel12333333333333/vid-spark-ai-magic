@@ -7,10 +7,10 @@ import { ArrowRight } from "lucide-react";
 import { BlogPost as BlogPostType } from "@/types/supabase";
 
 export interface BlogPostProps extends BlogPostType {
-  summary: string; // Required for display, derived from description if needed
+  summary?: string; // Make summary optional to fix the type issues
 }
 
-export function BlogPost({ id, title, summary, thumbnail, category, created_at, slug }: BlogPostProps) {
+export function BlogPost({ id, title, summary, thumbnail, category, created_at, slug, description }: BlogPostProps) {
   // Format the created_at date if it exists
   const formattedDate = created_at 
     ? formatDistanceToNow(new Date(created_at), { addSuffix: true }) 
@@ -18,6 +18,9 @@ export function BlogPost({ id, title, summary, thumbnail, category, created_at, 
     
   // Use slug if available, otherwise use ID
   const postUrl = slug ? `/blog/${slug}` : `/blog/${id}`;
+  
+  // Use summary if available, otherwise use description or empty string
+  const displaySummary = summary || description || "";
 
   return (
     <Card className="overflow-hidden">
@@ -48,7 +51,7 @@ export function BlogPost({ id, title, summary, thumbnail, category, created_at, 
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground line-clamp-2 mb-4">{summary}</p>
+            <p className="text-muted-foreground line-clamp-2 mb-4">{displaySummary}</p>
             <Button variant="outline" asChild>
               <Link to={postUrl}>
                 Read More <ArrowRight className="ml-2 h-4 w-4" />

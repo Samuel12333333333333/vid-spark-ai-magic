@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Notification, NotificationType } from "@/types/supabase";
@@ -5,208 +6,44 @@ import type { Notification, NotificationType } from "@/types/supabase";
 export type { Notification, NotificationType };
 
 export const notificationService = {
-  async getUserNotifications(userId: string): Promise<Notification[]> {
+  async getNotifications(userId: string): Promise<Notification[]> {
     try {
-      console.log("Fetching notifications for user:", userId);
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
-      
+        
       if (error) {
-        console.error("Supabase error fetching notifications:", error);
+        console.error('Error fetching notifications:', error);
         throw error;
       }
       
-      console.log(`Found ${data?.length || 0} notifications for user`);
-      
-      // Cast and validate the data to ensure type compatibility
-      return (data || []).map(notification => ({
-        ...notification,
-        // Ensure type is one of our expected values or default to 'account'
-        type: this.validateNotificationType(notification.type)
-      })) as Notification[];
+      return data as Notification[];
     } catch (error) {
-      console.error("Error fetching notifications:", error);
+      console.error('Error in getNotifications:', error);
       return [];
     }
   },
   
-  async createNotification({
-    userId,
-    title,
-    message,
-    type,
-    metadata = {}
-  }: {
-    userId: string;
-    title: string;
-    message: string;
-    type: NotificationType;
-    metadata?: Record<string, any>;
-  }): Promise<Notification | null> {
+  async getUnreadCount(userId: string): Promise<number> {
     try {
-      console.log(`⏳ Creating notification for user ${userId}: ${title}`);
-      
-      if (!userId) {
-        console.error("❌ Cannot create notification: user_id is missing");
-        return null;
-      }
-      
-      // Ensure metadata is JSON-compatible
-      let safeMetadata: Record<string, any> = {};
-      
-      try {
-        if (metadata && Object.keys(metadata).length > 0) {
-          // For safety, stringify and parse the object to remove any non-serializable content
-          safeMetadata = JSON.parse(JSON.stringify(metadata));
-        }
-      } catch (e) {
-        console.error("Error serializing metadata, using empty object:", e);
-      }
-      
-      const notification = {     
-        user_id: userId,
-        title: title.substring(0, 255), // Ensure title isn't too long
-        message: message.substring(0, 1000), // Ensure message isn't too long
-        type,
-        is_read: false,
-        metadata: safeMetadata
-      };
-
-      console.log("Notification payload:", JSON.stringify(notification));
-      
-      let maxRetries = 3;
-      let retries = 0;
-      let lastError = null;
-      
-      while (retries < maxRetries) {
-        try {
-          console.log(`Attempt ${retries + 1} to insert notification`);
-          
-          const { data, error } = await supabase
-            .from('notifications')
-            .insert([notification])
-            .select();
-            
-          if (error) {
-            lastError = error;
-            retries++;
-            console.error(`❌ Notification insert failed (attempt ${retries}):`, error);
-            await new Promise(resolve => setTimeout(resolve, 500 * retries));
-            continue;
-          }
-          
-          if (data && data.length > 0) {
-            console.log("✅ Notification created successfully:", data[0].id);
-            
-            // Display toast notification if it's a user-facing event
-            this.showToastForNotification(type, title, message);
-            
-            return data[0] as Notification;
-          }
-          
-          throw new Error("No data returned from notification insert");
-        } catch (insertError) {
-          lastError = insertError;
-          retries++;
-          console.error(`❌ Insert attempt ${retries} failed:`, insertError);
-          await new Promise(resolve => setTimeout(resolve, 500 * retries));
-        }
-      }
-      
-      // If all attempts fail with metadata, try once without metadata
-      return this.createFallbackNotification(userId, title, message, type);
-    } catch (error) {
-      console.error("❌ Error creating notification:", error);
-      return null;
-    }
-  },
-  
-  // New method for creating a simplified notification as a fallback
-  async createFallbackNotification(
-    userId: string, 
-    title: string, 
-    message: string, 
-    type: NotificationType
-  ): Promise<Notification | null> {
-    try {
-      console.log("❌ All attempts failed, trying simplified notification");
-      
-      const simplifiedNotification = {
-        user_id: userId,
-        title: title.substring(0, 255),
-        message: message.substring(0, 1000),
-        type,
-        is_read: false
-      };
-      
-      const { data: fallbackData, error: fallbackError } = await supabase
+      const { data, error, count } = await supabase
         .from('notifications')
-        .insert([simplifiedNotification])
-        .select();
+        .select('id', { count: 'exact' })
+        .eq('user_id', userId)
+        .eq('is_read', false);
         
-      if (fallbackError) {
-        console.error("❌ Fallback insert also failed:", fallbackError);
-        return null;
+      if (error) {
+        console.error('Error fetching unread count:', error);
+        throw error;
       }
       
-      if (fallbackData && fallbackData.length > 0) {
-        console.log("✅ Fallback notification created successfully:", fallbackData[0].id);
-        
-        // Display toast for important events even on fallback
-        this.showToastForNotification(type, title, message);
-        
-        return fallbackData[0] as Notification;
-      }
-      
-      console.error("❌ All notification creation attempts failed");
-      return null;
+      return count || 0;
     } catch (error) {
-      console.error("❌ Error creating fallback notification:", error);
-      return null;
+      console.error('Error in getUnreadCount:', error);
+      return 0;
     }
-  },
-
-  // New centralized method to show toasts for notifications
-  showToastForNotification(type: string, title: string, message: string): void {
-    const toastOptions: any = {
-      description: message
-    };
-
-    switch (type) {
-      case 'video':
-      case 'video_complete':
-      case 'video_failed':
-      case 'video_deleted':
-        toast.info(title, toastOptions);
-        break;
-      case 'payment':
-        toast.success(title, toastOptions);
-        break;
-      case 'account':
-        toast.info(title, toastOptions);
-        break;
-      case 'newsletter':
-        toast.info(title, toastOptions);
-        break;
-      default:
-        toast(title, toastOptions);
-        break;
-    }
-  },
-  
-  // Helper method to validate notification types
-  validateNotificationType(type: string): NotificationType {
-    const validTypes = [
-      'video', 'payment', 'account', 'newsletter', 
-      'video_complete', 'video_failed', 'video_deleted'
-    ];
-    
-    return validTypes.includes(type) 
-      ? type as NotificationType
-      : 'account'; // Default fallback type
   },
   
   async markAsRead(notificationId: string): Promise<void> {
@@ -217,13 +54,12 @@ export const notificationService = {
         .eq('id', notificationId);
         
       if (error) {
-        console.error("Supabase error marking notification as read:", error);
+        console.error('Error marking notification as read:', error);
         throw error;
       }
-      
-      console.log(`Notification ${notificationId} marked as read`);
     } catch (error) {
-      console.error("Error marking notification as read:", error);
+      console.error('Error in markAsRead:', error);
+      toast.error('Failed to mark notification as read');
     }
   },
   
@@ -236,13 +72,14 @@ export const notificationService = {
         .eq('is_read', false);
         
       if (error) {
-        console.error("Supabase error marking all notifications as read:", error);
+        console.error('Error marking all notifications as read:', error);
         throw error;
       }
       
-      console.log(`All notifications for user ${userId} marked as read`);
+      toast.success('All notifications marked as read');
     } catch (error) {
-      console.error("Error marking all notifications as read:", error);
+      console.error('Error in markAllAsRead:', error);
+      toast.error('Failed to mark all notifications as read');
     }
   },
   
@@ -254,13 +91,36 @@ export const notificationService = {
         .eq('id', notificationId);
         
       if (error) {
-        console.error("Supabase error deleting notification:", error);
+        console.error('Error deleting notification:', error);
         throw error;
       }
       
-      console.log(`Notification ${notificationId} deleted`);
+      toast.success('Notification deleted');
     } catch (error) {
-      console.error("Error deleting notification:", error);
+      console.error('Error in deleteNotification:', error);
+      toast.error('Failed to delete notification');
+    }
+  },
+  
+  async createNotification(notification: Omit<Notification, 'id' | 'created_at' | 'updated_at'>): Promise<Notification | null> {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert(notification)
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('Error creating notification:', error);
+        throw error;
+      }
+      
+      return data as Notification;
+    } catch (error) {
+      console.error('Error in createNotification:', error);
+      return null;
     }
   }
 };
+
+export default notificationService;
