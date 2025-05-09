@@ -29,14 +29,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleHashFragment = async () => {
       const hashParams = window.location.hash;
       if (hashParams && hashParams.includes('access_token')) {
-        // Remove the hash to avoid processing it multiple times
-        window.history.replaceState(null, document.title, window.location.pathname);
+        try {
+          // Process the hash parameters from the OAuth redirect
+          const searchParams = new URLSearchParams(hashParams.substring(1)); // Remove the # character
+          const accessToken = searchParams.get('access_token');
+          const refreshToken = searchParams.get('refresh_token');
+          
+          if (accessToken) {
+            // Set the session with the tokens from the hash
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || '',
+            });
+            
+            if (error) {
+              console.error("Error setting session:", error);
+              setError(error);
+            } else if (data?.session) {
+              setSession(data.session);
+              setUser(data.session.user);
+            }
+          }
+        } catch (err) {
+          console.error("Error processing OAuth redirect:", err);
+        } finally {
+          // Remove the hash to avoid processing it multiple times
+          window.history.replaceState(null, document.title, window.location.pathname);
+        }
       }
     };
     
     handleHashFragment();
     
-    // Set up auth state listener FIRST
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
@@ -44,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // THEN check for existing session
+    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
