@@ -25,6 +25,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    // Handle hash fragment for OAuth redirects
+    const handleHashFragment = async () => {
+      const hashParams = window.location.hash;
+      if (hashParams && hashParams.includes('access_token')) {
+        // Remove the hash to avoid processing it multiple times
+        window.history.replaceState(null, document.title, window.location.pathname);
+      }
+    };
+    
+    handleHashFragment();
+    
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -103,7 +104,7 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
           email,
           password,
           options: {
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: `${window.location.origin}/dashboard`,
             captchaToken,
             data: {
               email_confirmed: true
