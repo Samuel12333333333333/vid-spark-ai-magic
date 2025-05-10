@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -16,6 +15,7 @@ import { DashboardLayout } from "@/layouts/DashboardLayout";
 // Public Pages
 import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
+import AuthCallback from "./pages/auth/AuthCallback";
 import NotFound from "./pages/NotFound";
 import PaymentSuccessPage from "./pages/PaymentSuccessPage";
 import ProductOverviewPage from "./pages/product/ProductOverviewPage";
@@ -93,6 +93,7 @@ const App = () => {
                     <Route path="/" element={<LandingPage />} />
                     <Route path="/login" element={<AuthPage />} />
                     <Route path="/register" element={<AuthPage />} />
+                    <Route path="/auth/callback" element={<AuthCallback />} />
                     
                     {/* Payment success page - public but typically accessed after payment */}
                     <Route path="/payment-success" element={<PaymentSuccessPage />} />

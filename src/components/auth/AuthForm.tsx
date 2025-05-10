@@ -144,18 +144,32 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
   };
 
   const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setError("");
+    
     try {
+      // Define the redirect URL based on the current environment
+      const redirectTo = `${window.location.origin}/dashboard`;
+      
+      // Use signInWithOAuth with proper redirect configuration
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
         }
       });
       
       if (error) throw error;
+      
     } catch (err) {
+      setIsLoading(false);
       const errorMessage = err instanceof Error ? err.message : "Authentication failed";
-      setError(errorMessage);
+      setError(`Google sign in error: ${errorMessage}`);
+      console.error("Google sign in error:", err);
       toast.error("Failed to sign in with Google");
     }
   };

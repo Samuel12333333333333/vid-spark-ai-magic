@@ -30,12 +30,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const hashParams = window.location.hash;
       if (hashParams && hashParams.includes('access_token')) {
         try {
+          console.log("Found OAuth hash parameters");
           // Process the hash parameters from the OAuth redirect
           const searchParams = new URLSearchParams(hashParams.substring(1)); // Remove the # character
           const accessToken = searchParams.get('access_token');
           const refreshToken = searchParams.get('refresh_token');
           
           if (accessToken) {
+            console.log("Setting session with tokens from hash");
             // Set the session with the tokens from the hash
             const { data, error } = await supabase.auth.setSession({
               access_token: accessToken,
@@ -46,12 +48,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               console.error("Error setting session:", error);
               setError(error);
             } else if (data?.session) {
+              console.log("Session set successfully");
               setSession(data.session);
               setUser(data.session.user);
             }
           }
         } catch (err) {
           console.error("Error processing OAuth redirect:", err);
+          setError(err as Error);
         } finally {
           // Remove the hash to avoid processing it multiple times
           window.history.replaceState(null, document.title, window.location.pathname);
@@ -63,16 +67,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      (event, newSession) => {
+        console.log("Auth state changed:", event);
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        setLoading(false);
       }
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
+      console.log("Got existing session:", existingSession ? "yes" : "no");
+      setSession(existingSession);
+      setUser(existingSession?.user ?? null);
       setLoading(false);
     }).catch(error => {
       console.error("Error getting session:", error);
