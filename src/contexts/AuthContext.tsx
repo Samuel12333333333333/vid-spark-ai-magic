@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface AuthContextProps {
   session: Session | null;
@@ -23,47 +24,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const location = useLocation();
 
   useEffect(() => {
-    // Handle hash fragment for OAuth redirects
-    const handleHashFragment = async () => {
-      const hashParams = window.location.hash;
-      if (hashParams && hashParams.includes('access_token')) {
-        try {
-          console.log("Found OAuth hash parameters");
-          // Process the hash parameters from the OAuth redirect
-          const searchParams = new URLSearchParams(hashParams.substring(1)); // Remove the # character
-          const accessToken = searchParams.get('access_token');
-          const refreshToken = searchParams.get('refresh_token');
-          
-          if (accessToken) {
-            console.log("Setting session with tokens from hash");
-            // Set the session with the tokens from the hash
-            const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken || '',
-            });
-            
-            if (error) {
-              console.error("Error setting session:", error);
-              setError(error);
-            } else if (data?.session) {
-              console.log("Session set successfully");
-              setSession(data.session);
-              setUser(data.session.user);
-            }
-          }
-        } catch (err) {
-          console.error("Error processing OAuth redirect:", err);
-          setError(err as Error);
-        } finally {
-          // Remove the hash to avoid processing it multiple times
-          window.history.replaceState(null, document.title, window.location.pathname);
-        }
-      }
-    };
-    
-    handleHashFragment();
+    console.log("AuthProvider initialized");
     
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -93,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string, captchaToken?: string) => {
     try {
       setError(null);
+      console.log("Attempting to sign in with email and password");
       const { error } = await supabase.auth.signInWithPassword({ 
         email, 
         password,
@@ -111,12 +76,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (email: string, password: string, captchaToken?: string) => {
     try {
       setError(null);
+      console.log("Attempting to sign up with email and password");
       const { error } = await supabase.auth.signUp({ 
         email, 
         password,
         options: {
           captchaToken,
-          emailRedirectTo: `${window.location.origin}/reset-password`,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             email_confirmed: true
           }
@@ -133,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       setError(null);
+      console.log("Signing out");
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
     } catch (error) {
@@ -145,8 +112,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resetPassword = async (email: string) => {
     try {
       setError(null);
+      console.log("Requesting password reset for email:", email);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${window.location.origin}/auth/callback`,
       });
       if (error) throw error;
     } catch (error) {
@@ -159,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updatePassword = async (password: string) => {
     try {
       setError(null);
+      console.log("Updating password");
       const { error } = await supabase.auth.updateUser({
         password,
       });
