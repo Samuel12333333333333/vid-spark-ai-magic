@@ -37,3 +37,8 @@ verify_jwt = true
 # Captcha protection is disabled
 [auth.captcha]
 enabled = false
+
+# Allow specific redirect sites
+[auth]
+[auth.redirect_urls]
+allowed_urls = ["http://localhost:3000/auth/callback", "http://localhost:5173/auth/callback", "https://*.lovable.app/auth/callback", "https://app.smartvideofy.com/auth/callback"]

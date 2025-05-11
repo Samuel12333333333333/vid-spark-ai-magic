@@ -29,7 +29,46 @@ export default function AuthCallback() {
           return;
         }
 
-        // Handle hash fragment for OAuth redirects - with safety checks
+        // Special handling for URLs with domain redirects (like in your error case)
+        // This happens when Google redirects to a URL like https://project-id.supabase.co/domain.com#access_token=...
+        const currentUrl = window.location.href;
+        if (currentUrl.includes('.supabase.co/') && currentUrl.includes('#access_token=')) {
+          console.log("Detected domain redirect pattern, extracting hash...");
+          
+          try {
+            // Extract everything after the # character
+            const hashPart = currentUrl.split('#')[1];
+            if (hashPart && hashPart.includes('access_token=')) {
+              // Create a proper fragment
+              const hashParams = new URLSearchParams(hashPart);
+              const accessToken = hashParams.get('access_token');
+              const refreshToken = hashParams.get('refresh_token');
+              
+              if (accessToken && refreshToken) {
+                console.log("Found tokens in URL, setting session...");
+                const { data, error } = await supabase.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: refreshToken,
+                });
+                
+                if (error) {
+                  console.error("Error setting session:", error);
+                  setError(`Error setting session: ${error.message}`);
+                  toast.error(`Authentication failed: ${error.message}`);
+                } else if (data?.session) {
+                  console.log("Session set successfully");
+                  toast.success("Successfully signed in!");
+                  navigate("/dashboard");
+                  return;
+                }
+              }
+            }
+          } catch (err) {
+            console.error("Error processing URL:", err);
+          }
+        }
+
+        // Handle normal hash fragment for OAuth redirects
         if (location.hash && location.hash.length > 1) {
           try {
             console.log("Found hash parameters:", location.hash);
