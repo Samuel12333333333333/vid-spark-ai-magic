@@ -34,8 +34,6 @@ verify_jwt = true
 [functions.increment_video_usage]
 verify_jwt = true
 
-# Enable captcha protection for authentication
+# Captcha protection is disabled
 [auth.captcha]
-enabled = true
-secret = "6LejqDIrAAAAAGX1tBtP_N7qLN8L_d8-Z_yRJKGN" # Your reCAPTCHA secret key
-provider = "recaptcha" # Using recaptcha provider
+enabled = false

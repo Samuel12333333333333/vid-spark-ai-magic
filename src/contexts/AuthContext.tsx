@@ -10,8 +10,8 @@ interface AuthContextProps {
   loading: boolean;
   isLoading: boolean;
   error: Error | null;
-  signIn: (email: string, password: string, captchaToken?: string) => Promise<void>;
-  signUp: (email: string, password: string, captchaToken?: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
@@ -54,16 +54,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string, captchaToken?: string) => {
+  const signIn = async (email: string, password: string) => {
     try {
       setError(null);
       console.log("Attempting to sign in with email and password");
       const { error } = await supabase.auth.signInWithPassword({ 
         email, 
-        password,
-        options: {
-          captchaToken
-        }
+        password
       });
       if (error) throw error;
     } catch (error) {
@@ -73,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, captchaToken?: string) => {
+  const signUp = async (email: string, password: string) => {
     try {
       setError(null);
       console.log("Attempting to sign up with email and password");
@@ -81,7 +78,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email, 
         password,
         options: {
-          captchaToken,
           emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             email_confirmed: true
