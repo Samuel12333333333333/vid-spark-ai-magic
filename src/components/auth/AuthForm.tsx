@@ -78,7 +78,7 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
             data: {
               email_confirmed: true
             }
@@ -117,7 +117,9 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
     
     try {
       // Define the redirect URL based on the current environment
-      const redirectTo = `${window.location.origin}/dashboard`;
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      
+      console.log("Google sign in with redirect:", redirectTo);
       
       // Use signInWithOAuth with proper redirect configuration
       const { error } = await supabase.auth.signInWithOAuth({

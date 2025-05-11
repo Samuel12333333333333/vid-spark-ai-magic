@@ -15,6 +15,7 @@ export default function AuthCallback() {
     const handleAuthCallback = async () => {
       try {
         console.log("Processing auth callback...");
+        console.log("Current location:", location);
         
         // Check for error in URL
         const queryParams = new URLSearchParams(location.search);
@@ -28,11 +29,12 @@ export default function AuthCallback() {
           return;
         }
 
-        // Handle hash fragment for OAuth redirects
-        if (location.hash && location.hash.includes('access_token')) {
+        // Handle hash fragment for OAuth redirects - with safety checks
+        if (location.hash && location.hash.length > 1) {
           try {
-            console.log("Found OAuth hash parameters");
-            // Process the hash parameters from the OAuth redirect
+            console.log("Found hash parameters:", location.hash);
+            
+            // Process the hash parameters from the OAuth redirect - safely
             const hashParams = new URLSearchParams(location.hash.substring(1)); // Remove the # character
             const accessToken = hashParams.get('access_token');
             const refreshToken = hashParams.get('refresh_token');
