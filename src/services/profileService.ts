@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -28,17 +29,26 @@ export const profileService = {
         
         // If profile doesn't exist, create one
         if (error.code === 'PGRST116') {
-          // Create a new profile
-          const { data: insertedProfile, error: insertError } = await supabase
-            .from('profiles')
-            .insert({ id: userId })
-            .select('*')
-            .single();
-              
-          if (!insertError) {
-            return insertedProfile;
-          } else {
-            console.error('Error creating user profile:', insertError);
+          // Get user data to create a profile
+          const { data: userData } = await supabase.auth.getUser();
+          
+          if (userData && userData.user) {
+            // Create a new profile
+            const { data: insertedProfile, error: insertError } = await supabase
+              .from('profiles')
+              .insert({ 
+                id: userId,
+                email: userData.user.email,
+                username: userData.user.user_metadata?.name || null
+              })
+              .select('*')
+              .single();
+                
+            if (!insertError) {
+              return insertedProfile;
+            } else {
+              console.error('Error creating user profile:', insertError);
+            }
           }
         }
         

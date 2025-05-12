@@ -43,18 +43,22 @@ serve(async (req) => {
       throw new Error("Plan is required");
     }
 
+    console.log("Plan requested:", plan);
+
     // Set the plan code based on the requested plan
-    // Using the correct plan codes provided by the user
     let planCode;
+    let amount;
     switch (plan.toLowerCase()) {
       case "pro":
-        planCode = "PLN_h6tsrxea7rzn5x9"; // Pro plan
+        planCode = "PLN_h6tsrxea7rzn5x9";
+        amount = 2900;
         break;
       case "business":
-        planCode = "PLN_2e5qkue1lz5a48g"; // Business plan
+        planCode = "PLN_2e5qkue1lz5a48g";
+        amount = 9900;
         break;
       default:
-        throw new Error("Invalid plan selected");
+        throw new Error(`Invalid plan selected: ${plan}`);
     }
     
     // Generate a unique reference
@@ -73,19 +77,19 @@ serve(async (req) => {
       ]
     };
     
-    const successUrl = `https://smartvideofy.com/payment-success?reference=${reference}&plan=${plan}`;
+    const successUrl = `${req.headers.get('origin') || 'https://smartvideofy.com'}/payment-success?reference=${reference}&plan=${plan}`;
 
     // Initialize the transaction with Paystack
     const payload = {
       email: user.email,
-      amount: plan.toLowerCase() === "pro" ? 2900 * 100 : 9900 * 100, // convert to kobo/cents
+      amount: amount * 100, // convert to kobo/cents
       reference: reference,
       callback_url: successUrl,
       metadata: metadata,
       plan: planCode, // Use the plan code directly
     };
 
-    console.log("Initializing Paystack transaction:", payload);
+    console.log("Initializing Paystack transaction with payload:", JSON.stringify(payload));
     
     // Make request to the Paystack API
     const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
@@ -103,6 +107,7 @@ serve(async (req) => {
     });
 
     const result = await response.json();
+    console.log("Paystack API response:", JSON.stringify(result));
 
     if (!result.status) {
       console.error("Paystack error:", result);

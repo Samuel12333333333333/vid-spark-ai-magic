@@ -2,12 +2,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*", 
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
+};
+
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
     // Retrieve the request's body
     const body = await req.json();
     
-    // Verify Paystack webhook signature
+    // Get Paystack secret key for signature verification
     const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
     if (!paystackSecretKey) {
       throw new Error("PAYSTACK_SECRET_KEY not set");
@@ -29,13 +39,14 @@ serve(async (req) => {
     
     console.log("Paystack webhook received:", {
       event: body.event,
-      reference: body.data?.reference
+      reference: body.data?.reference,
+      data: JSON.stringify(body.data)
     });
     
     // Process different event types
     switch (body.event) {
       case 'charge.success': {
-        // Handle successful subscription payment
+        // Handle successful payment
         await handleSuccessfulCharge(body.data, supabase);
         break;
       }
@@ -65,7 +76,7 @@ serve(async (req) => {
     // Return a success response to Paystack
     return new Response(
       JSON.stringify({ status: 'success' }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   } catch (error) {
     console.error('Error processing Paystack webhook:', error);
@@ -73,7 +84,7 @@ serve(async (req) => {
     // Return an error response
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
+      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }
 });
@@ -92,7 +103,7 @@ async function handleSuccessfulCharge(data, supabase) {
       return;
     }
     
-    const planName = plan === "pro" ? "Pro" : "Business";
+    const planName = plan.toLowerCase() === "pro" ? "Pro" : "Business";
     const now = new Date();
     const currentPeriodEnd = new Date(now);
     currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1); // Add 1 month
@@ -179,16 +190,17 @@ async function handleSubscriptionCreate(data, supabase) {
     }
     
     // Find the user by email
-    const { data: user } = await supabase
-      .from('auth.users')
+    const { data: users, error: usersError } = await supabase
+      .from('profiles')
       .select('id')
-      .eq('email', email)
-      .maybeSingle();
+      .eq('email', email);
       
-    if (!user) {
-      console.error("User not found for email:", email);
+    if (usersError || !users || users.length === 0) {
+      console.error("User not found for email:", email, usersError);
       return;
     }
+
+    const userId = users[0].id;
     
     // Determine plan name based on plan code
     let planName;
@@ -208,7 +220,7 @@ async function handleSubscriptionCreate(data, supabase) {
     const { data: existingSubscription } = await supabase
       .from('subscriptions')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('status', 'active')
       .maybeSingle();
       
@@ -229,7 +241,7 @@ async function handleSubscriptionCreate(data, supabase) {
       await supabase
         .from('subscriptions')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           plan_name: planName,
           status: 'active',
           current_period_end: currentPeriodEnd.toISOString(),
