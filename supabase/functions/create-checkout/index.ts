@@ -58,8 +58,8 @@ serve(async (req) => {
 
     // Map plan identifiers to Paystack plan codes
     const planCodes = {
-      pro: "PLN_383o9f3xpppuldc",    // Pro plan code from your image
-      business: "PLN_3itdIrrolmalvwe" // Business plan code from your image
+      pro: "PLN_383o9f3xpppuldc",  // Pro plan code from the image
+      business: "PLN_3itdIrrolmalvwe" // Business plan code from the image
     };
     
     const planCode = planCodes[plan];
@@ -68,18 +68,21 @@ serve(async (req) => {
     }
 
     // Configure Paystack checkout
-    const amount = plan === 'pro' ? 375228 : 1279575; // Amount in cents (kobo)
+    const amount = plan === 'pro' ? 3750 * 100 : 12800 * 100; // Convert to kobo (N3,750 and N12,800)
     const planName = plan === 'pro' ? 'Pro' : 'Business';
     
     // Generate a unique reference
     const reference = `sv_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
+    
+    // Get current origin or fallback to default
+    const origin = req.headers.get('origin') || 'https://smartvideofy.com';
     
     // Create payment data
     const paymentData = {
       email: user.email,
       amount, // amount in kobo
       reference,
-      callback_url: `${req.headers.get('origin') || 'https://smartvideofy.com'}/payment-success?reference=${reference}&plan=${plan}`,
+      callback_url: `${origin}/payment-success?reference=${reference}&plan=${plan}`,
       metadata: {
         userId: user.id,
         plan,

@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -16,18 +17,48 @@ export interface UpdateProfileData {
 
 export const profileService = {
   async getProfile(userId: string): Promise<UserProfile | null> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle(); // Use maybeSingle instead of single to prevent errors when no rows are found
+        
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        
+        // If profile doesn't exist, create one
+        if (error.code === 'PGRST116') {
+          // Get user email from auth
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user) {
+            const newProfile = {
+              id: userId,
+              email: userData.user.email,
+              username: userData.user.user_metadata?.name || null,
+              avatar_url: userData.user.user_metadata?.avatar_url || null
+            };
+            
+            const { data: insertedProfile, error: insertError } = await supabase
+              .from('profiles')
+              .insert(newProfile)
+              .select('*')
+              .single();
+              
+            if (!insertError) {
+              return insertedProfile;
+            }
+          }
+        }
+        
+        return null;
+      }
       
-    if (error) {
-      console.error('Error fetching user profile:', error);
+      return data;
+    } catch (error) {
+      console.error('Error in getProfile:', error);
       return null;
     }
-    
-    return data;
   },
   
   async updateProfile(userId: string, updates: UpdateProfileData): Promise<UserProfile | null> {

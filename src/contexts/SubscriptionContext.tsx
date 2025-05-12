@@ -53,13 +53,13 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(true);
       console.log("Checking subscription status...");
       
-      // First check if we have a subscription in the database
+      // First check if we have a subscription in the database using maybeSingle() instead of single()
       const { data: dbSubscription, error: dbError } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', session.user.id)
         .eq('status', 'active')
-        .single();
+        .maybeSingle();
         
       // If we find an active subscription in the database, use it
       if (dbSubscription && !dbError) {
@@ -69,16 +69,33 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
-      // If no active subscription in DB or there was an error, use our check-subscription function
-      const { data, error } = await supabase.functions.invoke("check-subscription");
-
-      if (error) {
-        console.error("Error checking subscription:", error);
-        return;
+      try {
+        // If no active subscription in DB or there was an error, use our check-subscription function
+        const { data, error } = await supabase.functions.invoke("check-subscription");
+  
+        if (error) {
+          console.error("Error checking subscription:", error);
+          setIsLoading(false);
+          return;
+        }
+  
+        setSubscription(data.subscription);
+        console.log("Subscription data updated:", data.subscription);
+      } catch (funcError) {
+        console.error("Error invoking check-subscription function:", funcError);
+        // Fallback to checking the database for any subscription
+        const { data: anySubscription } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+          
+        if (anySubscription) {
+          setSubscription(anySubscription);
+        }
       }
-
-      setSubscription(data.subscription);
-      console.log("Subscription data updated:", data.subscription);
     } catch (error) {
       console.error("Error checking subscription:", error);
       toast.error("Failed to check subscription status");

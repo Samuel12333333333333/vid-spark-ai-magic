@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import SEOMetadata from "@/components/SEOMetadata";
 import { notificationService } from "@/services/notificationService";
+import { supabase } from "@/integrations/supabase/client"; // Add this missing import
 
 export default function PaymentSuccessPage() {
   const navigate = useNavigate();
