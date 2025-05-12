@@ -38,7 +38,14 @@ verify_jwt = true
 [auth.captcha]
 enabled = false
 
-# Allow specific redirect sites
+# Allow specific redirect sites - adding all possible URLs here
 [auth]
 [auth.redirect_urls]
-allowed_urls = ["http://localhost:3000/auth/callback", "http://localhost:5173/auth/callback", "https://*.lovable.app/auth/callback", "https://app.smartvideofy.com/auth/callback"]
+allowed_urls = [
+  "http://localhost:3000/auth/callback",
+  "http://localhost:5173/auth/callback", 
+  "https://*.lovable.app/auth/callback", 
+  "https://app.smartvideofy.com/auth/callback",
+  "https://smartvideofy.com/auth/callback",
+  "https://vid-spark-ai-magic.lovable.app/auth/callback"
+]

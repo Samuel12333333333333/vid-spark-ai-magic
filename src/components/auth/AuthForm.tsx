@@ -116,12 +116,12 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
     setError("");
     
     try {
-      // Define the redirect URL based on the current environment
+      // Use the current window location as the base for the redirect URL
       const redirectTo = `${window.location.origin}/auth/callback`;
       
       console.log("Google sign in with redirect:", redirectTo);
       
-      // Use signInWithOAuth with proper redirect configuration
+      // Use signInWithOAuth with explicit redirectTo to ensure proper redirection
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

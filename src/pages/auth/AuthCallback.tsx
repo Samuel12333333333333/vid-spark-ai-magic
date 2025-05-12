@@ -15,6 +15,7 @@ export default function AuthCallback() {
     const handleAuthCallback = async () => {
       try {
         console.log("Processing auth callback...");
+        console.log("Current URL:", window.location.href);
         console.log("Current location:", location);
         
         // Check for error in URL
@@ -29,23 +30,32 @@ export default function AuthCallback() {
           return;
         }
 
-        // Special handling for URLs with domain redirects (like in your error case)
-        // This happens when Google redirects to a URL like https://project-id.supabase.co/domain.com#access_token=...
+        // Deal with malformed Supabase URL redirects 
+        // (e.g. https://project-id.supabase.co/domain.com#access_token=...)
         const currentUrl = window.location.href;
-        if (currentUrl.includes('.supabase.co/') && currentUrl.includes('#access_token=')) {
-          console.log("Detected domain redirect pattern, extracting hash...");
+        if (currentUrl.includes('.supabase.co/')) {
+          console.log("Detected Supabase redirect with potentially malformed URL");
           
-          try {
-            // Extract everything after the # character
-            const hashPart = currentUrl.split('#')[1];
-            if (hashPart && hashPart.includes('access_token=')) {
-              // Create a proper fragment
-              const hashParams = new URLSearchParams(hashPart);
-              const accessToken = hashParams.get('access_token');
-              const refreshToken = hashParams.get('refresh_token');
+          // Check if it has the incorrect format we need to handle
+          if (currentUrl.includes('.supabase.co/') && 
+              (currentUrl.includes('smartvideofy.com') || 
+               currentUrl.includes('lovable.app') || 
+               currentUrl.includes('localhost'))) {
+            
+            console.log("Detected malformed redirect URL, extracting tokens...");
+            
+            try {
+              // Look for the access token in the full URL
+              const fullUrl = currentUrl;
+              const accessTokenMatch = fullUrl.match(/access_token=([^&]+)/);
+              const refreshTokenMatch = fullUrl.match(/refresh_token=([^&]+)/);
               
-              if (accessToken && refreshToken) {
-                console.log("Found tokens in URL, setting session...");
+              if (accessTokenMatch && refreshTokenMatch) {
+                const accessToken = decodeURIComponent(accessTokenMatch[1]);
+                const refreshToken = decodeURIComponent(refreshTokenMatch[1]);
+                
+                console.log("Found tokens in malformed URL, setting session...");
+                
                 const { data, error } = await supabase.auth.setSession({
                   access_token: accessToken,
                   refresh_token: refreshToken,
@@ -62,9 +72,9 @@ export default function AuthCallback() {
                   return;
                 }
               }
+            } catch (err) {
+              console.error("Error processing malformed URL:", err);
             }
-          } catch (err) {
-            console.error("Error processing URL:", err);
           }
         }
 
