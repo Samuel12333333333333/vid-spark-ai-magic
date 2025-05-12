@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { CreditCard, ExternalLink, Loader2, Tag, Clock, Receipt, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -99,7 +98,7 @@ export function BillingSettings() {
     fetchBillingData();
   }, [user]);
 
-  // Open Stripe Customer Portal
+  // Open customer portal - with Paystack this just redirects to our upgrade page
   const handleManageSubscription = async () => {
     setIsPortalLoading(true);
     try {
@@ -107,7 +106,7 @@ export function BillingSettings() {
       
       if (error) {
         console.error("Error accessing customer portal:", error);
-        toast.error("Could not open customer portal. Please try again.");
+        toast.error("Couldn't open customer portal. Please try again.");
         return;
       }
       

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,7 +47,7 @@ const defaultPricingPlans: PricingPlan[] = [
     ],
     cta: "Subscribe Now",
     popular: true,
-    priceId: "price_1RDAF8QOvLVQwvg3c5YbnDiG"
+    priceId: "pro" // Changed from Stripe price ID to plan identifier
   },
   {
     name: "Business",
@@ -64,9 +63,9 @@ const defaultPricingPlans: PricingPlan[] = [
       "Custom branding",
       "Team collaboration"
     ],
-    cta: "Subscribe Now", // Changed from "Contact Sales" to "Subscribe Now"
+    cta: "Subscribe Now",
     popular: false,
-    priceId: "price_1RDAG2QOvLVQwvg3sPadXHon"
+    priceId: "business" // Changed from Stripe price ID to plan identifier
   }
 ];
 
@@ -100,12 +99,11 @@ export function PricingSection() {
     try {
       setIsLoading(plan.name);
 
-      console.log("Creating checkout for plan:", plan.name, "with priceId:", plan.priceId);
+      console.log("Creating checkout for plan:", plan.name, "with plan ID:", plan.priceId);
 
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: {
-          priceId: plan.priceId,
-          plan: plan.name.toLowerCase(),
+          plan: plan.priceId, // Now using plan identifier instead of Stripe price ID
         },
       });
 
@@ -121,7 +119,7 @@ export function PricingSection() {
         return;
       }
 
-      // Redirect to Stripe Checkout
+      // Redirect to Paystack Checkout
       console.log("Redirecting to checkout:", data.url);
       window.location.href = data.url;
     } catch (error) {

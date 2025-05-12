@@ -15,14 +15,10 @@ verify_jwt = true
 [functions.generate-audio]
 verify_jwt = true
 
-# These functions handle payments and don't require authentication as they're called by Stripe
-[functions.stripe-webhook]
-verify_jwt = false
-
-[functions.create-checkout]
+[functions.check-subscription]
 verify_jwt = true
 
-[functions.customer-portal]
+[functions.create-checkout]
 verify_jwt = true
 
 [functions.get-payment-history]
@@ -31,8 +27,15 @@ verify_jwt = true
 [functions.get-payment-methods]
 verify_jwt = true
 
+[functions.customer-portal]
+verify_jwt = true
+
 [functions.increment_video_usage]
 verify_jwt = true
+
+# These functions handle payments and don't require authentication as they're called by Paystack
+[functions.paystack-webhook]
+verify_jwt = false
 
 # Captcha protection is disabled
 [auth.captcha]

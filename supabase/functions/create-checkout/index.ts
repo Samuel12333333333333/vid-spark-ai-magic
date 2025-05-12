@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@12.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 const corsHeaders = {
@@ -16,22 +15,14 @@ serve(async (req) => {
 
   try {
     // Parse request body
-    const { priceId, plan } = await req.json();
+    const { plan } = await req.json();
     
-    if (!priceId) {
-      return new Response(
-        JSON.stringify({ error: "Price ID is required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+    // Initialize Paystack with the secret key
+    const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
+    if (!paystackSecretKey) {
+      console.error("PAYSTACK_SECRET_KEY is not set");
+      throw new Error("Paystack secret key is not configured");
     }
-
-    // Initialize Stripe
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
-      apiVersion: "2023-10-16",
-    });
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -66,46 +57,59 @@ serve(async (req) => {
     const user = userData.user;
     console.log("Creating checkout for user:", user.id);
 
-    // Check if user already has a Stripe customer ID
-    let customerId;
-    const customers = await stripe.customers.list({
-      email: user.email,
-      limit: 1,
-    });
-
-    if (customers.data.length > 0) {
-      customerId = customers.data[0].id;
-      console.log("Found existing customer:", customerId);
-    } else {
-      // Create a new customer
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: { userId: user.id },
-      });
-      customerId = customer.id;
-      console.log("Created new customer:", customerId);
-    }
-
     // Get the origin for success/cancel URLs
     const origin = req.headers.get("origin") || "http://localhost:5173";
 
-    // Create a checkout session
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      mode: "subscription",
-      success_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/dashboard/upgrade`,
-      metadata: {
-        userId: user.id,
-        plan: plan || "pro",
+    // Determine amount based on plan
+    let amount: number;
+    let planName: string;
+    
+    if (plan === "business") {
+      amount = 9900 * 100; // 99.00 USD in kobo (Paystack uses the smallest currency unit)
+      planName = "Business";
+    } else {
+      // Default to Pro plan
+      amount = 2900 * 100; // 29.00 USD in kobo
+      planName = "Pro";
+    }
+
+    // Create Paystack checkout initialization
+    const response = await fetch("https://api.paystack.co/transaction/initialize", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${paystackSecretKey}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        email: user.email,
+        amount: amount,
+        callback_url: `${origin}/payment-success?plan=${plan}`,
+        metadata: {
+          userId: user.id,
+          plan: plan || "pro",
+          planName,
+          custom_fields: [
+            {
+              display_name: "Plan Type",
+              variable_name: "plan_type",
+              value: planName
+            }
+          ]
+        },
+      }),
     });
 
-    console.log("Checkout session created:", session.id, "URL:", session.url);
+    const paystackData = await response.json();
+
+    if (!response.ok) {
+      console.error("Paystack error:", paystackData);
+      throw new Error(paystackData.message || "Failed to create payment link");
+    }
+
+    console.log("Checkout session created:", paystackData);
 
     return new Response(
-      JSON.stringify({ url: session.url }),
+      JSON.stringify({ url: paystackData.data.authorization_url }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

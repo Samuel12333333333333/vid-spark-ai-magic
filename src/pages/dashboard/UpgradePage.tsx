@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +52,7 @@ export default function UpgradePage() {
         "Basic AI voiceover",
       ],
       current: isPro,
-      priceId: "price_1RDAF8QOvLVQwvg3c5YbnDiG", // Pro plan price ID
+      priceId: "pro", // Changed from Stripe price ID to plan identifier
     },
     {
       name: "Business",
@@ -73,7 +72,7 @@ export default function UpgradePage() {
         "API access",
       ],
       current: isBusiness,
-      priceId: "price_1RDAG2QOvLVQwvg3sPadXHon", // Business plan price ID
+      priceId: "business", // Changed from Stripe price ID to plan identifier
     },
   ];
 
@@ -90,12 +89,11 @@ export default function UpgradePage() {
 
     try {
       setCheckoutLoading(plan.name);
-      console.log("Creating checkout for plan:", plan.name, "with priceId:", plan.priceId);
+      console.log("Creating checkout for plan:", plan.name, "with plan ID:", plan.priceId);
       
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: {
-          priceId: plan.priceId,
-          plan: plan.name.toLowerCase(),
+          plan: plan.priceId, // Now using plan identifier instead of Stripe price ID
         },
       });
 
@@ -111,7 +109,7 @@ export default function UpgradePage() {
         return;
       }
 
-      // Redirect to Stripe Checkout
+      // Redirect to Paystack Checkout
       console.log("Redirecting to checkout:", data.url);
       window.location.href = data.url;
     } catch (error) {

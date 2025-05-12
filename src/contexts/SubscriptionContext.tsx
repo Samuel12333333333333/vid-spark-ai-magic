@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,7 +53,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(true);
       console.log("Checking subscription status...");
       
-      // First check if we have a subscription in the database with proper headers
+      // First check if we have a subscription in the database
       const { data: dbSubscription, error: dbError } = await supabase
         .from('subscriptions')
         .select('*')
@@ -68,7 +69,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
-      // If no active subscription in DB or there was an error, check with Stripe
+      // If no active subscription in DB or there was an error, use our check-subscription function
       const { data, error } = await supabase.functions.invoke("check-subscription");
 
       if (error) {
@@ -77,7 +78,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       }
 
       setSubscription(data.subscription);
-      console.log("Subscription data updated from Stripe:", data.subscription);
+      console.log("Subscription data updated:", data.subscription);
     } catch (error) {
       console.error("Error checking subscription:", error);
       toast.error("Failed to check subscription status");
