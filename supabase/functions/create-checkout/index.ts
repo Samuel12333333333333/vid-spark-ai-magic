@@ -14,114 +14,121 @@ serve(async (req) => {
   }
 
   try {
-    // Parse request body
-    const { plan } = await req.json();
+    console.log("Create checkout function called");
     
-    // Initialize Paystack with the secret key
+    // Get Paystack API key
     const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
-    if (!paystackSecretKey) {
-      console.error("PAYSTACK_SECRET_KEY is not set");
-      throw new Error("Paystack secret key is not configured");
+    const paystackPublicKey = Deno.env.get("PAYSTACK_PUBLIC_KEY");
+
+    if (!paystackSecretKey || !paystackPublicKey) {
+      console.error("PAYSTACK_SECRET_KEY or PAYSTACK_PUBLIC_KEY is not set");
+      throw new Error("Paystack API keys are not configured");
     }
-
-    // Create Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+    
+    // Create a Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error("Supabase environment variables are missing");
+    }
+    
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-
+    
     // Get the user from the auth header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing auth header" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      throw new Error("Authorization header missing");
     }
-
+    
     const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
     
-    if (userError || !userData.user) {
-      return new Response(
-        JSON.stringify({ error: "Authentication failed" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+    if (authError || !user) {
+      console.error("Auth error:", authError);
+      throw new Error("User not authenticated");
     }
 
-    const user = userData.user;
-    console.log("Creating checkout for user:", user.id);
-
-    // Get the origin for success/cancel URLs
-    const origin = req.headers.get("origin") || "http://localhost:5173";
-
-    // Determine amount based on plan
-    let amount: number;
-    let planName: string;
+    // Parse request body
+    const { plan } = await req.json();
     
-    if (plan === "business") {
-      amount = 9900 * 100; // 99.00 USD in kobo (Paystack uses the smallest currency unit)
-      planName = "Business";
-    } else {
-      // Default to Pro plan
-      amount = 2900 * 100; // 29.00 USD in kobo
-      planName = "Pro";
+    if (!plan) {
+      throw new Error("Plan is required");
     }
 
-    // Create Paystack checkout initialization
+    // Map plan identifiers to Paystack plan codes
+    const planCodes = {
+      pro: "PLN_383o9f3xpppuldc",    // Pro plan code from your image
+      business: "PLN_3itdIrrolmalvwe" // Business plan code from your image
+    };
+    
+    const planCode = planCodes[plan];
+    if (!planCode) {
+      throw new Error(`Invalid plan: ${plan}`);
+    }
+
+    // Configure Paystack checkout
+    const amount = plan === 'pro' ? 375228 : 1279575; // Amount in cents (kobo)
+    const planName = plan === 'pro' ? 'Pro' : 'Business';
+    
+    // Generate a unique reference
+    const reference = `sv_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
+    
+    // Create payment data
+    const paymentData = {
+      email: user.email,
+      amount, // amount in kobo
+      reference,
+      callback_url: `${req.headers.get('origin') || 'https://smartvideofy.com'}/payment-success?reference=${reference}&plan=${plan}`,
+      metadata: {
+        userId: user.id,
+        plan,
+        custom_fields: [
+          {
+            display_name: "Plan",
+            variable_name: "plan",
+            value: planName
+          }
+        ]
+      }
+    };
+    
+    console.log("Initializing Paystack transaction:", paymentData);
+    
+    // Initialize a transaction with Paystack
     const response = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${paystackSecretKey}`,
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        email: user.email,
-        amount: amount,
-        callback_url: `${origin}/payment-success?plan=${plan}`,
-        metadata: {
-          userId: user.id,
-          plan: plan || "pro",
-          planName,
-          custom_fields: [
-            {
-              display_name: "Plan Type",
-              variable_name: "plan_type",
-              value: planName
-            }
-          ]
-        },
-      }),
+      body: JSON.stringify(paymentData)
     });
-
-    const paystackData = await response.json();
-
-    if (!response.ok) {
-      console.error("Paystack error:", paystackData);
-      throw new Error(paystackData.message || "Failed to create payment link");
+    
+    const paystackResponse = await response.json();
+    
+    if (!paystackResponse.status) {
+      console.error("Paystack error:", paystackResponse);
+      throw new Error(paystackResponse.message || "Failed to initialize payment");
     }
-
-    console.log("Checkout session created:", paystackData);
-
+    
+    const checkoutUrl = paystackResponse.data.authorization_url;
+    
     return new Response(
-      JSON.stringify({ url: paystackData.data.authorization_url }),
+      JSON.stringify({ url: checkoutUrl, reference }),
       {
-        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
       }
     );
   } catch (error) {
     console.error("Error creating checkout session:", error);
+    
     return new Response(
       JSON.stringify({ error: error.message }),
       {
-        status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
       }
     );
   }
