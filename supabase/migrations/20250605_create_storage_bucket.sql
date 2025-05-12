@@ -1,28 +1,25 @@
 
--- Create a storage bucket for avatars if it doesn't exist
-INSERT INTO storage.buckets (id, name) 
-VALUES ('avatars', 'avatars') 
+-- Create a storage bucket for user avatars if it doesn't exist
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('avatars', 'avatars', true, 5242880, '{image/png,image/jpeg,image/gif}') -- 5MB limit
 ON CONFLICT (id) DO NOTHING;
 
--- Set up public access for the avatars bucket
-CREATE POLICY "Public Access" 
+-- Set up security policies for the avatars bucket
+CREATE POLICY "Avatar images are publicly accessible" 
 ON storage.objects FOR SELECT 
 USING (bucket_id = 'avatars');
 
--- Allow authenticated users to upload avatars
-CREATE POLICY "User Upload" 
+-- Only authenticated users can upload avatars
+CREATE POLICY "Users can upload avatars" 
 ON storage.objects FOR INSERT 
-TO authenticated 
-WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
 
--- Allow users to update their own avatars
-CREATE POLICY "User Update" 
+-- Users can update their own avatars
+CREATE POLICY "Users can update their own avatars" 
 ON storage.objects FOR UPDATE 
-TO authenticated 
-USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
 
--- Allow users to delete their own avatars
-CREATE POLICY "User Delete" 
+-- Users can delete their own avatars
+CREATE POLICY "Users can delete their own avatars" 
 ON storage.objects FOR DELETE 
-TO authenticated 
-USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);

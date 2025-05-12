@@ -44,6 +44,7 @@ serve(async (req) => {
     }
 
     // Set the plan code based on the requested plan
+    // Using the correct plan codes provided by the user
     let planCode;
     switch (plan.toLowerCase()) {
       case "pro":

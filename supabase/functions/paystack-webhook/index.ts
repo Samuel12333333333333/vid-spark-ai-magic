@@ -2,8 +2,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
-// This function doesn't need CORS headers since it's called by Paystack, not the browser
-
 serve(async (req) => {
   try {
     // Retrieve the request's body
@@ -119,7 +117,9 @@ async function handleSuccessfulCharge(data, supabase) {
           current_period_end: currentPeriodEnd.toISOString(),
           updated_at: now.toISOString(),
           paystack_customer_code: data.customer?.customer_code,
-          paystack_card_signature: data.authorization?.signature
+          paystack_card_signature: data.authorization?.signature,
+          paystack_plan_code: data.plan?.plan_code,
+          paystack_subscription_code: data.subscription?.subscription_code
         })
         .eq('id', existingSubscription.id);
     } else {
@@ -134,7 +134,9 @@ async function handleSuccessfulCharge(data, supabase) {
           created_at: now.toISOString(),
           updated_at: now.toISOString(),
           paystack_customer_code: data.customer?.customer_code,
-          paystack_card_signature: data.authorization?.signature
+          paystack_card_signature: data.authorization?.signature,
+          paystack_plan_code: data.plan?.plan_code,
+          paystack_subscription_code: data.subscription?.subscription_code
         });
     }
     
@@ -162,8 +164,85 @@ async function handleSuccessfulCharge(data, supabase) {
 
 // Handle subscription creation
 async function handleSubscriptionCreate(data, supabase) {
-  // Similar to handleSuccessfulCharge but with subscription-specific fields
-  console.log("Subscription created:", data);
+  try {
+    console.log("Processing subscription creation:", data);
+    
+    // Extract necessary data
+    const customerCode = data.customer?.customer_code;
+    const planCode = data.plan?.plan_code;
+    const subscriptionCode = data.subscription_code;
+    const email = data.customer?.email;
+    
+    if (!customerCode || !email) {
+      console.error("Missing customer information:", data);
+      return;
+    }
+    
+    // Find the user by email
+    const { data: user } = await supabase
+      .from('auth.users')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+      
+    if (!user) {
+      console.error("User not found for email:", email);
+      return;
+    }
+    
+    // Determine plan name based on plan code
+    let planName;
+    if (planCode === "PLN_h6tsrxea7rzn5x9") {
+      planName = "Pro";
+    } else if (planCode === "PLN_2e5qkue1lz5a48g") {
+      planName = "Business";
+    } else {
+      planName = "Unknown";
+    }
+    
+    const now = new Date();
+    const currentPeriodEnd = new Date(now);
+    currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1); // Add 1 month
+    
+    // Update or create subscription
+    const { data: existingSubscription } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+      
+    if (existingSubscription) {
+      await supabase
+        .from('subscriptions')
+        .update({
+          plan_name: planName,
+          status: 'active',
+          current_period_end: currentPeriodEnd.toISOString(),
+          updated_at: now.toISOString(),
+          paystack_customer_code: customerCode,
+          paystack_plan_code: planCode,
+          paystack_subscription_code: subscriptionCode
+        })
+        .eq('id', existingSubscription.id);
+    } else {
+      await supabase
+        .from('subscriptions')
+        .insert({
+          user_id: user.id,
+          plan_name: planName,
+          status: 'active',
+          current_period_end: currentPeriodEnd.toISOString(),
+          created_at: now.toISOString(),
+          updated_at: now.toISOString(),
+          paystack_customer_code: customerCode,
+          paystack_plan_code: planCode,
+          paystack_subscription_code: subscriptionCode
+        });
+    }
+  } catch (error) {
+    console.error("Error handling subscription creation:", error);
+  }
 }
 
 // Handle subscription disable/cancellation
@@ -171,12 +250,11 @@ async function handleSubscriptionDisable(data, supabase) {
   try {
     console.log("Processing subscription disable:", data);
     
-    // Find the subscription by customer code
+    // Find the subscription by customer code or subscription code
     const { data: subscription } = await supabase
       .from('subscriptions')
       .select('*')
-      .eq('paystack_customer_code', data.customer?.customer_code)
-      .eq('status', 'active')
+      .eq('paystack_subscription_code', data.subscription_code)
       .maybeSingle();
     
     if (subscription) {
