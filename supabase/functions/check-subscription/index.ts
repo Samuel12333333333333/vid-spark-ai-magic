@@ -45,7 +45,7 @@ serve(async (req) => {
         .select('*')
         .eq('user_id', user.id)
         .eq('status', 'active')
-        .maybeSingle();
+        .maybeSingle();  // Changed from .single() to prevent errors when no subscription exists
 
       if (subError) {
         console.error("Error checking subscription:", subError);

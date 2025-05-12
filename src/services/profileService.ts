@@ -20,12 +20,12 @@ export const profileService = {
     try {
       console.log("Fetching profile for user:", userId);
       
-      // Try to get the profile using select('*')
+      // Use maybeSingle() instead of single() to prevent 406 errors
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
         
       if (error) {
         console.error('Error fetching user profile:', error);

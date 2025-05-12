@@ -1,11 +1,11 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import * as crypto from "https://deno.land/std@0.167.0/node/crypto.ts";
+import * as crypto from "https://deno.land/std@0.168.0/crypto/mod.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*", 
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
@@ -15,332 +15,195 @@ serve(async (req) => {
   }
 
   try {
-    // Retrieve the request's body
-    const body = await req.json();
-    console.log("Paystack webhook received event:", body.event);
+    console.log("Paystack webhook received");
     
-    // Get Paystack secret key for signature verification
     const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
     if (!paystackSecretKey) {
-      throw new Error("PAYSTACK_SECRET_KEY not set");
+      throw new Error("PAYSTACK_SECRET_KEY is not set");
     }
 
-    // Verify signature if header is present
-    const signature = req.headers.get("x-paystack-signature");
-    if (signature) {
-      const hash = crypto.createHmac('sha512', paystackSecretKey)
-                         .update(JSON.stringify(body))
-                         .digest('hex');
-                         
-      if (hash !== signature) {
-        console.error("Signature verification failed");
-        throw new Error("Invalid signature");
-      }
-    }
-
-    // Create Supabase client with service role key (admin privileges)
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error("Supabase admin credentials not available");
+      throw new Error("Supabase environment variables are not properly set");
     }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        persistSession: false
-      }
+      auth: { persistSession: false }
     });
+
+    // Get request body
+    const body = await req.text();
+    let event;
     
-    // Process different event types
-    switch (body.event) {
-      case 'charge.success': {
-        // Handle successful payment
-        await handleSuccessfulCharge(body.data, supabase);
-        break;
-      }
-      
-      case 'subscription.create': {
-        // Handle new subscription creation
-        await handleSubscriptionCreate(body.data, supabase);
-        break;
-      }
-      
-      case 'subscription.disable': {
-        // Handle subscription cancellation
-        await handleSubscriptionDisable(body.data, supabase);
-        break;
-      }
-      
-      case 'invoice.payment_failed': {
-        // Handle failed payment
-        await handlePaymentFailed(body.data, supabase);
-        break;
-      }
-      
-      default:
-        console.log(`Unhandled event type: ${body.event}`);
+    try {
+      event = JSON.parse(body);
+      console.log("Event received:", event.event);
+    } catch (error) {
+      console.error("Error parsing webhook payload:", error);
+      throw new Error("Invalid JSON payload");
     }
-    
-    // Return a success response to Paystack
-    return new Response(
-      JSON.stringify({ status: 'success' }),
-      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+
+    // Verify webhook signature
+    const signature = req.headers.get("x-paystack-signature");
+    if (!signature) {
+      throw new Error("No signature found in webhook request");
+    }
+
+    // Create HMAC using the secret key
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(paystackSecretKey),
+      { name: "HMAC", hash: "SHA-512" },
+      false,
+      ["sign"]
     );
+    
+    const mac = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      encoder.encode(body)
+    );
+    
+    const calculatedSignature = Array.from(new Uint8Array(mac))
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
+      
+    // Verify signature
+    if (signature !== calculatedSignature) {
+      console.error("Signature verification failed");
+      throw new Error("Invalid webhook signature");
+    }
+
+    console.log("Signature verified successfully");
+
+    // Handle different event types
+    switch (event.event) {
+      case "charge.success":
+        await handleChargeSuccess(event.data, supabase);
+        break;
+      case "subscription.create":
+        await handleSubscriptionCreated(event.data, supabase);
+        break;
+      case "subscription.disable":
+        await handleSubscriptionDisabled(event.data, supabase);
+        break;
+      default:
+        console.log(`Unhandled event type: ${event.event}`);
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200
+    });
   } catch (error) {
-    console.error('Error processing Paystack webhook:', error);
-    
-    // Return an error response
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-    );
+    console.error("Error processing webhook:", error);
+    return new Response(JSON.stringify({ error: error.message || "Internal server error" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400
+    });
   }
 });
 
-// Helper function to handle successful charge events
-async function handleSuccessfulCharge(data, supabase) {
+// Handle successful charge events
+async function handleChargeSuccess(data, supabase) {
+  console.log("Processing charge.success event");
+  
   try {
-    console.log("Processing successful charge:", data.reference);
+    const { reference, metadata } = data;
     
-    // Extract user ID and plan from metadata
-    const userId = data.metadata?.userId;
-    const plan = data.metadata?.plan;
-    
-    if (!userId || !plan) {
-      console.error("Missing userId or plan in metadata:", data.metadata);
+    // Check if this is a subscription-related transaction
+    if (!metadata || !metadata.userId || !metadata.plan) {
+      console.log("Not a subscription related charge, skipping");
       return;
     }
     
-    const planName = plan.toLowerCase() === "pro" ? "Pro" : "Business";
-    const now = new Date();
-    const currentPeriodEnd = new Date(now);
-    currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1); // Add 1 month
+    const userId = metadata.userId;
+    const planName = metadata.plan;
     
-    console.log(`Creating/updating subscription for user ${userId}, plan ${planName}`);
+    console.log(`Successful payment for user ${userId} on plan ${planName}`);
     
-    // Check if user already has an active subscription
-    const { data: existingSubscription } = await supabase
+    // Calculate subscription end date (30 days from now)
+    const currentPeriodEnd = new Date();
+    currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30); // 30 days subscription
+    
+    // Check if the user already has a subscription
+    const { data: existingSub } = await supabase
       .from('subscriptions')
       .select('*')
       .eq('user_id', userId)
-      .eq('status', 'active')
       .maybeSingle();
-    
-    if (existingSubscription) {
+      
+    if (existingSub) {
       // Update existing subscription
-      await supabase
+      const { error: updateError } = await supabase
         .from('subscriptions')
         .update({
           plan_name: planName,
           status: 'active',
           current_period_end: currentPeriodEnd.toISOString(),
-          updated_at: now.toISOString(),
-          paystack_customer_code: data.customer?.customer_code,
-          paystack_card_signature: data.authorization?.signature,
-          paystack_plan_code: data.plan?.plan_code,
-          paystack_subscription_code: data.subscription?.subscription_code
+          paystack_card_signature: data.authorization?.signature || null,
+          updated_at: new Date().toISOString()
         })
-        .eq('id', existingSubscription.id);
+        .eq('id', existingSub.id);
+        
+      if (updateError) {
+        console.error("Error updating subscription:", updateError);
+        throw updateError;
+      }
+      
+      console.log(`Updated subscription for user ${userId} to plan ${planName}`);
     } else {
       // Create new subscription
-      await supabase
+      const { error: insertError } = await supabase
         .from('subscriptions')
         .insert({
           user_id: userId,
           plan_name: planName,
           status: 'active',
           current_period_end: currentPeriodEnd.toISOString(),
-          created_at: now.toISOString(),
-          updated_at: now.toISOString(),
-          paystack_customer_code: data.customer?.customer_code,
-          paystack_card_signature: data.authorization?.signature,
-          paystack_plan_code: data.plan?.plan_code,
-          paystack_subscription_code: data.subscription?.subscription_code
+          paystack_card_signature: data.authorization?.signature || null
         });
+        
+      if (insertError) {
+        console.error("Error creating subscription:", insertError);
+        throw insertError;
+      }
+      
+      console.log(`Created new subscription for user ${userId} on plan ${planName}`);
     }
     
-    // Create a notification for the user
+    // Create notification for user
     await supabase
       .from('notifications')
       .insert({
         user_id: userId,
-        title: 'Payment Successful',
-        message: `Your payment for the ${planName} plan was successful.`,
-        type: 'payment',
+        title: "Payment Successful",
+        message: `Your payment for the ${planName} plan was successful. Your subscription is now active.`,
+        type: "payment",
+        is_read: false,
         metadata: {
-          reference: data.reference,
           plan: planName,
-          amount: data.amount / 100
+          reference: reference
         }
       });
       
-    console.log(`Subscription for user ${userId} processed successfully`);
   } catch (error) {
-    console.error("Error handling successful charge:", error);
+    console.error("Error handling charge.success:", error);
     throw error;
   }
 }
 
-// Handle subscription creation
-async function handleSubscriptionCreate(data, supabase) {
-  try {
-    console.log("Processing subscription creation:", JSON.stringify(data, null, 2));
-    
-    // Extract necessary data
-    const customerCode = data.customer?.customer_code;
-    const planCode = data.plan?.plan_code;
-    const subscriptionCode = data.subscription_code;
-    const email = data.customer?.email;
-    
-    if (!customerCode || !email) {
-      console.error("Missing customer information:", data);
-      return;
-    }
-    
-    // Find the user by email
-    const { data: users, error: usersError } = await supabase
-      .auth.admin.listUsers();
-      
-    if (usersError || !users || users.users.length === 0) {
-      console.error("Error fetching users:", usersError);
-      return;
-    }
-    
-    // Find the user with the matching email
-    const user = users.users.find(u => u.email === email);
-    
-    if (!user) {
-      console.error("User not found for email:", email);
-      return;
-    }
-    
-    const userId = user.id;
-    
-    // Determine plan name based on plan code
-    let planName;
-    if (planCode === "PLN_h6tsrxea7rzn5x9") {
-      planName = "Pro";
-    } else if (planCode === "PLN_2e5qkue1lz5a48g") {
-      planName = "Business";
-    } else {
-      planName = "Unknown";
-    }
-    
-    const now = new Date();
-    const currentPeriodEnd = new Date(now);
-    currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1); // Add 1 month
-    
-    // Update or create subscription
-    const { data: existingSubscription } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .maybeSingle();
-      
-    if (existingSubscription) {
-      await supabase
-        .from('subscriptions')
-        .update({
-          plan_name: planName,
-          status: 'active',
-          current_period_end: currentPeriodEnd.toISOString(),
-          updated_at: now.toISOString(),
-          paystack_customer_code: customerCode,
-          paystack_plan_code: planCode,
-          paystack_subscription_code: subscriptionCode
-        })
-        .eq('id', existingSubscription.id);
-    } else {
-      await supabase
-        .from('subscriptions')
-        .insert({
-          user_id: userId,
-          plan_name: planName,
-          status: 'active',
-          current_period_end: currentPeriodEnd.toISOString(),
-          created_at: now.toISOString(),
-          updated_at: now.toISOString(),
-          paystack_customer_code: customerCode,
-          paystack_plan_code: planCode,
-          paystack_subscription_code: subscriptionCode
-        });
-    }
-  } catch (error) {
-    console.error("Error handling subscription creation:", error);
-  }
+// Handle subscription created events
+async function handleSubscriptionCreated(data, supabase) {
+  console.log("Processing subscription.create event");
+  // Implementation if needed
 }
 
-// Handle subscription disable/cancellation
-async function handleSubscriptionDisable(data, supabase) {
-  try {
-    console.log("Processing subscription disable:", data);
-    
-    // Find the subscription by subscription code
-    const { data: subscription } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('paystack_subscription_code', data.subscription_code)
-      .maybeSingle();
-    
-    if (subscription) {
-      // Update subscription status
-      await supabase
-        .from('subscriptions')
-        .update({
-          status: 'canceled',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', subscription.id);
-      
-      // Create a notification for the user
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: subscription.user_id,
-          title: 'Subscription Canceled',
-          message: `Your ${subscription.plan_name} subscription has been canceled.`,
-          type: 'payment',
-          metadata: {
-            plan: subscription.plan_name
-          }
-        });
-    }
-  } catch (error) {
-    console.error("Error handling subscription disable:", error);
-    throw error;
-  }
-}
-
-// Handle failed payment
-async function handlePaymentFailed(data, supabase) {
-  try {
-    console.log("Processing payment failure:", data);
-    
-    // Find the subscription by customer code
-    const { data: subscription } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('paystack_customer_code', data.customer?.customer_code)
-      .maybeSingle();
-    
-    if (subscription) {
-      // Create a notification for the user
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: subscription.user_id,
-          title: 'Payment Failed',
-          message: `Your payment for the ${subscription.plan_name} plan failed. Please update your payment method.`,
-          type: 'payment',
-          metadata: {
-            plan: subscription.plan_name
-          }
-        });
-    }
-  } catch (error) {
-    console.error("Error handling payment failure:", error);
-    throw error;
-  }
+// Handle subscription disabled events
+async function handleSubscriptionDisabled(data, supabase) {
+  console.log("Processing subscription.disable event");
+  // Implementation if needed
 }

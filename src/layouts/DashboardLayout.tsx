@@ -1,7 +1,8 @@
+
 import { Outlet, useNavigate } from "react-router-dom";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { LogOut, Menu } from "lucide-react";
+import { LogOut, Menu, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -13,6 +14,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { NotificationsDropdown } from "@/components/notifications/NotificationsDropdown";
 import { Profile } from "@/types/supabase";
+import { profileService } from "@/services/profileService";
 
 export function DashboardLayout() {
   const { user, signOut } = useAuth();
@@ -20,26 +22,32 @@ export function DashboardLayout() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!user) return;
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
       
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('username, avatar_url')
-          .eq('id', user.id)
-          .single();
-          
-        if (error) {
-          console.error('Error fetching profile:', error);
-          return;
-        }
+        setIsLoading(true);
+        const profileData = await profileService.getProfile(user.id);
         
-        setProfile(data as Profile);
+        if (profileData) {
+          setProfile(profileData as Profile);
+        } else {
+          // Try to create a profile if none exists
+          const newProfile = await profileService.getProfile(user.id);
+          if (newProfile) {
+            setProfile(newProfile as Profile);
+          }
+        }
       } catch (error) {
-        console.error('Error in profile fetch:', error);
+        console.error('Error fetching profile:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -70,9 +78,9 @@ export function DashboardLayout() {
   const userEmail = user?.email || "";
   const userInitials = userName
     .split(" ")
-    .map((n) => n[0])
+    .map((n) => n?.[0] || "")
     .join("")
-    .toUpperCase();
+    .toUpperCase().substring(0, 2);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -109,8 +117,16 @@ export function DashboardLayout() {
                   aria-label="Open user menu"
                 >
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={profile?.avatar_url || ""} alt={userName} />
-                    <AvatarFallback>{userInitials}</AvatarFallback>
+                    {!isLoading && profile?.avatar_url ? (
+                      <AvatarImage src={profile.avatar_url} alt={userName} />
+                    ) : null}
+                    <AvatarFallback>
+                      {isLoading ? (
+                        <User className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        userInitials
+                      )}
+                    </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>

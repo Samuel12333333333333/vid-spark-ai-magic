@@ -36,11 +36,20 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !user) {
+      console.error("Auth error:", userError);
       throw new Error(userError?.message || 'Authentication failed');
     }
     
     // Get the request body
-    const { plan } = await req.json();
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (e) {
+      console.error("Failed to parse request body:", e);
+      throw new Error("Invalid request body");
+    }
+    
+    const { plan } = requestBody;
     if (!plan) {
       throw new Error("Plan is required");
     }
@@ -96,6 +105,7 @@ serve(async (req) => {
     // Make request to the Paystack API
     const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
     if (!paystackSecretKey) {
+      console.error("PAYSTACK_SECRET_KEY is missing");
       throw new Error("PAYSTACK_SECRET_KEY is not set");
     }
 
@@ -111,8 +121,19 @@ serve(async (req) => {
       });
 
       console.log("Response status:", response.status);
-      const result = await response.json();
-      console.log("Paystack API response:", JSON.stringify(result));
+      
+      // Get response text for logging
+      const responseText = await response.text();
+      console.log("Paystack API raw response:", responseText);
+      
+      // Parse the response as JSON
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (e) {
+        console.error("Error parsing response:", e);
+        throw new Error("Invalid response from payment provider");
+      }
 
       if (!result.status) {
         console.error("Paystack error:", result);
