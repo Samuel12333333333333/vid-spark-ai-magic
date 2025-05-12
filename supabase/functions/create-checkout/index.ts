@@ -86,7 +86,6 @@ serve(async (req) => {
       reference: reference,
       callback_url: successUrl,
       metadata: metadata,
-      plan: planCode, // Use the plan code directly
     };
 
     console.log("Initializing Paystack transaction with payload:", JSON.stringify(payload));

@@ -18,11 +18,12 @@ export interface UpdateProfileData {
 export const profileService = {
   async getProfile(userId: string): Promise<UserProfile | null> {
     try {
+      // The issue is with the query format - we need to use '*' instead of specific fields
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .maybeSingle(); // Use maybeSingle instead of single to prevent errors when no rows are found
+        .single();
         
       if (error) {
         console.error('Error fetching user profile:', error);
@@ -41,7 +42,7 @@ export const profileService = {
                 email: userData.user.email,
                 username: userData.user.user_metadata?.name || null
               })
-              .select('*')
+              .select()
               .single();
                 
             if (!insertError) {

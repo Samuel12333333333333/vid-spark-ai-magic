@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,7 +53,7 @@ export default function UpgradePage() {
         "Basic AI voiceover",
       ],
       current: isPro,
-      priceId: "pro", // Changed from Stripe price ID to plan identifier
+      priceId: "pro", // Plan identifier for Paystack
     },
     {
       name: "Business",
@@ -72,7 +73,7 @@ export default function UpgradePage() {
         "API access",
       ],
       current: isBusiness,
-      priceId: "business", // Changed from Stripe price ID to plan identifier
+      priceId: "business", // Plan identifier for Paystack
     },
   ];
 
@@ -93,7 +94,7 @@ export default function UpgradePage() {
       
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: {
-          plan: plan.priceId, // Now using plan identifier instead of Stripe price ID
+          plan: plan.priceId, // Using the plan identifier for Paystack
         },
       });
 
@@ -181,9 +182,8 @@ export default function UpgradePage() {
                 size="sm"
                 onClick={async () => {
                   try {
-                    const { data, error } = await supabase.functions.invoke("customer-portal");
-                    if (error) throw error;
-                    if (data?.url) window.location.href = data.url;
+                    // For Paystack, we would need to implement a separate portal for managing subscriptions
+                    toast.info("Subscription management is being implemented");
                   } catch (error) {
                     console.error("Error accessing customer portal:", error);
                     toast.error("Couldn't open customer portal. Please try again.");

@@ -16,6 +16,7 @@ serve(async (req) => {
   try {
     // Retrieve the request's body
     const body = await req.json();
+    console.log("Paystack webhook received:", JSON.stringify(body, null, 2));
     
     // Get Paystack secret key for signature verification
     const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
@@ -40,7 +41,6 @@ serve(async (req) => {
     console.log("Paystack webhook received:", {
       event: body.event,
       reference: body.data?.reference,
-      data: JSON.stringify(body.data)
     });
     
     // Process different event types
@@ -176,7 +176,7 @@ async function handleSuccessfulCharge(data, supabase) {
 // Handle subscription creation
 async function handleSubscriptionCreate(data, supabase) {
   try {
-    console.log("Processing subscription creation:", data);
+    console.log("Processing subscription creation:", JSON.stringify(data, null, 2));
     
     // Extract necessary data
     const customerCode = data.customer?.customer_code;
@@ -191,16 +191,22 @@ async function handleSubscriptionCreate(data, supabase) {
     
     // Find the user by email
     const { data: users, error: usersError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', email);
+      .auth.admin.listUsers();
       
-    if (usersError || !users || users.length === 0) {
-      console.error("User not found for email:", email, usersError);
+    if (usersError || !users || users.users.length === 0) {
+      console.error("Error fetching users:", usersError);
       return;
     }
-
-    const userId = users[0].id;
+    
+    // Find the user with the matching email
+    const user = users.users.find(u => u.email === email);
+    
+    if (!user) {
+      console.error("User not found for email:", email);
+      return;
+    }
+    
+    const userId = user.id;
     
     // Determine plan name based on plan code
     let planName;
@@ -262,7 +268,7 @@ async function handleSubscriptionDisable(data, supabase) {
   try {
     console.log("Processing subscription disable:", data);
     
-    // Find the subscription by customer code or subscription code
+    // Find the subscription by subscription code
     const { data: subscription } = await supabase
       .from('subscriptions')
       .select('*')

@@ -36,6 +36,8 @@ serve(async (req) => {
       throw new Error(userError?.message || 'Authentication failed');
     }
 
+    console.log("Checking subscription for user:", user.id);
+
     // Check if the user has an active subscription in the database
     const { data: subscription, error: subError } = await supabase
       .from('subscriptions')
@@ -45,6 +47,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (subError) {
+      console.error("Error checking subscription:", subError);
       throw new Error(`Error checking subscription: ${subError.message}`);
     }
 
@@ -54,7 +57,7 @@ serve(async (req) => {
       const now = new Date();
       
       if (endDate < now) {
-        // The subscription has expired, update its status
+        console.log("Subscription has expired, updating status");
         await supabase
           .from('subscriptions')
           .update({
@@ -74,6 +77,8 @@ serve(async (req) => {
         );
       }
     }
+
+    console.log("Returning subscription data:", subscription);
 
     // Return the subscription data
     return new Response(
