@@ -8,98 +8,84 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log("Get payment history function called");
-    
-    const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
-    if (!paystackSecretKey) {
-      console.error("PAYSTACK_SECRET_KEY is not set");
-      throw new Error("Paystack secret key is not configured");
-    }
-
-    // Create Supabase client to get user information
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error("Supabase environment variables are not set");
-      throw new Error("Supabase configuration is missing");
-    }
-    
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-
-    // Get user from auth header
-    const authHeader = req.headers.get("Authorization");
+    // Get the auth header
+    const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error("Missing Authorization header");
+      throw new Error('No authorization header provided');
     }
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error } = await supabaseClient.auth.getUser(token);
-
-    if (error || !user) {
-      console.error("Auth error:", error);
-      throw new Error("User not authenticated");
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    
+    // Get the JWT token
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Verify the user
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    
+    if (userError || !user) {
+      throw new Error(userError?.message || 'Authentication failed');
     }
 
-    console.log("Getting payment history for user:", user.id);
-
-    try {
-      // Fetch transactions from Paystack by customer email
-      const response = await fetch(`https://api.paystack.co/transaction?customer=${encodeURIComponent(user.email)}&perPage=25`, {
-        headers: {
-          "Authorization": `Bearer ${paystackSecretKey}`,
+    // Get the user's subscription
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    
+    // If no subscription exists, return empty payment history
+    if (!subscription || !subscription.paystack_customer_code) {
+      return new Response(
+        JSON.stringify({ paymentHistory: [] }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200 
         }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Paystack API error: ${response.status}`);
-      }
-      
-      const paystackData = await response.json();
-      
-      if (!paystackData.status) {
-        throw new Error(paystackData.message || "Failed to fetch transactions");
-      }
-      
-      // Format transactions into payment history
-      const paymentHistory = paystackData.data.map(transaction => ({
-        id: transaction.id,
-        amount: transaction.amount, // Amount in kobo (smallest currency unit)
-        status: transaction.status === "success" ? "succeeded" : transaction.status,
-        date: new Date(transaction.paid_at || transaction.created_at),
-        created: new Date(transaction.created_at).getTime() / 1000,
-        receiptUrl: null, // Paystack doesn't provide receipt URLs
-      }));
-
-      return new Response(JSON.stringify({ paymentHistory }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    } catch (apiError) {
-      console.error("Error fetching from Paystack:", apiError);
-      // Return empty payment history with a warning message
-      return new Response(JSON.stringify({ 
-        paymentHistory: [],
-        warning: `Could not retrieve payment history: ${apiError.message}`
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200, // Return 200 instead of error to prevent UI issues
-      });
+      );
     }
+    
+    // Get payment history from notifications table
+    const { data: payments } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('type', 'payment')
+      .order('created_at', { ascending: false });
+    
+    // Format the payment history
+    const paymentHistory = (payments || []).map(payment => {
+      return {
+        id: payment.id,
+        amount: payment.metadata?.amount || 0,
+        status: 'succeeded',
+        created: new Date(payment.created_at).getTime() / 1000,
+        receiptUrl: null
+      };
+    });
+
+    return new Response(
+      JSON.stringify({ paymentHistory }),
+      { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200 
+      }
+    );
   } catch (error) {
     console.error("Error fetching payment history:", error);
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      paymentHistory: [] // Return empty array to prevent UI issues
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200, // Return 200 instead of error to prevent UI issues
-    });
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400 
+      }
+    );
   }
 });
