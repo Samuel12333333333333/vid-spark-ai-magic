@@ -24,8 +24,10 @@ serve(async (req) => {
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false }
+    });
     
     // Get the JWT token
     const token = authHeader.replace('Bearer ', '');
@@ -77,7 +79,8 @@ serve(async (req) => {
       ]
     };
     
-    const successUrl = `${req.headers.get('origin') || 'https://smartvideofy.com'}/payment-success?reference=${reference}&plan=${plan}`;
+    const origin = req.headers.get('origin') || 'https://smartvideofy.com';
+    const successUrl = `${origin}/payment-success?reference=${reference}&plan=${plan}`;
 
     // Initialize the transaction with Paystack
     const payload = {
@@ -96,34 +99,41 @@ serve(async (req) => {
       throw new Error("PAYSTACK_SECRET_KEY is not set");
     }
 
-    const response = await fetch("https://api.paystack.co/transaction/initialize", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${paystackSecretKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
+    try {
+      const response = await fetch("https://api.paystack.co/transaction/initialize", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${paystackSecretKey}`,
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
+        body: JSON.stringify(payload),
+      });
 
-    const result = await response.json();
-    console.log("Paystack API response:", JSON.stringify(result));
+      console.log("Response status:", response.status);
+      const result = await response.json();
+      console.log("Paystack API response:", JSON.stringify(result));
 
-    if (!result.status) {
-      console.error("Paystack error:", result);
-      throw new Error(result.message || "Payment initialization failed");
-    }
-
-    // Return the authorization URL
-    return new Response(
-      JSON.stringify({ 
-        url: result.data.authorization_url,
-        reference: reference 
-      }),
-      { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200 
+      if (!result.status) {
+        console.error("Paystack error:", result);
+        throw new Error(result.message || "Payment initialization failed");
       }
-    );
+
+      // Return the authorization URL
+      return new Response(
+        JSON.stringify({ 
+          url: result.data.authorization_url,
+          reference: reference 
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200 
+        }
+      );
+    } catch (fetchError) {
+      console.error("Error fetching from Paystack:", fetchError);
+      throw new Error(`Paystack API error: ${fetchError.message}`);
+    }
   } catch (error) {
     console.error("Error creating checkout session:", error);
     return new Response(

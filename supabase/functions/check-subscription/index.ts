@@ -38,58 +38,70 @@ serve(async (req) => {
 
     console.log("Checking subscription for user:", user.id);
 
-    // Check if the user has an active subscription in the database
-    const { data: subscription, error: subError } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .maybeSingle();
+    try {
+      // Check if the user has an active subscription in the database
+      const { data: subscription, error: subError } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
 
-    if (subError) {
-      console.error("Error checking subscription:", subError);
-      throw new Error(`Error checking subscription: ${subError.message}`);
-    }
-
-    // If there's a subscription and it's expired, update it
-    if (subscription && subscription.current_period_end) {
-      const endDate = new Date(subscription.current_period_end);
-      const now = new Date();
-      
-      if (endDate < now) {
-        console.log("Subscription has expired, updating status");
-        await supabase
-          .from('subscriptions')
-          .update({
-            status: 'expired',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', subscription.id);
-          
-        return new Response(
-          JSON.stringify({ 
-            subscription: { ...subscription, status: 'expired' } 
-          }),
-          { 
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 200 
-          }
-        );
+      if (subError) {
+        console.error("Error checking subscription:", subError);
+        throw new Error(`Error checking subscription: ${subError.message}`);
       }
-    }
 
-    console.log("Returning subscription data:", subscription);
-
-    // Return the subscription data
-    return new Response(
-      JSON.stringify({ 
-        subscription: subscription || null
-      }),
-      { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200 
+      // If there's a subscription and it's expired, update it
+      if (subscription && subscription.current_period_end) {
+        const endDate = new Date(subscription.current_period_end);
+        const now = new Date();
+        
+        if (endDate < now) {
+          console.log("Subscription has expired, updating status");
+          await supabase
+            .from('subscriptions')
+            .update({
+              status: 'expired',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', subscription.id);
+            
+          return new Response(
+            JSON.stringify({ 
+              subscription: { ...subscription, status: 'expired' } 
+            }),
+            { 
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 200 
+            }
+          );
+        }
       }
-    );
+
+      console.log("Returning subscription data:", subscription);
+
+      // Return the subscription data
+      return new Response(
+        JSON.stringify({ 
+          subscription: subscription || null
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200 
+        }
+      );
+    } catch (error) {
+      console.error("Error in subscription check:", error);
+      // Return null subscription but don't throw error to avoid breaking the app
+      return new Response(
+        JSON.stringify({ subscription: null }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200 
+        }
+      );
+    }
   } catch (error) {
     console.error("Error checking subscription:", error);
     return new Response(

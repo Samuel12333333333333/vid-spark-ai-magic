@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import * as crypto from "https://deno.land/std@0.167.0/node/crypto.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*", 
@@ -16,12 +17,25 @@ serve(async (req) => {
   try {
     // Retrieve the request's body
     const body = await req.json();
-    console.log("Paystack webhook received:", JSON.stringify(body, null, 2));
+    console.log("Paystack webhook received event:", body.event);
     
     // Get Paystack secret key for signature verification
     const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
     if (!paystackSecretKey) {
       throw new Error("PAYSTACK_SECRET_KEY not set");
+    }
+
+    // Verify signature if header is present
+    const signature = req.headers.get("x-paystack-signature");
+    if (signature) {
+      const hash = crypto.createHmac('sha512', paystackSecretKey)
+                         .update(JSON.stringify(body))
+                         .digest('hex');
+                         
+      if (hash !== signature) {
+        console.error("Signature verification failed");
+        throw new Error("Invalid signature");
+      }
     }
 
     // Create Supabase client with service role key (admin privileges)
@@ -36,11 +50,6 @@ serve(async (req) => {
       auth: {
         persistSession: false
       }
-    });
-    
-    console.log("Paystack webhook received:", {
-      event: body.event,
-      reference: body.data?.reference,
     });
     
     // Process different event types

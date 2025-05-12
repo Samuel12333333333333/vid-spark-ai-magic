@@ -18,7 +18,9 @@ export interface UpdateProfileData {
 export const profileService = {
   async getProfile(userId: string): Promise<UserProfile | null> {
     try {
-      // The issue is with the query format - we need to use '*' instead of specific fields
+      console.log("Fetching profile for user:", userId);
+      
+      // Try to get the profile using select('*')
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -30,10 +32,12 @@ export const profileService = {
         
         // If profile doesn't exist, create one
         if (error.code === 'PGRST116') {
+          console.log("Profile not found, creating new profile");
           // Get user data to create a profile
           const { data: userData } = await supabase.auth.getUser();
           
           if (userData && userData.user) {
+            console.log("Got user data, creating profile with email:", userData.user.email);
             // Create a new profile
             const { data: insertedProfile, error: insertError } = await supabase
               .from('profiles')
@@ -46,16 +50,20 @@ export const profileService = {
               .single();
                 
             if (!insertError) {
+              console.log("Profile created successfully:", insertedProfile);
               return insertedProfile;
             } else {
               console.error('Error creating user profile:', insertError);
             }
+          } else {
+            console.error("No user data available to create profile");
           }
         }
         
         return null;
       }
       
+      console.log("Profile fetched successfully:", data);
       return data;
     } catch (error) {
       console.error('Error in getProfile:', error);
