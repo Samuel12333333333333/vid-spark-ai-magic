@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 
@@ -17,7 +18,7 @@ export default function SEOMetadata({
   description,
   keywords,
   canonicalUrl,
-  ogImage = 'https://lovable.dev/opengraph-image-p98pqg.png',
+  ogImage = 'https://smartvideofy.com/opengraph-image.png',
   ogType = 'website',
   twitterCard = 'summary_large_image',
   noIndex = false

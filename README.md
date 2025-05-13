@@ -1,73 +1,81 @@
-# Welcome to your Lovable project
 
-## Project info
+# SmartVideofy - AI-Powered Video Generation Platform
 
-**URL**: https://lovable.dev/projects/2ecee17f-6f95-4694-bb3d-ae45972d18b5
+## Project Overview
 
-## How can I edit this code?
+SmartVideofy is a short-form video generation platform that turns a user's text prompt into a visually engaging video by using AI and stock video clips. The platform integrates multiple APIs and is designed for creators, marketers, educators, and startups to instantly visualize their ideas.
 
-There are several ways of editing your application.
+## Technology Stack
 
-**Use Lovable**
+- **Frontend:** React + TypeScript + TailwindCSS (responsive and mobile-friendly)
+- **Backend:** Node.js + Express + TypeScript  
+- **Authentication:** Supabase Auth (email/password)
+- **Database:** Supabase PostgreSQL
+- **APIs Used:**
+  - Gemini API (for prompt breakdown and scene generation)
+  - Pexels API (for stock videos based on visual keywords)
+  - Shotstack API (for video rendering with transitions, overlays, and audio)
+  - Paystack (for payment processing)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/2ecee17f-6f95-4694-bb3d-ae45972d18b5) and start prompting.
+## Key Features
 
-Changes made via Lovable will be committed automatically to this repo.
+- User registration & login using Supabase Auth
+- Dashboard for authenticated users to:
+  - Submit a video idea (text prompt)
+  - Track generation progress (loading, pending, complete)
+  - Preview completed video
+  - Download or share video
+  - View past projects
+- Backend functionality:
+  - Takes user input
+  - Calls Gemini API to break the prompt into scenes and visual elements
+  - Uses visual keywords to query Pexels for video clips
+  - Sends clips and text overlays to Shotstack to generate video
+  - Polls Shotstack until render is complete
+  - Returns video link to frontend
 
-**Use your preferred IDE**
+## Development Setup
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Prerequisites
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- Node.js 18+ and npm installed
+- Supabase account with project setup
+- API keys for Gemini, Pexels, and Shotstack
 
-Follow these steps:
+### Installation
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+1. Clone the repository:
+   ```sh
+   git clone <your-repo-url>
+   cd smartvideofy
+   ```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+2. Install dependencies:
+   ```sh
+   npm install
+   ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+3. Create a `.env` file in the root directory with the following environment variables:
+   ```
+   VITE_SUPABASE_URL=your_supabase_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   VITE_GEMINI_API_KEY=your_gemini_api_key
+   VITE_PEXELS_API_KEY=your_pexels_api_key
+   VITE_SHOTSTACK_API_KEY=your_shotstack_api_key
+   VITE_PAYSTACK_PUBLIC_KEY=your_paystack_public_key
+   ```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+4. Start the development server:
+   ```sh
+   npm run dev
+   ```
 
-**Edit a file directly in GitHub**
+## Deployment
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+The application is deployed at [https://smartvideofy.com](https://smartvideofy.com).
 
-**Use GitHub Codespaces**
+## License
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+This project is proprietary and confidential. All rights reserved.
 
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/2ecee17f-6f95-4694-bb3d-ae45972d18b5) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes it is!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+© 2025 SmartVideofy
