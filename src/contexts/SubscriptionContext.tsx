@@ -4,6 +4,7 @@ import { useAuth } from "./AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Subscription } from "@/types/supabase";
+import { parseErrorMessage } from "@/lib/error-handler";
 
 interface SubscriptionContextType {
   hasActiveSubscription: boolean;
@@ -30,9 +31,10 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lastCheckTime, setLastCheckTime] = useState(0);
+  const [checkError, setCheckError] = useState<string | null>(null);
 
   const checkSubscription = async () => {
-    if (!session) {
+    if (!session?.user?.id) {
       setSubscription(null);
       setIsLoading(false);
       return;
@@ -51,6 +53,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       setIsLoading(true);
+      setCheckError(null);
       console.log("Checking subscription status...");
       
       // First check if we have a subscription in the database using maybeSingle() instead of single()
@@ -67,6 +70,8 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
         setSubscription(dbSubscription);
         setIsLoading(false);
         return;
+      } else if (dbError) {
+        console.error("Database error checking subscriptions:", dbError);
       }
       
       try {
@@ -75,7 +80,10 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
   
         if (error) {
           console.error("Error checking subscription:", error);
-          setIsLoading(false);
+          setCheckError(parseErrorMessage(error));
+          
+          // Try fallback to database again with any subscription
+          fallbackToDatabase(session.user.id);
           return;
         }
   
@@ -83,24 +91,35 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
         console.log("Subscription data updated:", data.subscription);
       } catch (funcError) {
         console.error("Error invoking check-subscription function:", funcError);
+        setCheckError(parseErrorMessage(funcError));
+        
         // Fallback to checking the database for any subscription
-        const { data: anySubscription } = await supabase
-          .from('subscriptions')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-          
-        if (anySubscription) {
-          setSubscription(anySubscription);
-        }
+        fallbackToDatabase(session.user.id);
       }
     } catch (error) {
       console.error("Error checking subscription:", error);
-      toast.error("Failed to check subscription status");
+      setCheckError(parseErrorMessage(error));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fallbackToDatabase = async (userId: string) => {
+    try {
+      const { data: anySubscription } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+          
+      if (anySubscription) {
+        console.log("Found subscription via fallback:", anySubscription);
+        setSubscription(anySubscription);
+      }
+    } catch (fallbackError) {
+      console.error("Error in fallback database check:", fallbackError);
     }
   };
 

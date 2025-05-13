@@ -59,13 +59,17 @@ serve(async (req) => {
         
         if (endDate < now) {
           console.log("Subscription has expired, updating status");
-          await supabase
+          const { error: updateError } = await supabase
             .from('subscriptions')
             .update({
               status: 'expired',
               updated_at: new Date().toISOString()
             })
             .eq('id', subscription.id);
+            
+          if (updateError) {
+            console.error("Error updating subscription status:", updateError);
+          }
             
           return new Response(
             JSON.stringify({ 

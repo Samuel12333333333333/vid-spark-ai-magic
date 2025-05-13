@@ -20,6 +20,10 @@ interface PricingCardProps {
 }
 
 export function PricingCard({ plan, isLoading, onSubscribe }: PricingCardProps) {
+  const handleClick = () => {
+    onSubscribe(plan);
+  };
+
   return (
     <div
       className={`flex flex-col rounded-lg border bg-white p-6 shadow-lg dark:bg-gray-950 dark:border-gray-800 ${
@@ -59,7 +63,7 @@ export function PricingCard({ plan, isLoading, onSubscribe }: PricingCardProps) 
             ? "bg-smartvid-600 hover:bg-smartvid-700"
             : "bg-gray-900 hover:bg-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700"
         }
-        onClick={() => onSubscribe(plan)}
+        onClick={handleClick}
         disabled={isLoading !== null}
       >
         {isLoading === plan.name ? (

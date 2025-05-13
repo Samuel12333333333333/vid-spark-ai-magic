@@ -37,7 +37,10 @@ serve(async (req) => {
     
     if (userError || !user) {
       console.error("Auth error:", userError);
-      throw new Error(userError?.message || 'Authentication failed');
+      return new Response(
+        JSON.stringify({ error: userError?.message || 'Authentication failed' }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+      );
     }
     
     // Get the request body
@@ -46,12 +49,18 @@ serve(async (req) => {
       requestBody = await req.json();
     } catch (e) {
       console.error("Failed to parse request body:", e);
-      throw new Error("Invalid request body");
+      return new Response(
+        JSON.stringify({ error: "Invalid request body" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
     }
     
     const { plan } = requestBody;
     if (!plan) {
-      throw new Error("Plan is required");
+      return new Response(
+        JSON.stringify({ error: "Plan is required" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
     }
 
     console.log("Plan requested:", plan);
@@ -61,15 +70,18 @@ serve(async (req) => {
     let amount;
     switch (plan.toLowerCase()) {
       case "pro":
-        planCode = "PLN_h6tsrxea7rzn5x9";
+        planCode = "pro";
         amount = 2900;
         break;
       case "business":
-        planCode = "PLN_2e5qkue1lz5a48g";
+        planCode = "business";
         amount = 9900;
         break;
       default:
-        throw new Error(`Invalid plan selected: ${plan}`);
+        return new Response(
+          JSON.stringify({ error: `Invalid plan selected: ${plan}` }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
     }
     
     // Generate a unique reference
@@ -106,10 +118,15 @@ serve(async (req) => {
     const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
     if (!paystackSecretKey) {
       console.error("PAYSTACK_SECRET_KEY is missing");
-      throw new Error("PAYSTACK_SECRET_KEY is not set");
+      return new Response(
+        JSON.stringify({ error: "Payment configuration error" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
     }
 
     try {
+      console.log("Making request to Paystack API");
+      
       const response = await fetch("https://api.paystack.co/transaction/initialize", {
         method: "POST",
         headers: {
@@ -132,12 +149,18 @@ serve(async (req) => {
         result = JSON.parse(responseText);
       } catch (e) {
         console.error("Error parsing response:", e);
-        throw new Error("Invalid response from payment provider");
+        return new Response(
+          JSON.stringify({ error: "Invalid response from payment provider" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
       }
 
       if (!result.status) {
         console.error("Paystack error:", result);
-        throw new Error(result.message || "Payment initialization failed");
+        return new Response(
+          JSON.stringify({ error: result.message || "Payment initialization failed" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
       }
 
       // Return the authorization URL
@@ -153,7 +176,10 @@ serve(async (req) => {
       );
     } catch (fetchError) {
       console.error("Error fetching from Paystack:", fetchError);
-      throw new Error(`Paystack API error: ${fetchError.message}`);
+      return new Response(
+        JSON.stringify({ error: `Payment gateway error: ${fetchError.message}` }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
     }
   } catch (error) {
     console.error("Error creating checkout session:", error);
@@ -161,7 +187,7 @@ serve(async (req) => {
       JSON.stringify({ error: error.message || "Something went wrong" }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400 
+        status: 500 
       }
     );
   }
