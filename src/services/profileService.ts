@@ -11,7 +11,7 @@ export interface Profile {
   updated_at?: string;
 }
 
-export async function getProfile(userId: string): Promise<Profile | null> {
+async function getProfile(userId: string): Promise<Profile | null> {
   try {
     if (!userId) {
       console.error("No user ID provided to getProfile");
@@ -90,7 +90,7 @@ async function createProfileIfMissing(userId: string): Promise<Profile | null> {
   }
 }
 
-export async function updateProfile(
+async function updateProfile(
   userId: string,
   updates: Partial<Profile>
 ): Promise<{ success: boolean; profile?: Profile }> {
@@ -119,7 +119,7 @@ export async function updateProfile(
   }
 }
 
-export async function uploadAvatar(
+async function uploadAvatar(
   userId: string,
   file: File
 ): Promise<{ success: boolean; url?: string }> {
@@ -178,7 +178,7 @@ export async function uploadAvatar(
   }
 }
 
-export async function fetchAllProfiles(): Promise<Profile[]> {
+async function fetchAllProfiles(): Promise<Profile[]> {
   try {
     const { data, error } = await supabase
       .from("profiles")
@@ -191,3 +191,21 @@ export async function fetchAllProfiles(): Promise<Profile[]> {
     return [];
   }
 }
+
+// Export all functions as part of the profileService object
+export const profileService = {
+  getProfile,
+  updateProfile,
+  uploadAvatar,
+  fetchAllProfiles,
+  createProfileIfMissing
+};
+
+// Also export individual functions for backward compatibility
+export {
+  getProfile,
+  updateProfile,
+  uploadAvatar,
+  fetchAllProfiles,
+  createProfileIfMissing
+};
