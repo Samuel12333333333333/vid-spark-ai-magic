@@ -19,7 +19,10 @@ serve(async (req) => {
     // Get the auth header from the request
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('No authorization header provided');
+      return new Response(
+        JSON.stringify({ error: 'No authorization header provided' }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+      );
     }
 
     // Initialize Supabase client
@@ -32,7 +35,7 @@ serve(async (req) => {
     // Get the JWT token
     const token = authHeader.replace('Bearer ', '');
     
-    // Verify the user
+    // Verify the user directly without using admin API
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !user) {
@@ -103,6 +106,16 @@ serve(async (req) => {
     const origin = req.headers.get('origin') || 'https://smartvideofy.com';
     const successUrl = `${origin}/payment-success?reference=${reference}&plan=${plan}`;
 
+    // Check if Paystack secret key is set
+    const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
+    if (!paystackSecretKey) {
+      console.error("PAYSTACK_SECRET_KEY is missing");
+      return new Response(
+        JSON.stringify({ error: "Payment configuration error - API key missing" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+
     // Initialize the transaction with Paystack
     const payload = {
       email: user.email,
@@ -114,16 +127,6 @@ serve(async (req) => {
 
     console.log("Initializing Paystack transaction with payload:", JSON.stringify(payload));
     
-    // Make request to the Paystack API
-    const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
-    if (!paystackSecretKey) {
-      console.error("PAYSTACK_SECRET_KEY is missing");
-      return new Response(
-        JSON.stringify({ error: "Payment configuration error" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-
     try {
       console.log("Making request to Paystack API");
       

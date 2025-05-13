@@ -32,7 +32,7 @@ async function getProfile(userId: string): Promise<Profile | null> {
       
       // Check if it might be because the profile doesn't exist
       if (error.code === 'PGRST116' || error.message.includes('404') || error.message.includes('406')) {
-        // Try to get user from auth and create a profile
+        // Try to create a profile without using the admin API
         return await createProfileIfMissing(userId);
       }
       
@@ -58,20 +58,29 @@ async function createProfileIfMissing(userId: string): Promise<Profile | null> {
   try {
     console.log("Creating missing profile for user:", userId);
     
-    // Get user info from auth.users
-    const { data: user, error: userError } = await supabase.auth.admin.getUserById(userId);
+    // Instead of trying to access admin API, get the user info from auth.getUser()
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     
-    if (userError || !user) {
+    if (sessionError || !sessionData?.session) {
+      console.error("Error getting user session:", sessionError);
+      return null;
+    }
+    
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !userData?.user) {
       console.error("Error getting user data:", userError);
       return null;
     }
     
+    const user = userData.user;
+    
     // Create a new profile
     const newProfile = {
       id: userId,
-      username: user.user.user_metadata?.name || user.user.email?.split('@')[0] || null,
-      email: user.user.email,
-      avatar_url: user.user.user_metadata?.avatar_url || null
+      username: user.user_metadata?.name || user.email?.split('@')[0] || null,
+      email: user.email,
+      avatar_url: user.user_metadata?.avatar_url || null
     };
     
     const { error: insertError } = await supabase
