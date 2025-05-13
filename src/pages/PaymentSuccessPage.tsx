@@ -8,7 +8,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import SEOMetadata from "@/components/SEOMetadata";
 import { notificationService } from "@/services/notificationService";
-import { supabase } from "@/integrations/supabase/client"; // Add this missing import
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function PaymentSuccessPage() {
   const navigate = useNavigate();
@@ -17,11 +18,13 @@ export default function PaymentSuccessPage() {
   const { refreshSubscription } = useSubscription();
   const [isVerifying, setIsVerifying] = useState(true);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
 
   useEffect(() => {
     const verifyPayment = async () => {
       if (!session?.user) {
         setIsVerifying(false);
+        setVerificationError("User not authenticated");
         return;
       }
 
@@ -31,33 +34,78 @@ export default function PaymentSuccessPage() {
         // Get reference from URL if available
         const params = new URLSearchParams(location.search);
         const reference = params.get('reference');
+        const trxref = params.get('trxref'); // Paystack also sends this parameter
         const plan = params.get('plan') || 'pro';
         
-        if (reference) {
-          // Payment reference found, assume payment is successful
-          // In a production app, you might verify this on the server side
-          console.log("Payment reference found:", reference);
-          setIsSuccess(true);
+        // Use either reference parameter
+        const paymentReference = reference || trxref;
+        
+        if (paymentReference) {
+          console.log("Payment reference found:", paymentReference);
           
-          // Create payment notification
-          await notificationService.createNotification({
-            user_id: session.user.id,
-            title: "Payment Successful",
-            message: `Your ${plan} subscription payment was processed successfully. Thank you for your support!`,
-            type: 'payment',
-            metadata: { source: 'payment_success_page', reference, plan }
+          // Verify the payment status with our backend
+          const { data, error } = await supabase.functions.invoke("verify-payment", {
+            body: { 
+              reference: paymentReference
+            }
           });
           
-          // Refresh subscription data
+          if (error) {
+            console.error("Error verifying payment:", error);
+            setIsSuccess(false);
+            setVerificationError("Payment verification failed. Please contact support.");
+            
+            // Create error notification
+            await notificationService.createNotification({
+              user_id: session.user.id,
+              title: "Payment Verification Failed",
+              message: `We couldn't verify your ${plan} subscription payment. Please contact support with reference: ${paymentReference}`,
+              type: 'payment',
+              metadata: { source: 'payment_success_page', reference: paymentReference, plan, error: error.message }
+            });
+            
+            return;
+          }
+          
+          if (data.status === "success") {
+            setIsSuccess(true);
+            
+            // Create payment notification
+            await notificationService.createNotification({
+              user_id: session.user.id,
+              title: "Payment Successful",
+              message: `Your ${plan} subscription payment was processed successfully. Thank you for your support!`,
+              type: 'payment',
+              metadata: { source: 'payment_success_page', reference: paymentReference, plan }
+            });
+            
+            toast.success("Payment successful! Your subscription is now active.");
+          } else {
+            setIsSuccess(false);
+            setVerificationError(`Payment verification failed: ${data.message || 'Unknown error'}`);
+            
+            // Create error notification
+            await notificationService.createNotification({
+              user_id: session.user.id,
+              title: "Payment Issue",
+              message: `There was an issue with your ${plan} subscription payment. Status: ${data.status || 'unknown'}`,
+              type: 'payment',
+              metadata: { source: 'payment_success_page', reference: paymentReference, plan, status: data.status }
+            });
+          }
+          
+          // Refresh subscription data regardless of status to ensure we have the latest
           await refreshSubscription();
         } else {
           // No reference found, but we're on the success page - likely a direct navigation
           console.log("No reference found, but we're on the success page");
           setIsSuccess(true);
+          await refreshSubscription();
         }
       } catch (error) {
         console.error("Error verifying payment:", error);
         setIsSuccess(false);
+        setVerificationError("An unexpected error occurred while verifying your payment.");
       } finally {
         setIsVerifying(false);
       }
@@ -115,7 +163,7 @@ export default function PaymentSuccessPage() {
               <div className="space-y-2">
                 <h1 className="text-2xl font-bold tracking-tight">Payment Verification Failed</h1>
                 <p className="text-gray-500 dark:text-gray-400">
-                  We couldn't verify your payment status. If you believe this is an error, please contact support.
+                  {verificationError || "We couldn't verify your payment status. If you believe this is an error, please contact support."}
                 </p>
               </div>
               

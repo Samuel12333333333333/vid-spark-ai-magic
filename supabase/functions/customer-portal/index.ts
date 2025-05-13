@@ -13,16 +13,22 @@ serve(async (req) => {
   }
 
   try {
-    // Get the auth header
+    console.log("Customer portal function called");
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('No authorization header provided');
+      return new Response(
+        JSON.stringify({ error: 'No authorization header provided' }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+      );
     }
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false }
+    });
     
     // Get the JWT token
     const token = authHeader.replace('Bearer ', '');
@@ -31,29 +37,31 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !user) {
-      throw new Error(userError?.message || 'Authentication failed');
+      console.error("Auth error:", userError);
+      return new Response(
+        JSON.stringify({ error: userError?.message || 'Authentication failed' }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+      );
     }
     
-    // Paystack doesn't have a customer portal like Stripe
-    // Instead, we redirect to our own upgrade page where users can manage their subscription
-    const origin = req.headers.get("origin") || "https://smartvideofy.com";
+    // For Paystack, we don't have a direct customer portal like Stripe
+    // Instead, we'll redirect to our own upgrade page which has management functionality
+    const origin = req.headers.get('origin') || 'https://smartvideofy.com';
+    const portalUrl = `${origin}/dashboard/upgrade`;
+    
+    console.log(`Redirecting user to upgrade page: ${portalUrl}`);
     
     return new Response(
-      JSON.stringify({
-        url: `${origin}/dashboard/upgrade`
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200
-      }
+      JSON.stringify({ url: portalUrl }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
   } catch (error) {
     console.error("Error accessing customer portal:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      {
+      JSON.stringify({ error: error.message || "Something went wrong" }),
+      { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400
+        status: 500 
       }
     );
   }

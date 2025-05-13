@@ -34,34 +34,29 @@ serve(async (req) => {
       throw new Error(userError?.message || 'Authentication failed');
     }
 
-    // Get the user's subscription with Paystack card details
+    // Get the user's subscription
     const { data: subscription } = await supabase
       .from('subscriptions')
       .select('*')
       .eq('user_id', user.id)
       .maybeSingle();
     
-    // If no subscription with card details exists, return empty payment methods
-    if (!subscription || !subscription.paystack_card_signature) {
-      return new Response(
-        JSON.stringify({ paymentMethods: [] }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200 
-        }
-      );
-    }
+    // For Paystack, we don't store payment methods the same way as Stripe
+    // We'll check if there's a card signature stored from previous payments
     
-    // For demonstration purposes, create a payment method object
-    // In a production environment, you would fetch this from Paystack API
-    const paymentMethods = [{
-      id: subscription.paystack_card_signature || "card_1",
-      brand: "visa", // Default to visa as Paystack doesn't expose this easily
-      last4: "4242", // Default value as Paystack doesn't expose this easily
-      expMonth: 12,
-      expYear: 2030,
-      isDefault: true
-    }];
+    let paymentMethods = [];
+    
+    if (subscription && subscription.paystack_card_signature) {
+      // If we have a card signature, it means there's a saved card
+      paymentMethods = [{
+        id: subscription.paystack_card_signature,
+        brand: "card", // Paystack doesn't provide as detailed info as Stripe without additional API calls
+        last4: subscription.paystack_card_signature.substring(subscription.paystack_card_signature.length - 4),
+        expMonth: 12, // Placeholder as Paystack doesn't store these details in the same way
+        expYear: new Date().getFullYear() + 1, // Placeholder
+        isDefault: true
+      }];
+    }
 
     return new Response(
       JSON.stringify({ paymentMethods }),
