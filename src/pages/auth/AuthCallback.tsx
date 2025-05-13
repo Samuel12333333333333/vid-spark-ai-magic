@@ -25,8 +25,16 @@ export default function AuthCallback() {
         
         if (errorParam) {
           console.error("Auth error:", errorParam, errorDescription);
-          setError(`Authentication error: ${errorDescription || errorParam}`);
-          setTimeout(() => navigate("/login"), 3000);
+          
+          // Handle the database error specifically
+          if (errorDescription && errorDescription.includes('Database error saving new user')) {
+            setError(`Authentication error: There was an issue creating your profile. This is likely a temporary database permission issue. Please try again in a few minutes or contact support.`);
+            toast.error("Profile creation failed. Please try again later.");
+          } else {
+            setError(`Authentication error: ${errorDescription || errorParam}`);
+          }
+          
+          setTimeout(() => navigate("/login"), 5000);
           return;
         }
 
@@ -83,8 +91,19 @@ export default function AuthCallback() {
           try {
             console.log("Found hash parameters:", location.hash);
             
+            // Check for error in hash
+            const hashParams = new URLSearchParams(location.hash.substring(1));
+            const errorInHash = hashParams.get('error');
+            const errorDescInHash = hashParams.get('error_description');
+            
+            if (errorInHash) {
+              console.error("Auth error in hash:", errorInHash, errorDescInHash);
+              setError(`Authentication error: ${errorDescInHash || errorInHash}`);
+              setTimeout(() => navigate("/login"), 5000);
+              return;
+            }
+            
             // Process the hash parameters from the OAuth redirect - safely
-            const hashParams = new URLSearchParams(location.hash.substring(1)); // Remove the # character
             const accessToken = hashParams.get('access_token');
             const refreshToken = hashParams.get('refresh_token');
             
