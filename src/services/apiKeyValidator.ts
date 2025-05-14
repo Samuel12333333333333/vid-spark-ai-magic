@@ -66,7 +66,9 @@ export const apiKeyValidator = {
             body: {}
           });
           
-          isValid = !shotstackResult.error && shotstackResult.data && shotstackResult.data.success === true;
+          isValid = !shotstackResult.error && 
+                   shotstackResult.data && 
+                   shotstackResult.data.success === true;
           
           if (shotstackResult.error) {
             errorMessage = `Error: ${shotstackResult.error.message || 'API request failed'}`;
@@ -84,7 +86,9 @@ export const apiKeyValidator = {
             }
           });
           
-          isValid = !elevenLabsResult.error && elevenLabsResult.data && elevenLabsResult.data.success === true;
+          isValid = !elevenLabsResult.error && 
+                   elevenLabsResult.data && 
+                   elevenLabsResult.data.success === true;
           
           if (elevenLabsResult.error) {
             errorMessage = `Error: ${elevenLabsResult.error.message || 'API request failed'}`;
