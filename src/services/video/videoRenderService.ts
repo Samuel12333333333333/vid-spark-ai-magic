@@ -77,8 +77,8 @@ export const videoRenderService = {
     
     // If not done or failed yet, start polling
     if (response.status !== 'done' && response.status !== 'failed') {
-      toast.info("Video rendering in progress. We'll notify you when it's complete.", {
-        duration: 5000
+      toast.info("Video rendering in progress", {
+        description: "We'll notify you when it's complete."
       });
       
       // Set polling interval
@@ -88,10 +88,12 @@ export const videoRenderService = {
         
         if (response.status === 'done') {
           clearInterval(interval);
-          toast.success("Video rendering complete!");
+          toast.success("Video rendering complete");
         } else if (response.status === 'failed') {
           clearInterval(interval);
-          toast.error("Video rendering failed: " + (response.error || "Unknown error"));
+          toast.error("Video rendering failed", {
+            description: response.error || "Unknown error"
+          });
         }
       }, 10000); // Check every 10 seconds
       

@@ -1,4 +1,3 @@
-
 import { VideoGenerator } from "@/components/dashboard/VideoGenerator";
 import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
@@ -31,15 +30,13 @@ export default function GeneratorPage() {
       // Show a warning if any key is invalid
       const invalidKeys = Object.values(results).filter(key => !key.isValid);
       if (invalidKeys.length > 0) {
-        toast.warning(
-          "API Connection Issues Detected", 
-          "Some API services are not responding correctly. This may affect video generation."
-        );
+        toast.warning("API Connection Issues Detected", {
+          description: "Some API services are not responding correctly. This may affect video generation."
+        });
       } else {
-        toast.success(
-          "API Connections Verified", 
-          "All API keys are valid and connections are working properly."
-        );
+        toast.success("API Connections Verified", {
+          description: "All API keys are valid and connections are working properly."
+        });
       }
     } catch (error) {
       console.error('Error checking API keys:', error);
