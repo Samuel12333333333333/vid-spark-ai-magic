@@ -34,7 +34,6 @@ export interface VideoProject {
 interface VideoGenerationParams {
   prompt: string;
   style: string;
-  format?: string; // Make this optional since it might not be supported in the database
   userId: string;
   brandKit?: {
     primaryColor: string;
@@ -48,6 +47,7 @@ interface VideoGenerationParams {
     script: string;
   };
   modelVersion?: string;
+  // Remove format from here if it's not in the database
 }
 
 interface VideoGenerationResult {
@@ -61,44 +61,38 @@ export const videoService = {
   /**
    * Generate a video based on user prompt and preferences
    */
-  async generateVideo(params: VideoGenerationParams): Promise<VideoGenerationResult> {
+  async generateVideo(params: VideoGenerationParams): Promise<{ success: boolean; videoId?: string; error?: string }> {
     try {
       console.log("Starting video generation with params:", params);
       
-      // Step 1: Create video project in the database
-      const title = params.prompt.substring(0, 100) + (params.prompt.length > 100 ? '...' : '');
-      
-      // Prepare brandColors as JSON string if present
-      const brandColors = params.brandKit ? JSON.stringify(params.brandKit) : null;
-      
-      const { data: project, error: projectError } = await supabase
+      // Create video project in the database
+      // Remove format from the inserted data if it's not in the database schema
+      const { data: projectData, error: projectError } = await supabase
         .from("video_projects")
         .insert({
-          title: title,
+          title: `Video: ${params.prompt.substring(0, 50)}${params.prompt.length > 50 ? "..." : ""}`,
           prompt: params.prompt,
+          user_id: params.userId,
           style: params.style,
-          format: params.format || "16:9",
-          status: "processing",
-          has_audio: params.voiceSettings ? true : false,
-          has_captions: false,
-          narration_script: params.voiceSettings?.script || null,
-          brand_colors: brandColors,
-          user_id: params.userId
+          status: "pending",
+          // Do not include format here since it's not in the database
+          media_source: params.useStockMedia ? "stock" : "upload",
+          brand_colors: params.brandKit ? JSON.stringify(params.brandKit) : null,
+          narration_script: params.voiceSettings?.script || null
         })
-        .select()
-        .single();
+        .select();
         
       if (projectError) {
         console.error("Error creating video project:", projectError);
-        return { success: false, error: "Failed to create video project" };
+        return { success: false, error: error.message || "An error occurred during video generation" };
       }
       
-      if (!project) {
+      if (!projectData) {
         console.error("No project returned after creation");
         return { success: false, error: "Failed to create video project" };
       }
       
-      console.log("Created video project with ID:", project.id);
+      console.log("Created video project with ID:", projectData.id);
       
       // Step 2: Generate scenes using AI
       let scenes: SceneBreakdown[] = [];
@@ -111,7 +105,7 @@ export const videoService = {
         if (scenes.length > 0) {
           await aiService.saveScript(
             params.userId,
-            `Scene breakdown for: ${title}`,
+            `Scene breakdown for: ${params.prompt.substring(0, 100) + (params.prompt.length > 100 ? '...' : '')}`,
             JSON.stringify(scenes),
             'scene-breakdown'
           );
@@ -121,7 +115,7 @@ export const videoService = {
             const { error: updateError } = await supabase
               .from("video_projects")
               .update({ scenes: scenes as unknown as Json })
-              .eq("id", project.id);
+              .eq("id", projectData.id);
               
             if (updateError) {
               console.error("Failed to update project with scenes:", updateError);
@@ -148,7 +142,7 @@ export const videoService = {
               script: params.voiceSettings.script,
               voiceId: params.voiceSettings.voiceId,
               userId: params.userId,
-              projectId: project.id
+              projectId: projectData.id
             }
           });
           
@@ -164,7 +158,7 @@ export const videoService = {
               const { error: audioUpdateError } = await supabase
                 .from("video_projects")
                 .update(updateData)
-                .eq("id", project.id);
+                .eq("id", projectData.id);
                 
               if (audioUpdateError) {
                 console.error("Error updating project with audio URL:", audioUpdateError);
@@ -202,7 +196,7 @@ export const videoService = {
         
         const { data: renderData, error: renderError } = await supabase.functions.invoke('render-video', {
           body: {
-            projectId: project.id,
+            projectId: projectData.id,
             userId: params.userId,
             prompt: params.prompt,
             scenes: scenes,
@@ -229,7 +223,7 @@ export const videoService = {
                 status: "failed",
                 error_message: renderError.message || "Failed to start video rendering"
               })
-              .eq("id", project.id);
+              .eq("id", projectData.id);
           } catch (updateError) {
             console.error("Error updating project status:", updateError);
           }
@@ -237,7 +231,7 @@ export const videoService = {
           return { 
             success: false, 
             error: "Failed to start video rendering. Please try again.",
-            videoId: project.id
+            videoId: projectData.id
           };
         }
         
@@ -251,7 +245,7 @@ export const videoService = {
                 status: "failed",
                 error_message: "No render ID returned from rendering service"
               })
-              .eq("id", project.id);
+              .eq("id", projectData.id);
           } catch (updateError) {
             console.error("Error updating project status:", updateError);
           }
@@ -259,7 +253,7 @@ export const videoService = {
           return { 
             success: false, 
             error: "Failed to get render ID. Please try again.",
-            videoId: project.id
+            videoId: projectData.id
           };
         }
         
@@ -273,7 +267,7 @@ export const videoService = {
               render_id: renderData.renderId,
               status: "processing"
             })
-            .eq("id", project.id);
+            .eq("id", projectData.id);
         } catch (updateError) {
           console.error("Error updating project with render ID:", updateError);
           // Continue despite error
@@ -281,7 +275,7 @@ export const videoService = {
         
         return { 
           success: true, 
-          videoId: project.id,
+          videoId: projectData.id,
           message: "Video generation started successfully" 
         };
         
@@ -296,7 +290,7 @@ export const videoService = {
               status: "failed",
               error_message: renderError instanceof Error ? renderError.message : "Unknown render error"
             })
-            .eq("id", project.id);
+            .eq("id", projectData.id);
         } catch (updateError) {
           console.error("Error updating project status:", updateError);
         }
@@ -304,7 +298,7 @@ export const videoService = {
         return { 
           success: false, 
           error: "Failed to start video rendering. Please try again.",
-          videoId: project.id 
+          videoId: projectData.id 
         };
       }
     } catch (error) {

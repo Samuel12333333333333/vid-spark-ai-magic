@@ -13,48 +13,37 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Testing Shotstack API connection...");
-    
-    const apiKey = Deno.env.get("SHOTSTACK_API_KEY");
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ success: false, message: "SHOTSTACK_API_KEY not found in environment variables" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
+    // Get the API key from environment variables
+    const shotstackApiKey = Deno.env.get("SHOTSTACK_API_KEY");
+    if (!shotstackApiKey) {
+      console.error("SHOTSTACK_API_KEY is not set");
+      throw new Error("Shotstack API key is not configured");
     }
 
-    // Test connection by calling the API status endpoint
-    const response = await fetch("https://api.shotstack.io/stage/demo/status", {
+    // Use the proper Shotstack API endpoint to test the key
+    // Instead of trying a /demo/status endpoint, we'll use their API status endpoint
+    const response = await fetch("https://api.shotstack.io/stage/me", {
       method: "GET",
       headers: {
-        "x-api-key": apiKey,
+        "x-api-key": shotstackApiKey,
         "Content-Type": "application/json",
       },
     });
 
-    console.log(`Shotstack API response status: ${response.status}`);
-
+    // Process and return the response
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Shotstack render API error: ${response.status} ${errorText}`);
-      
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: `API Error: ${response.status} ${response.statusText}`,
-          details: errorText
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: response.status }
-      );
+      console.error(`Shotstack API error (${response.status}): ${errorText}`);
+      throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    
+    console.log("Shotstack API connection successful:", data);
+
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: "Shotstack API connection successful", 
-        data 
+      JSON.stringify({
+        success: true,
+        message: "Shotstack API connection successful",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -62,12 +51,14 @@ serve(async (req) => {
     console.error("Error testing Shotstack API:", error);
     
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: "Error testing Shotstack API", 
-        error: error.message || "Unknown error" 
+      JSON.stringify({
+        success: false,
+        error: error.message || "Failed to connect to Shotstack API",
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
     );
   }
 });
