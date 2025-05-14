@@ -2,145 +2,52 @@
 import { VideoGenerator } from "@/components/dashboard/VideoGenerator";
 import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle2, ExternalLink } from "lucide-react";
+import { AlertCircle, CheckCircle2, ExternalLink, AlertTriangle } from "lucide-react";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { showErrorToast } from "@/lib/error-handler";
+import apiKeyValidator, { ApiKeyStatus } from "@/services/apiKeyValidator";
 
 export default function GeneratorPage() {
-  const [apiStatus, setApiStatus] = useState<{
-    pexels: 'checking' | 'ok' | 'error';
-    gemini: 'checking' | 'ok' | 'error';
-    shotstack: 'checking' | 'ok' | 'error';
-    elevenlabs: 'checking' | 'ok' | 'error';
-  }>({
-    pexels: 'checking',
-    gemini: 'checking',
-    shotstack: 'checking',
-    elevenlabs: 'checking'
-  });
-  
-  const [isCheckingApis, setIsCheckingApis] = useState(true);
-  const [showDocs, setShowDocs] = useState(false);
+  const [apiStatus, setApiStatus] = useState<Record<string, ApiKeyStatus>>({});
+  const [isCheckingApis, setIsCheckingApis] = useState<boolean>(true);
+  const [showDocs, setShowDocs] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check if the API keys are set in Supabase environment
-    const checkApiKeys = async () => {
-      try {
-        setIsCheckingApis(true);
-        
-        // Check Pexels API with proper error handling
-        try {
-          setApiStatus(prev => ({ ...prev, pexels: 'checking' }));
-          const pexelsResult = await supabase.functions.invoke('search-videos', {
-            body: { keywords: ["test"] }
-          });
-          
-          if (pexelsResult.error) {
-            console.error('Error testing Pexels API key:', pexelsResult.error);
-            setApiStatus(prev => ({ ...prev, pexels: 'error' }));
-          } else if (!pexelsResult.data || !Array.isArray(pexelsResult.data.videos)) {
-            console.error('Invalid response from Pexels API test:', pexelsResult.data);
-            setApiStatus(prev => ({ ...prev, pexels: 'error' }));
-          } else {
-            console.log('Pexels API key test successful');
-            setApiStatus(prev => ({ ...prev, pexels: 'ok' }));
-          }
-        } catch (pexelsError) {
-          console.error('Exception testing Pexels API:', pexelsError);
-          setApiStatus(prev => ({ ...prev, pexels: 'error' }));
-        }
-        
-        // Check Gemini API with proper error handling
-        try {
-          setApiStatus(prev => ({ ...prev, gemini: 'checking' }));
-          const geminiResult = await supabase.functions.invoke('generate-scenes', {
-            body: { prompt: "Test scene" }
-          });
-          
-          if (geminiResult.error) {
-            console.error('Error testing Gemini API key:', geminiResult.error);
-            setApiStatus(prev => ({ ...prev, gemini: 'error' }));
-          } else if (!geminiResult.data || !geminiResult.data.scenes) {
-            console.error('Invalid response from Gemini API test:', geminiResult);
-            setApiStatus(prev => ({ ...prev, gemini: 'error' }));
-          } else {
-            console.log('Gemini API key test successful');
-            setApiStatus(prev => ({ ...prev, gemini: 'ok' }));
-          }
-        } catch (geminiError) {
-          console.error('Exception testing Gemini API:', geminiError);
-          setApiStatus(prev => ({ ...prev, gemini: 'error' }));
-        }
-        
-        // Check Shotstack API with proper error handling
-        try {
-          setApiStatus(prev => ({ ...prev, shotstack: 'checking' }));
-          const shotstackTestResult = await supabase.functions.invoke('test-shotstack', {
-            body: {} 
-          });
-          
-          if (shotstackTestResult.error) {
-            console.error('Error testing Shotstack API key:', shotstackTestResult.error);
-            setApiStatus(prev => ({ ...prev, shotstack: 'error' }));
-          } else if (!shotstackTestResult.data || !shotstackTestResult.data.success) {
-            console.error('Invalid response from Shotstack API test:', shotstackTestResult);
-            setApiStatus(prev => ({ ...prev, shotstack: 'error' }));
-          } else {
-            console.log('Shotstack API test successful');
-            setApiStatus(prev => ({ ...prev, shotstack: 'ok' }));
-          }
-        } catch (shotstackError) {
-          console.error('Exception testing Shotstack API:', shotstackError);
-          setApiStatus(prev => ({ ...prev, shotstack: 'error' }));
-        }
-        
-        // Check ElevenLabs API with proper error handling
-        try {
-          setApiStatus(prev => ({ ...prev, elevenlabs: 'checking' }));
-          
-          // Use a very short test script to minimize the chance of errors
-          const elevenLabsResult = await supabase.functions.invoke('generate-audio', {
-            body: { 
-              script: "Hello, this is a test.", 
-              voiceId: "21m00Tcm4TlvDq8ikWAM",
-              userId: "test", 
-              projectId: "test" 
-            }
-          });
-          
-          // Properly validate ElevenLabs API response
-          if (elevenLabsResult.error) {
-            console.error('Error testing ElevenLabs API key:', elevenLabsResult.error);
-            setApiStatus(prev => ({ ...prev, elevenlabs: 'error' }));
-          } else if (!elevenLabsResult.data) {
-            console.error('No data returned from ElevenLabs API test');
-            setApiStatus(prev => ({ ...prev, elevenlabs: 'error' }));
-          } else if (!elevenLabsResult.data.audioBase64) {
-            console.error('ElevenLabs API did not return audio data');
-            setApiStatus(prev => ({ ...prev, elevenlabs: 'error' }));
-          } else {
-            console.log('ElevenLabs API key test successful');
-            setApiStatus(prev => ({ ...prev, elevenlabs: 'ok' }));
-          }
-        } catch (elevenLabsError) {
-          console.error('Exception testing ElevenLabs API:', elevenLabsError);
-          setApiStatus(prev => ({ ...prev, elevenlabs: 'error' }));
-        }
-      } catch (error) {
-        console.error('Error in checkApiKeys:', error);
-        showErrorToast(error);
-      } finally {
-        setIsCheckingApis(false);
-      }
-    };
-    
-    // This is useful for debugging API key issues
+    // Check API keys on component mount
     checkApiKeys();
   }, []);
+
+  const checkApiKeys = async () => {
+    try {
+      setIsCheckingApis(true);
+      
+      // Validate all API keys
+      const results = await apiKeyValidator.validateAllApiKeys();
+      setApiStatus(results);
+      
+      // Show a warning if any key is invalid
+      const invalidKeys = Object.values(results).filter(key => !key.isValid);
+      if (invalidKeys.length > 0) {
+        toast.warning(
+          "API Connection Issues Detected", 
+          "Some API services are not responding correctly. This may affect video generation."
+        );
+      } else {
+        toast.success(
+          "API Connections Verified", 
+          "All API keys are valid and connections are working properly."
+        );
+      }
+    } catch (error) {
+      console.error('Error checking API keys:', error);
+      showErrorToast(error);
+    } finally {
+      setIsCheckingApis(false);
+    }
+  };
 
   const apiStatusDetails = {
     pexels: {
@@ -218,7 +125,7 @@ export default function GeneratorPage() {
         )}
       </div>
       
-      {Object.values(apiStatus).some(status => status === 'error') && (
+      {Object.values(apiStatus).some(status => status.isValid === false) && (
         <Card className="mb-6 border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
@@ -232,14 +139,17 @@ export default function GeneratorPage() {
           <CardContent>
             <ul className="space-y-2">
               {Object.entries(apiStatus).map(([key, status]) => 
-                status === 'error' && (
+                !status.isValid && (
                   <li key={key} className="flex items-start gap-2">
                     <AlertCircle className="h-4 w-4 text-red-500 mt-0.5" />
                     <div>
-                      <p className="font-medium">{apiStatusDetails[key as keyof typeof apiStatus].name}</p>
+                      <p className="font-medium">{apiStatusDetails[key]?.name || key}</p>
                       <p className="text-sm text-muted-foreground">
-                        Check if <code className="bg-muted px-1 py-0.5 rounded text-xs">{apiStatusDetails[key as keyof typeof apiStatus].envVar}</code> is correctly set in your Supabase project
+                        Check if <code className="bg-muted px-1 py-0.5 rounded text-xs">{status.key}</code> is correctly set in your Supabase project
                       </p>
+                      {status.errorMessage && (
+                        <p className="text-xs text-red-500 mt-1">{status.errorMessage}</p>
+                      )}
                     </div>
                   </li>
                 )
@@ -249,15 +159,23 @@ export default function GeneratorPage() {
               variant="outline" 
               size="sm" 
               className="mt-4"
-              onClick={() => window.location.reload()}
+              onClick={() => checkApiKeys()}
+              disabled={isCheckingApis}
             >
-              Retry Connection Check
+              {isCheckingApis ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
+                  Checking APIs...
+                </>
+              ) : (
+                "Retry Connection Check"
+              )}
             </Button>
           </CardContent>
         </Card>
       )}
       
-      {Object.values(apiStatus).every(status => status === 'ok') && (
+      {Object.values(apiStatus).length > 0 && Object.values(apiStatus).every(status => status.isValid === true) && (
         <Card className="mb-6 border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
@@ -282,6 +200,29 @@ export default function GeneratorPage() {
               Verifying connection to all required API services...
             </CardDescription>
           </CardHeader>
+        </Card>
+      )}
+      
+      {!isCheckingApis && Object.values(apiStatus).length === 0 && (
+        <Card className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-5 w-5" />
+              API Status Check Failed
+            </CardTitle>
+            <CardDescription>
+              Unable to verify API connections. Please check your network connection and try again.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => checkApiKeys()}
+            >
+              Retry Connection Check
+            </Button>
+          </CardContent>
         </Card>
       )}
       

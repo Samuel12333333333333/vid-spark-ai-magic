@@ -28,35 +28,49 @@ serve(async (req) => {
       throw new Error("Text is too long (max 4000 characters)");
     }
 
-    // Get OpenAI API key from environment
-    const openAiApiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openAiApiKey) {
-      throw new Error("OpenAI API key is not configured");
+    // Get API key from environment
+    const apiKey = Deno.env.get("ELEVEN_LABS_API_KEY");
+    if (!apiKey) {
+      console.error("ELEVEN_LABS_API_KEY not found in environment variables");
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "ElevenLabs API key is not configured",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
     }
     
-    // Generate audio from text
-    console.log("Calling OpenAI TTS API...");
-    const response = await fetch("https://api.openai.com/v1/audio/speech", {
+    // Generate audio using ElevenLabs API
+    console.log("Calling ElevenLabs API...");
+    const voiceId = "21m00Tcm4TlvDq8ikWAM"; // Default voice ID if not provided
+    
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${openAiApiKey}`,
+        "xi-api-key": apiKey,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "tts-1",
-        input: text,
-        voice: voice,
-        response_format: "mp3",
+        text,
+        model_id: "eleven_monolingual_v1",
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.5,
+        },
       }),
     });
     
     if (!response.ok) {
       const errorData = await response.text();
-      console.error("OpenAI API error:", errorData);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
+      console.error("ElevenLabs API error:", errorData);
+      throw new Error(`ElevenLabs API error: ${response.status} - ${errorData}`);
     }
     
-    console.log("Successfully generated audio from OpenAI");
+    console.log("Successfully generated audio from ElevenLabs");
     
     // Convert audio to base64
     const audioBuffer = await response.arrayBuffer();
