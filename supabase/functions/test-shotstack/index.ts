@@ -13,6 +13,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Checking Shotstack API key...");
+    
     // Get the API key from environment variables
     const shotstackApiKey = Deno.env.get("SHOTSTACK_API_KEY");
     if (!shotstackApiKey) {
@@ -20,9 +22,11 @@ serve(async (req) => {
       throw new Error("Shotstack API key is not configured");
     }
 
+    console.log("Making request to Shotstack API...");
+    
     // Use the proper Shotstack API endpoint to test the key
-    // Instead of trying a /demo/status endpoint, we'll use their API status endpoint
-    const response = await fetch("https://api.shotstack.io/stage/me", {
+    // We're using the /me endpoint which is a safe endpoint to validate the API key
+    const response = await fetch("https://api.shotstack.io/v1/me", {
       method: "GET",
       headers: {
         "x-api-key": shotstackApiKey,
@@ -30,7 +34,7 @@ serve(async (req) => {
       },
     });
 
-    // Process and return the response
+    // Process the response
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Shotstack API error (${response.status}): ${errorText}`);

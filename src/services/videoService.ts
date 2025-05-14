@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { aiService, SceneBreakdown } from "@/services/aiService";
 import { toast } from "sonner";
@@ -53,7 +54,7 @@ interface VideoGenerationResult {
   success: boolean;
   videoId?: string;
   error?: string;
-  message?: string; // Adding message to the interface to fix the error
+  message?: string;
 }
 
 export const videoService = {
