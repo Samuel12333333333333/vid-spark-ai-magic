@@ -141,14 +141,15 @@ export const apiKeyValidator = {
    */
   async areAllApiKeysValid(): Promise<boolean> {
     const validationResults = await this.validateAllApiKeys();
-    return Object.values(validationResults).every(result => result.isValid);
+    // Explicitly type each result as ApiKeyStatus to ensure isValid property is recognized
+    return Object.values(validationResults).every((result: ApiKeyStatus) => result.isValid);
   },
   
   /**
    * Generate a help message for missing or invalid API keys
    */
   generateHelpMessage(validationResults: Record<ApiKeyName, ApiKeyStatus>): string {
-    const invalidKeys = Object.values(validationResults).filter(result => !result.isValid);
+    const invalidKeys = Object.values(validationResults).filter((result: ApiKeyStatus) => !result.isValid);
     
     if (invalidKeys.length === 0) {
       return "All API keys are valid.";
