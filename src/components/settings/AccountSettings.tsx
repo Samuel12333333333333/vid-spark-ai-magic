@@ -47,7 +47,9 @@ export function AccountSettings() {
         }
       } catch (error) {
         console.error("Error fetching profile:", error);
-        toast.error("Failed to load profile", "There was an error loading your profile information.");
+        toast.error("Failed to load profile", {
+          description: "There was an error loading your profile information."
+        });
       } finally {
         setIsLoading(false);
       }
@@ -65,11 +67,15 @@ export function AccountSettings() {
       
       if (result.success && result.profile) {
         setProfile(result.profile);
-        toast.success("Profile updated", "Your profile has been updated successfully.");
+        toast.success("Profile updated", {
+          description: "Your profile has been updated successfully."
+        });
       }
     } catch (error) {
       console.error("Error updating profile:", error);
-      toast.error("Update failed", "There was an error updating your profile.");
+      toast.error("Update failed", {
+        description: "There was an error updating your profile."
+      });
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +88,9 @@ export function AccountSettings() {
     
     const file = e.target.files[0];
     if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      toast.error("File too large", "File size must be less than 5MB");
+      toast.error("File too large", {
+        description: "File size must be less than 5MB"
+      });
       return;
     }
 
@@ -97,12 +105,16 @@ export function AccountSettings() {
       if (result.success && result.url) {
         setAvatarPreview(result.url);
         setProfile(prev => prev ? {...prev, avatar_url: result.url} : null);
-        toast.success("Avatar updated", "Your avatar has been updated successfully.");
+        toast.success("Avatar updated", {
+          description: "Your avatar has been updated successfully."
+        });
       }
     } catch (error) {
       console.error("Error uploading avatar:", error);
       setAvatarPreview(profile?.avatar_url || null);
-      toast.error("Upload failed", "There was an error uploading your avatar.");
+      toast.error("Upload failed", {
+        description: "There was an error uploading your avatar."
+      });
     } finally {
       setIsLoading(false);
     }

@@ -1,6 +1,7 @@
+
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+import { ToastProvider, ToastViewport } from "@/components/ui/toast";
+import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -85,7 +86,9 @@ const App = () => {
           <SubscriptionProvider>
             <HelmetProvider>
               <TooltipProvider>
-                <Toaster />
+                <ToastProvider>
+                  <ToastViewport />
+                </ToastProvider>
                 <Sonner position="top-right" closeButton />
                 <ErrorBoundary>
                   <Routes>
