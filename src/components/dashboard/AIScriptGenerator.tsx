@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { aiService, ScriptType } from "@/services/aiService";
@@ -15,6 +14,7 @@ import { ScriptList } from "./ScriptList";
 
 export function AIScriptGenerator() {
   const { user } = useAuth();
+  // Updated to use the now-valid ScriptType values
   const [scriptType, setScriptType] = useState<ScriptType>("hook");
   const [topic, setTopic] = useState("");
   const [scriptTitle, setScriptTitle] = useState("");

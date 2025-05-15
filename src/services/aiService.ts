@@ -9,7 +9,8 @@ export interface SceneBreakdown {
   videoUrl?: string;
 }
 
-export type ScriptType = 'scene-breakdown' | 'voice-over' | 'captions';
+// Update ScriptType to include all script types used in the AIScriptGenerator component
+export type ScriptType = 'scene-breakdown' | 'voice-over' | 'captions' | 'hook' | 'full' | 'caption' | 'hashtag';
 
 export const aiService = {
   /**
