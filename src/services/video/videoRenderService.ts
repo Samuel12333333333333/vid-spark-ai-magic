@@ -24,12 +24,25 @@ export const videoRenderService = {
       
       console.log(`Starting render for project ${projectId} with ${scenes.length} scenes`);
       
+      // Extract any media URLs from scenes for easier access in the edge function
+      const mediaUrls = scenes
+        .map(scene => scene.videoUrl || scene.media_url || (scene.media && scene.media.url))
+        .filter(Boolean);
+        
+      console.log(`Processed ${scenes.length} scenes with videos`);
+      
+      // Log the scenes being sent to verify the structure
+      console.log("Starting render with scenes:", scenes);
+      
       const { data, error } = await supabase.functions.invoke("render-video", {
         body: {
           projectId,
+          userId: (await supabase.auth.getUser()).data.user?.id,
           prompt,
           style,
           scenes,
+          mediaUrls,
+          useStockMedia: true,
           has_audio: hasAudio,
           has_captions: hasCaptions,
           audioUrl,

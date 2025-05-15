@@ -53,7 +53,8 @@ serve(async (req) => {
       has_audio,
       has_captions,
       captionsFile,
-      brandKit 
+      brandKit,
+      mediaUrls = []
     } = params;
     
     // Validate required parameters
@@ -82,16 +83,33 @@ serve(async (req) => {
     // Process scenes to use stock videos - we'll use keywords from each scene
     // to find suitable stock videos if videoUrl is not already provided
     let currentTime = 0;
-    const sceneDuration = 5; // Default duration per scene in seconds
     
-    // Collect any scenes that have video URLs
+    // Check for valid video URLs in the scenes or mediaUrls array
     const validScenes = scenes.filter(scene => {
-      // We need to handle both formats: scene.videoUrl and scene.media_url
-      return scene.videoUrl || scene.media_url;
+      // Try multiple possible properties where video URL might be stored
+      return scene.videoUrl || 
+             scene.media_url || 
+             scene.url || 
+             (scene.media && scene.media.url);
     });
 
-    if (validScenes.length === 0) {
-      // If no valid scenes, we can't proceed
+    // If no valid scenes with video URLs, try using the mediaUrls array if provided
+    if (validScenes.length === 0 && mediaUrls && mediaUrls.length > 0) {
+      console.log(`No video URLs found in scenes, using ${mediaUrls.length} media URLs instead`);
+      
+      // Create scenes from mediaUrls
+      for (let i = 0; i < Math.min(scenes.length, mediaUrls.length); i++) {
+        scenes[i].videoUrl = mediaUrls[i];
+      }
+      
+      // Check again for valid scenes
+      const scenesWithUrls = scenes.filter(scene => scene.videoUrl);
+      
+      if (scenesWithUrls.length === 0) {
+        console.error("No valid video URLs found in scenes or mediaUrls");
+        throw new Error("No valid video URLs available for rendering. Please ensure videos are selected for each scene.");
+      }
+    } else if (validScenes.length === 0) {
       console.error("No valid video URLs found in scenes");
       throw new Error("No valid video URLs found in scenes. Please ensure each scene has a videoUrl property.");
     }
@@ -99,9 +117,23 @@ serve(async (req) => {
     console.log(`Found ${validScenes.length} scenes with valid video URLs`);
     
     // Create video clips for valid scenes
-    validScenes.forEach((scene, index) => {
-      const videoUrl = scene.videoUrl || scene.media_url;
+    const sceneDuration = 5; // Default duration per scene in seconds
+    
+    scenes.forEach((scene, index) => {
+      // Extract video URL from various possible properties
+      const videoUrl = scene.videoUrl || scene.media_url || scene.url || 
+                      (scene.media && scene.media.url) || 
+                      (mediaUrls && mediaUrls[index]);
+                      
+      if (!videoUrl) {
+        console.log(`Skipping scene ${index} - no video URL found`);
+        return; // Skip scenes without video URLs
+      }
+      
       console.log(`Adding scene ${index} with video: ${videoUrl}`);
+      
+      // Use provided duration or fallback to default
+      const duration = scene.duration || sceneDuration;
       
       // Add video clip
       videoClipTrack.clips.push({
@@ -111,11 +143,11 @@ serve(async (req) => {
           trim: 0,
         },
         start: currentTime,
-        length: scene.duration || sceneDuration,
+        length: duration,
         effect: "zoomIn",
         transition: {
           in: index === 0 ? "fade" : "slideLeft",
-          out: index === (validScenes.length - 1) ? "fade" : null,
+          out: index === (scenes.length - 1) ? "fade" : null,
         }
       });
       
@@ -130,12 +162,18 @@ serve(async (req) => {
             position: "bottom"
           },
           start: currentTime,
-          length: scene.duration || sceneDuration
+          length: duration
         });
       }
       
-      currentTime += (scene.duration || sceneDuration);
+      currentTime += duration;
     });
+    
+    // Check if we have any valid clips
+    if (videoClipTrack.clips.length === 0) {
+      console.error("No valid video clips could be created");
+      throw new Error("Failed to create video clips from the provided scenes.");
+    }
     
     // Add tracks to timeline
     timeline.tracks.push(videoClipTrack);
