@@ -1,5 +1,7 @@
 
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { aiService, ScriptType } from "@/services/aiService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,18 +9,21 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Copy, Download, RefreshCw } from "lucide-react";
+import { Loader2, Copy, Download, RefreshCw, Save } from "lucide-react";
 import { toast } from "sonner";
-
-type ScriptType = "hook" | "full" | "caption" | "hashtag";
+import { ScriptList } from "./ScriptList";
 
 export function AIScriptGenerator() {
+  const { user } = useAuth();
   const [scriptType, setScriptType] = useState<ScriptType>("hook");
   const [topic, setTopic] = useState("");
+  const [scriptTitle, setScriptTitle] = useState("");
   const [niche, setNiche] = useState("marketing");
   const [tone, setTone] = useState("professional");
   const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [generatedContent, setGeneratedContent] = useState("");
+  const [showSavedScripts, setShowSavedScripts] = useState(false);
 
   const niches = [
     { value: "marketing", label: "Marketing" },
@@ -49,6 +54,11 @@ export function AIScriptGenerator() {
 
     setGenerating(true);
     setGeneratedContent(""); // Clear previous content
+    
+    // Auto-generate a title if none is provided
+    if (!scriptTitle) {
+      setScriptTitle(`${scriptType === "hook" ? "Hook" : scriptType === "full" ? "Full Script" : scriptType === "caption" ? "Caption" : "Hashtags"} for ${topic}`);
+    }
 
     // Simulate API call
     setTimeout(() => {
@@ -70,6 +80,46 @@ export function AIScriptGenerator() {
     }, 2000);
   };
 
+  const handleSave = async () => {
+    if (!user) {
+      toast.error("You must be logged in to save scripts");
+      return;
+    }
+    
+    if (!generatedContent) {
+      toast.error("Generate a script before saving");
+      return;
+    }
+    
+    if (!scriptTitle) {
+      toast.error("Please provide a title for your script");
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const scriptId = await aiService.saveScript(
+        user.id,
+        scriptTitle,
+        generatedContent,
+        scriptType
+      );
+      
+      if (scriptId) {
+        toast.success("Script saved successfully!");
+        // If showing saved scripts, refresh the list
+        setShowSavedScripts(true);
+      } else {
+        throw new Error("Failed to save script");
+      }
+    } catch (error) {
+      console.error("Error saving script:", error);
+      toast.error("Failed to save script");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleCopy = () => {
     navigator.clipboard.writeText(generatedContent);
     toast.success("Copied to clipboard!");
@@ -77,7 +127,13 @@ export function AIScriptGenerator() {
 
   const handleReset = () => {
     setTopic("");
+    setScriptTitle("");
     setGeneratedContent("");
+  };
+
+  const handleSelectSavedScript = (content: string) => {
+    setGeneratedContent(content);
+    setShowSavedScripts(false);
   };
 
   // Mock content generators
@@ -148,144 +204,191 @@ export function AIScriptGenerator() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle>AI Script Generator</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs 
-            value={scriptType} 
-            onValueChange={(value) => setScriptType(value as ScriptType)}
-            className="w-full"
-          >
-            <TabsList className="grid grid-cols-4 mb-6">
-              <TabsTrigger value="hook">Hook Generator</TabsTrigger>
-              <TabsTrigger value="full">Full Script</TabsTrigger>
-              <TabsTrigger value="caption">Caption Rewriter</TabsTrigger>
-              <TabsTrigger value="hashtag">Hashtag Generator</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="hook">
-              <p className="text-sm text-muted-foreground mb-4">
-                Create attention-grabbing hooks for your videos that make viewers stop scrolling.
-              </p>
-            </TabsContent>
-            
-            <TabsContent value="full">
-              <p className="text-sm text-muted-foreground mb-4">
-                Generate a complete script for your video with intro, main points, and call to action.
-              </p>
-            </TabsContent>
-            
-            <TabsContent value="caption">
-              <p className="text-sm text-muted-foreground mb-4">
-                Transform boring captions into engaging social media text that drives engagement.
-              </p>
-            </TabsContent>
-            
-            <TabsContent value="hashtag">
-              <p className="text-sm text-muted-foreground mb-4">
-                Generate relevant hashtags to increase the discoverability of your content.
-              </p>
-            </TabsContent>
-          </Tabs>
+      <Tabs defaultValue="generator">
+        <TabsList className="mb-4">
+          <TabsTrigger value="generator">Create Script</TabsTrigger>
+          <TabsTrigger value="saved" onClick={() => setShowSavedScripts(true)}>
+            Saved Scripts
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="generator">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Script Generator</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs 
+                value={scriptType} 
+                onValueChange={(value) => setScriptType(value as ScriptType)}
+                className="w-full"
+              >
+                <TabsList className="grid grid-cols-4 mb-6">
+                  <TabsTrigger value="hook">Hook Generator</TabsTrigger>
+                  <TabsTrigger value="full">Full Script</TabsTrigger>
+                  <TabsTrigger value="caption">Caption Rewriter</TabsTrigger>
+                  <TabsTrigger value="hashtag">Hashtag Generator</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="hook">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Create attention-grabbing hooks for your videos that make viewers stop scrolling.
+                  </p>
+                </TabsContent>
+                
+                <TabsContent value="full">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Generate a complete script for your video with intro, main points, and call to action.
+                  </p>
+                </TabsContent>
+                
+                <TabsContent value="caption">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Transform boring captions into engaging social media text that drives engagement.
+                  </p>
+                </TabsContent>
+                
+                <TabsContent value="hashtag">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Generate relevant hashtags to increase the discoverability of your content.
+                  </p>
+                </TabsContent>
+              </Tabs>
 
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="topic">Topic / Main Idea</Label>
-              <Input
-                id="topic"
-                placeholder="e.g., Social media marketing strategies"
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="niche">Industry / Niche</Label>
-                <Select value={niche} onValueChange={setNiche}>
-                  <SelectTrigger id="niche">
-                    <SelectValue placeholder="Select niche" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {niches.map((n) => (
-                      <SelectItem key={n.value} value={n.value}>
-                        {n.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="tone">Tone of Voice</Label>
-                <Select value={tone} onValueChange={setTone}>
-                  <SelectTrigger id="tone">
-                    <SelectValue placeholder="Select tone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tones.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <Button 
-              onClick={handleGenerate} 
-              disabled={!topic || generating}
-              className="w-full bg-smartvid-600 hover:bg-smartvid-700"
-            >
-              {generating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                "Generate Script"
-              )}
-            </Button>
-          </div>
-
-          {generatedContent && (
-            <div className="mt-6 space-y-4">
-              <div className="border rounded-lg p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-medium">Generated {scriptType === "hashtag" ? "Hashtags" : "Script"}</h3>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={handleCopy}>
-                      <Copy className="h-4 w-4 mr-1" /> Copy
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={handleReset}>
-                      <RefreshCw className="h-4 w-4 mr-1" /> Reset
-                    </Button>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="topic">Topic / Main Idea</Label>
+                  <Input
+                    id="topic"
+                    placeholder="e.g., Social media marketing strategies"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="niche">Industry / Niche</Label>
+                    <Select value={niche} onValueChange={setNiche}>
+                      <SelectTrigger id="niche">
+                        <SelectValue placeholder="Select niche" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {niches.map((n) => (
+                          <SelectItem key={n.value} value={n.value}>
+                            {n.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="tone">Tone of Voice</Label>
+                    <Select value={tone} onValueChange={setTone}>
+                      <SelectTrigger id="tone">
+                        <SelectValue placeholder="Select tone" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tones.map((t) => (
+                          <SelectItem key={t.value} value={t.value}>
+                            {t.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 
-                <Textarea 
-                  value={generatedContent}
-                  onChange={(e) => setGeneratedContent(e.target.value)}
-                  className={`min-h-[200px] ${scriptType === "full" ? "font-mono text-sm" : ""}`}
-                />
+                <Button 
+                  onClick={handleGenerate} 
+                  disabled={!topic || generating}
+                  className="w-full bg-smartvid-600 hover:bg-smartvid-700"
+                >
+                  {generating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    "Generate Script"
+                  )}
+                </Button>
               </div>
-            </div>
-          )}
-        </CardContent>
-        <CardFooter className="flex justify-between border-t px-6 py-4">
-          <p className="text-xs text-muted-foreground">
-            AI-generated content may require editing to match your specific needs.
-          </p>
-          {generatedContent && (
-            <Button variant="outline" size="sm" onClick={handleCopy}>
-              <Download className="h-4 w-4 mr-1" /> Export
-            </Button>
-          )}
-        </CardFooter>
-      </Card>
+
+              {generatedContent && (
+                <div className="mt-6 space-y-4">
+                  <div>
+                    <Label htmlFor="title">Script Title</Label>
+                    <Input
+                      id="title"
+                      placeholder="Give your script a name to save it"
+                      value={scriptTitle}
+                      onChange={(e) => setScriptTitle(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="border rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-medium">Generated {scriptType === "hashtag" ? "Hashtags" : "Script"}</h3>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={handleCopy}>
+                          <Copy className="h-4 w-4 mr-1" /> Copy
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={handleReset}>
+                          <RefreshCw className="h-4 w-4 mr-1" /> Reset
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <Textarea 
+                      value={generatedContent}
+                      onChange={(e) => setGeneratedContent(e.target.value)}
+                      className={`min-h-[200px] ${scriptType === "full" ? "font-mono text-sm" : ""}`}
+                    />
+                  </div>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="flex justify-between border-t px-6 py-4">
+              <p className="text-xs text-muted-foreground">
+                AI-generated content may require editing to match your specific needs.
+              </p>
+              {generatedContent && (
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleSave}
+                    disabled={saving || !user}
+                  >
+                    {saving ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-1" />
+                    )}
+                    Save
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleCopy}>
+                    <Download className="h-4 w-4 mr-1" /> Export
+                  </Button>
+                </div>
+              )}
+            </CardFooter>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="saved">
+          <Card>
+            <CardHeader>
+              <CardTitle>Saved Scripts</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScriptList onSelect={handleSelectSavedScript} type={showSavedScripts ? scriptType : undefined} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

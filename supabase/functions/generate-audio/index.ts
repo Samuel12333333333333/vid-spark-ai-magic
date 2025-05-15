@@ -14,8 +14,23 @@ serve(async (req) => {
   }
 
   try {
-    // Parse request body
-    const { text, title, voice = "alloy" } = await req.json();
+    // Parse request body - expect either text or stringified JSON
+    let requestData;
+    const contentType = req.headers.get("content-type") || "";
+    
+    if (contentType.includes("application/json")) {
+      requestData = await req.json();
+    } else {
+      const text = await req.text();
+      try {
+        requestData = JSON.parse(text);
+      } catch (e) {
+        requestData = { text: text };
+      }
+    }
+    
+    // Extract parameters with fallbacks
+    const { text, title = "Untitled", voice = "alloy" } = requestData;
     
     if (!text) {
       throw new Error("Text is required");
@@ -99,6 +114,9 @@ serve(async (req) => {
           voice: voice,
           audio_content: base64Audio,
           created_at: new Date().toISOString()
+        }).catch(err => {
+          // Don't fail if table doesn't exist yet or other DB error
+          console.error("Error saving to audio cache:", err);
         });
         
         console.log("Cached audio for future use");
