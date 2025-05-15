@@ -31,8 +31,8 @@ export const videoRenderService = {
         
       console.log(`Processed ${scenes.length} scenes with videos`);
       
-      // Log the scenes being sent to verify the structure
-      console.log("Starting render with scenes:", scenes);
+      // Enhanced logging to help diagnose issues
+      console.log("Starting render with scenes:", JSON.stringify(scenes));
       
       const { data, error } = await supabase.functions.invoke("render-video", {
         body: {
@@ -52,7 +52,7 @@ export const videoRenderService = {
       
       if (error) {
         console.error("Error starting render:", error);
-        showErrorToast(error);
+        showErrorToast(error.message);
         return { success: false, error: error.message };
       }
       
@@ -66,7 +66,7 @@ export const videoRenderService = {
       return { success: true, renderId: data.renderId };
     } catch (error) {
       console.error("Exception in startRender:", error);
-      showErrorToast(error);
+      showErrorToast(error instanceof Error ? error.message : String(error));
       return { success: false, error: String(error) };
     }
   },
@@ -81,14 +81,14 @@ export const videoRenderService = {
       
       if (error) {
         console.error("Error checking render status:", error);
-        showErrorToast(error);
+        showErrorToast(error.message);
         return { status: 'failed', error: error.message };
       }
       
       return data as RenderResponse;
     } catch (error) {
       console.error("Exception in checkRenderStatus:", error);
-      showErrorToast(error);
+      showErrorToast(error instanceof Error ? error.message : String(error));
       return { status: 'failed', error: String(error) };
     }
   },

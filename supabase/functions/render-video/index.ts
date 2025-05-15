@@ -75,56 +75,123 @@ serve(async (req) => {
       background: "#000000",
       tracks: []
     };
+
+    // IMPORTANT: We need to fetch videos from Pexels if no videoUrls are provided
+    // Let's query Pexels API with keywords from each scene
+    async function fetchStockVideo(keywords) {
+      try {
+        const pexelsApiKey = Deno.env.get("PEXELS_API_KEY");
+        if (!pexelsApiKey) {
+          throw new Error("Pexels API key not configured");
+        }
+
+        const searchTerm = Array.isArray(keywords) ? keywords.slice(0, 3).join(" ") : keywords;
+        console.log(`Searching videos for: ${searchTerm}`);
+        
+        const response = await fetch(
+          `https://api.pexels.com/videos/search?query=${encodeURIComponent(searchTerm)}&per_page=1&orientation=landscape`,
+          {
+            headers: {
+              "Authorization": pexelsApiKey
+            }
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Pexels API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.videos && data.videos.length > 0) {
+          // Find the HD or SD video file
+          const videoFiles = data.videos[0].video_files;
+          const hdVideo = videoFiles.find(file => file.quality === "hd" && file.width >= 1280);
+          const sdVideo = videoFiles.find(file => file.quality === "sd");
+          const anyVideo = videoFiles[0]; // Fallback to any video
+          
+          const videoFile = hdVideo || sdVideo || anyVideo;
+          console.log(`Found video: ${videoFile.link}`);
+          return videoFile.link;
+        }
+        
+        throw new Error("No videos found for keywords");
+      } catch (error) {
+        console.error(`Error fetching stock video: ${error.message}`);
+        return null;
+      }
+    }
     
     // Add scenes to timeline
     const videoClipTrack = { clips: [] };
     const captionTrack = has_captions ? { clips: [] } : null;
     
-    // Process scenes to use stock videos - we'll use keywords from each scene
-    // to find suitable stock videos if videoUrl is not already provided
+    // Process scenes - we'll first check for provided videoUrl properties
+    // If not available, we'll search for stock videos based on keywords
     let currentTime = 0;
+    const scenesWithVideos = [...scenes]; // Clone array to avoid mutating original
     
-    // Check for valid video URLs in the scenes or mediaUrls array
-    const validScenes = scenes.filter(scene => {
-      // Try multiple possible properties where video URL might be stored
-      return scene.videoUrl || 
-             scene.media_url || 
-             scene.url || 
-             (scene.media && scene.media.url);
-    });
-
-    // If no valid scenes with video URLs, try using the mediaUrls array if provided
-    if (validScenes.length === 0 && mediaUrls && mediaUrls.length > 0) {
-      console.log(`No video URLs found in scenes, using ${mediaUrls.length} media URLs instead`);
+    // First, let's check if we have any valid video URLs
+    const hasAnyVideoUrls = scenes.some(scene => 
+      scene.videoUrl || scene.media_url || scene.url || (scene.media && scene.media.url)
+    );
+    
+    // If no scenes have videoUrls, fetch videos for each scene
+    if (!hasAnyVideoUrls && mediaUrls.length === 0) {
+      console.log("No video URLs found in scenes, searching for stock videos");
       
-      // Create scenes from mediaUrls
-      for (let i = 0; i < Math.min(scenes.length, mediaUrls.length); i++) {
-        scenes[i].videoUrl = mediaUrls[i];
+      // We need to fetch videos for each scene
+      for (let i = 0; i < scenesWithVideos.length; i++) {
+        const scene = scenesWithVideos[i];
+        const keywords = scene.keywords || [scene.scene, "video"];
+        
+        const videoUrl = await fetchStockVideo(keywords);
+        if (videoUrl) {
+          scenesWithVideos[i] = { ...scene, videoUrl };
+          console.log(`Added video URL to scene ${i}: ${videoUrl}`);
+        }
       }
+    } else if (mediaUrls && mediaUrls.length > 0) {
+      // Use provided mediaUrls if available
+      console.log(`Using ${mediaUrls.length} provided media URLs`);
       
-      // Check again for valid scenes
-      const scenesWithUrls = scenes.filter(scene => scene.videoUrl);
-      
-      if (scenesWithUrls.length === 0) {
-        console.error("No valid video URLs found in scenes or mediaUrls");
-        throw new Error("No valid video URLs available for rendering. Please ensure videos are selected for each scene.");
+      for (let i = 0; i < Math.min(scenesWithVideos.length, mediaUrls.length); i++) {
+        scenesWithVideos[i] = { ...scenesWithVideos[i], videoUrl: mediaUrls[i] };
+        console.log(`Added media URL to scene ${i}: ${mediaUrls[i]}`);
       }
-    } else if (validScenes.length === 0) {
-      console.error("No valid video URLs found in scenes");
-      throw new Error("No valid video URLs found in scenes. Please ensure each scene has a videoUrl property.");
     }
-
-    console.log(`Found ${validScenes.length} scenes with valid video URLs`);
+    
+    // Check if we have valid video URLs after all processing
+    const validScenesWithVideos = scenesWithVideos.filter(scene => {
+      const hasValidUrl = Boolean(
+        scene.videoUrl || 
+        scene.media_url || 
+        scene.url || 
+        (scene.media && scene.media.url)
+      );
+      
+      if (!hasValidUrl) {
+        console.log(`Scene missing video URL: ${scene.scene || 'Unnamed scene'}`);
+      }
+      
+      return hasValidUrl;
+    });
+    
+    if (validScenesWithVideos.length === 0) {
+      console.error("No valid video URLs found in scenes after processing");
+      throw new Error("Failed to find videos for scenes. Please try a different prompt or provide video URLs.");
+    }
+    
+    console.log(`Found ${validScenesWithVideos.length} valid scenes with videos`);
     
     // Create video clips for valid scenes
-    const sceneDuration = 5; // Default duration per scene in seconds
+    const defaultDuration = 5; // Default duration per scene in seconds
     
-    scenes.forEach((scene, index) => {
+    validScenesWithVideos.forEach((scene, index) => {
       // Extract video URL from various possible properties
       const videoUrl = scene.videoUrl || scene.media_url || scene.url || 
-                      (scene.media && scene.media.url) || 
-                      (mediaUrls && mediaUrls[index]);
-                      
+                    (scene.media && scene.media.url);
+      
       if (!videoUrl) {
         console.log(`Skipping scene ${index} - no video URL found`);
         return; // Skip scenes without video URLs
@@ -133,7 +200,7 @@ serve(async (req) => {
       console.log(`Adding scene ${index} with video: ${videoUrl}`);
       
       // Use provided duration or fallback to default
-      const duration = scene.duration || sceneDuration;
+      const duration = scene.duration || defaultDuration;
       
       // Add video clip
       videoClipTrack.clips.push({
@@ -147,7 +214,7 @@ serve(async (req) => {
         effect: "zoomIn",
         transition: {
           in: index === 0 ? "fade" : "slideLeft",
-          out: index === (scenes.length - 1) ? "fade" : null,
+          out: index === (validScenesWithVideos.length - 1) ? "fade" : null,
         }
       });
       
