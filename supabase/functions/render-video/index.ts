@@ -46,11 +46,14 @@ serve(async (req) => {
     
     const { 
       projectId, 
-      scenes, 
+      prompt,
+      scenes,
+      style,
       audioUrl, 
-      has_audio, 
+      has_audio,
       has_captions,
-      captionsFile 
+      captionsFile,
+      brandKit 
     } = params;
     
     // Validate required parameters
@@ -58,8 +61,10 @@ serve(async (req) => {
       throw new Error("Project ID is required");
     }
     
+    // Check if scenes are provided, if not, we can't create the video
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
-      throw new Error("Valid scenes array is required");
+      console.error("No valid scenes provided, cannot create video");
+      throw new Error("No valid scenes provided for video creation");
     }
     
     console.log(`Creating video for project ${projectId} with ${scenes.length} scenes`);
@@ -74,29 +79,43 @@ serve(async (req) => {
     const videoClipTrack = { clips: [] };
     const captionTrack = has_captions ? { clips: [] } : null;
     
+    // Process scenes to use stock videos - we'll use keywords from each scene
+    // to find suitable stock videos if videoUrl is not already provided
     let currentTime = 0;
     const sceneDuration = 5; // Default duration per scene in seconds
     
-    // Process each scene
-    scenes.forEach((scene, index) => {
-      if (!scene.videoUrl) {
-        console.warn(`Scene ${index} has no video URL, skipping`);
-        return;
-      }
+    // Collect any scenes that have video URLs
+    const validScenes = scenes.filter(scene => {
+      // We need to handle both formats: scene.videoUrl and scene.media_url
+      return scene.videoUrl || scene.media_url;
+    });
+
+    if (validScenes.length === 0) {
+      // If no valid scenes, we can't proceed
+      console.error("No valid video URLs found in scenes");
+      throw new Error("No valid video URLs found in scenes. Please ensure each scene has a videoUrl property.");
+    }
+
+    console.log(`Found ${validScenes.length} scenes with valid video URLs`);
+    
+    // Create video clips for valid scenes
+    validScenes.forEach((scene, index) => {
+      const videoUrl = scene.videoUrl || scene.media_url;
+      console.log(`Adding scene ${index} with video: ${videoUrl}`);
       
       // Add video clip
       videoClipTrack.clips.push({
         asset: {
           type: "video",
-          src: scene.videoUrl,
+          src: videoUrl,
           trim: 0,
         },
         start: currentTime,
-        length: sceneDuration,
+        length: scene.duration || sceneDuration,
         effect: "zoomIn",
         transition: {
           in: index === 0 ? "fade" : "slideLeft",
-          out: index === scenes.length - 1 ? "fade" : null,
+          out: index === (validScenes.length - 1) ? "fade" : null,
         }
       });
       
@@ -111,16 +130,16 @@ serve(async (req) => {
             position: "bottom"
           },
           start: currentTime,
-          length: sceneDuration
+          length: scene.duration || sceneDuration
         });
       }
       
-      currentTime += sceneDuration;
+      currentTime += (scene.duration || sceneDuration);
     });
     
     // Add tracks to timeline
     timeline.tracks.push(videoClipTrack);
-    if (captionTrack) {
+    if (captionTrack && captionTrack.clips.length > 0) {
       timeline.tracks.push(captionTrack);
     }
     
@@ -133,6 +152,12 @@ serve(async (req) => {
       };
     }
     
+    // Apply brand styling if provided
+    if (brandKit) {
+      console.log("Applying brand styling");
+      // Brand styling logic would go here
+    }
+    
     // Create output configuration
     const output = {
       format: "mp4",
@@ -142,10 +167,20 @@ serve(async (req) => {
     // Create full render request
     const renderRequest = {
       timeline,
-      output
+      output,
+      callback: null // Optional webhook URL can be added here
     };
     
     console.log("Sending render request to Shotstack API");
+    
+    // Validate the renderRequest
+    if (!renderRequest.timeline || !renderRequest.timeline.tracks || renderRequest.timeline.tracks.length === 0) {
+      throw new Error("Invalid render request: Missing tracks");
+    }
+    
+    if (!renderRequest.timeline.tracks[0].clips || renderRequest.timeline.tracks[0].clips.length === 0) {
+      throw new Error("Invalid render request: No clips in track");
+    }
     
     // Call Shotstack API to render video
     const response = await fetch("https://api.shotstack.io/stage/render", {

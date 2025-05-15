@@ -9,17 +9,27 @@ export const videoRenderService = {
     projectId: string,
     prompt: string,
     style: string,
+    scenes: any[] = [],
     hasAudio: boolean = false,
     hasCaptions: boolean = false,
     audioUrl?: string,
     captionsUrl?: string
   ): Promise<{ renderId?: string; success: boolean; error?: string }> {
     try {
+      if (!scenes || scenes.length === 0) {
+        console.error("No scenes provided for rendering");
+        showErrorToast("No scenes provided for video rendering");
+        return { success: false, error: "No scenes provided for video rendering" };
+      }
+      
+      console.log(`Starting render for project ${projectId} with ${scenes.length} scenes`);
+      
       const { data, error } = await supabase.functions.invoke("render-video", {
         body: {
           projectId,
           prompt,
           style,
+          scenes,
           has_audio: hasAudio,
           has_captions: hasCaptions,
           audioUrl,
