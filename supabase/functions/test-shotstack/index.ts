@@ -25,8 +25,8 @@ serve(async (req) => {
     console.log("Making request to Shotstack API...");
     
     // Use the proper Shotstack API endpoint to test the key
-    // We're using the /me endpoint which is a safe endpoint to validate the API key
-    const response = await fetch("https://api.shotstack.io/v1/me", {
+    // We're using the /status endpoint which is a safe endpoint to validate the API key
+    const response = await fetch("https://api.shotstack.io/v1/status", {
       method: "GET",
       headers: {
         "x-api-key": shotstackApiKey,
@@ -48,6 +48,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         message: "Shotstack API connection successful",
+        data: data,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
