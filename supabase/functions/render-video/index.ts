@@ -179,7 +179,7 @@ serve(async (req) => {
     
     if (validScenesWithVideos.length === 0) {
       console.error("No valid video URLs found in scenes after processing");
-      throw new Error("Failed to find videos for scenes. Please try a different prompt or provide video URLs.");
+      throw new Error("No valid video URLs found in scenes. Please ensure each scene has a videoUrl property.");
     }
     
     console.log(`Found ${validScenesWithVideos.length} valid scenes with videos`);
@@ -202,6 +202,21 @@ serve(async (req) => {
       // Use provided duration or fallback to default
       const duration = scene.duration || defaultDuration;
       
+      // Create transition object with only valid values
+      const transition = {};
+      
+      // Only add transition.in if it's the first clip or a valid string
+      if (index === 0) {
+        transition.in = "fade";
+      } else {
+        transition.in = "slideLeft";
+      }
+      
+      // Only add transition.out if it's the last clip AND a valid string
+      if (index === (validScenesWithVideos.length - 1)) {
+        transition.out = "fade";
+      }
+      
       // Add video clip
       videoClipTrack.clips.push({
         asset: {
@@ -212,10 +227,7 @@ serve(async (req) => {
         start: currentTime,
         length: duration,
         effect: "zoomIn",
-        transition: {
-          in: index === 0 ? "fade" : "slideLeft",
-          out: index === (validScenesWithVideos.length - 1) ? "fade" : null,
-        }
+        transition: transition
       });
       
       // Add caption if enabled

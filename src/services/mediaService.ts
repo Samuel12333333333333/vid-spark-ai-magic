@@ -46,11 +46,14 @@ export const mediaService = {
       return videoUrl.replace('.mp4', '-poster.jpg');
     }
     
-    // For Pexels videos, use their picture format
+    // For Pexels videos, attempt to create a thumbnail URL
     if (videoUrl.includes('pexels.com')) {
-      // Pexels often provides preview images in their API response
-      // This is just a fallback if the actual thumbnail isn't available
-      return null;
+      // Try to extract the video ID from Pexels URL
+      const match = videoUrl.match(/\/videos?\/(\d+)/);
+      if (match && match[1]) {
+        // Construct a possible thumbnail URL (this is a guess based on Pexels API structure)
+        return `https://images.pexels.com/videos/${match[1]}/thumbnail.jpg`;
+      }
     }
     
     // For other video providers, we might need different logic

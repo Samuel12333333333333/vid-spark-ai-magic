@@ -31,6 +31,11 @@ export const videoRenderService = {
         
       console.log(`Processed ${scenes.length} scenes with videos`);
       
+      // Validate that we have at least some videos to work with
+      if (mediaUrls.length === 0) {
+        console.log("No video URLs found, will attempt to fetch stock videos");
+      }
+      
       // Enhanced logging to help diagnose issues
       console.log("Starting render with scenes:", JSON.stringify(scenes));
       

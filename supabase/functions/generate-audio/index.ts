@@ -32,8 +32,19 @@ serve(async (req) => {
     // Extract parameters with fallbacks
     const { text, title = "Untitled", voice = "alloy" } = requestData;
     
-    if (!text) {
-      throw new Error("Text is required");
+    // Validate required parameters - early return if missing text
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      console.error("Missing or invalid text parameter");
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Text is required and must be a non-empty string",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
     }
     
     console.log(`Generating audio for text length: ${text.length}, title: ${title}, voice: ${voice}`);
@@ -108,18 +119,20 @@ serve(async (req) => {
         const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         
         // Store in cache table (assuming a table named 'audio_cache' exists)
-        await supabase.from('audio_cache').upsert({
+        const { error } = await supabase.from('audio_cache').upsert({
           text_hash: hashHex,
           title: title,
           voice: voice,
           audio_content: base64Audio,
           created_at: new Date().toISOString()
-        }).catch(err => {
-          // Don't fail if table doesn't exist yet or other DB error
-          console.error("Error saving to audio cache:", err);
         });
         
-        console.log("Cached audio for future use");
+        if (error) {
+          // Don't fail if table doesn't exist yet or other DB error
+          console.error("Error saving to audio cache:", error);
+        } else {
+          console.log("Cached audio for future use");
+        }
       }
     } catch (cacheError) {
       // Don't fail the request if caching fails

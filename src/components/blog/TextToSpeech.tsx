@@ -36,15 +36,22 @@ export function TextToSpeech({ text, title }: TextToSpeechProps) {
       return;
     }
 
+    // Validate we have text to synthesize
+    const cleanedText = cleanText(text);
+    if (!cleanedText || cleanedText.trim().length === 0) {
+      toast.error("No text content to convert to speech");
+      return;
+    }
+
     // Limit text to first 3000 characters to avoid API limits
-    const cleanedText = cleanText(text).substring(0, 3000);
+    const trimmedText = cleanedText.substring(0, 3000);
     const shortTitle = title.substring(0, 100);
 
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-audio", {
         body: {
-          text: cleanedText,
+          text: trimmedText,
           title: shortTitle,
           voice: "alloy", // Default voice
         },
