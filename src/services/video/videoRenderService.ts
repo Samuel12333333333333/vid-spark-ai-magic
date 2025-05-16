@@ -132,7 +132,7 @@ export const videoRenderService = {
     onUpdate(response.status as RenderStatus, response.url);
     
     // If not done or failed yet, start polling
-    if (response.status !== 'done' && response.status !== 'failed') {
+    if (response.status !== 'completed' && response.status !== 'failed') {
       toast.info("Video rendering in progress", {
         description: "We'll notify you when it's complete."
       });
@@ -160,7 +160,7 @@ export const videoRenderService = {
           
           onUpdate(response.status as RenderStatus, response.url);
           
-          if (response.status === 'done') {
+          if (response.status === 'completed') {
             clearInterval(interval);
             toast.success("Video rendering complete");
           } else if (response.status === 'failed') {
@@ -178,7 +178,7 @@ export const videoRenderService = {
       // Return a promise that resolves when polling is complete
       return new Promise((resolve) => {
         const checkComplete = setInterval(() => {
-          if (response.status === 'done' || response.status === 'failed' || attempts >= maxAttempts) {
+          if (response.status === 'completed' || response.status === 'failed' || attempts >= maxAttempts) {
             clearInterval(checkComplete);
             resolve();
           }

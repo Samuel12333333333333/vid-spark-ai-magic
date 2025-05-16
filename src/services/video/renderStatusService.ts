@@ -30,6 +30,7 @@ export const renderStatusService = {
         return 'failed';
       }
       
+      // Map the Shotstack status to our application status
       const statusMap: Record<string, RenderStatus> = {
         'queued': 'pending',
         'fetching': 'processing',
@@ -39,6 +40,7 @@ export const renderStatusService = {
         'failed': 'failed'
       };
       
+      // Get our application status from the map or use processing as default
       const newStatus = statusMap[data.status] || 'processing';
       await this.updateProjectStatus(projectId, newStatus, data);
       

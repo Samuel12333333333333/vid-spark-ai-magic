@@ -21,7 +21,7 @@ serve(async (req) => {
 
     console.log("Testing Shotstack API connection...");
     
-    // Test the render endpoint which is the most important one
+    // Test the me endpoint which is more reliable than /status which doesn't exist
     const response = await fetch("https://api.shotstack.io/v1/me", {
       method: "GET",
       headers: {

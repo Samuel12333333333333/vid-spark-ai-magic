@@ -44,11 +44,12 @@ serve(async (req) => {
     
     console.log(`Checking status for render ${renderId}`);
     
-    // Call Shotstack API to check render status - use v1 instead of stage
+    // Call Shotstack API to check render status - using correct endpoint for v1
     const response = await fetch(`https://api.shotstack.io/v1/render/${renderId}`, {
       method: "GET",
       headers: {
         "x-api-key": shotstackApiKey,
+        "Content-Type": "application/json"
       },
     });
     
@@ -71,7 +72,7 @@ serve(async (req) => {
     let returnStatus;
     switch (status) {
       case "done":
-        returnStatus = "done";
+        returnStatus = "completed";
         break;
       case "failed":
         returnStatus = "failed";
@@ -84,18 +85,24 @@ serve(async (req) => {
     
     console.log(`Render status: ${returnStatus}, URL: ${url || 'none yet'}`);
     
+    // Generate thumbnail URL if video URL exists
+    let thumbnailUrl = null;
+    if (url && url.endsWith('.mp4')) {
+      thumbnailUrl = url.replace(/\.mp4$/, "-poster.jpg");
+      console.log(`Generated thumbnail URL: ${thumbnailUrl}`);
+    }
+    
     // If done or failed, update the project in the database
-    if (projectId && (returnStatus === "done" || returnStatus === "failed")) {
+    if (projectId && (returnStatus === "completed" || returnStatus === "failed")) {
       try {
         const updateData: Record<string, any> = {
           status: returnStatus,
           updated_at: new Date().toISOString()
         };
         
-        if (returnStatus === "done" && url) {
+        if (returnStatus === "completed" && url) {
           updateData.video_url = url;
-          // Generate thumbnail URL (Shotstack provides a thumbnail for completed videos)
-          updateData.thumbnail_url = url.replace(/\.mp4$/, "-poster.jpg");
+          updateData.thumbnail_url = thumbnailUrl;
           
           // Create notification for completed video
           try {
@@ -112,8 +119,10 @@ serve(async (req) => {
                 title: 'Video Ready',
                 message: `Your video "${projectData.title.substring(0, 30)}${projectData.title.length > 30 ? '...' : ''}" is ready to view.`,
                 is_read: false,
-                data: { videoId: projectId }
+                metadata: { videoId: projectId }
               });
+              
+              console.log(`Created completion notification for user ${projectData.user_id}`);
             }
           } catch (notificationError) {
             console.error("Error creating notification:", notificationError);
@@ -139,8 +148,10 @@ serve(async (req) => {
                 title: 'Video Generation Failed',
                 message: `We couldn't generate your video "${projectData.title.substring(0, 30)}${projectData.title.length > 30 ? '...' : ''}". Please try again.`,
                 is_read: false,
-                data: { videoId: projectId }
+                metadata: { videoId: projectId, error: error }
               });
+              
+              console.log(`Created failure notification for user ${projectData.user_id}`);
             }
           } catch (notificationError) {
             console.error("Error creating notification:", notificationError);
@@ -166,6 +177,7 @@ serve(async (req) => {
       JSON.stringify({
         status: returnStatus,
         url,
+        thumbnail: thumbnailUrl,
         error
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
