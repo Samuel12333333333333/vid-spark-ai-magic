@@ -21,9 +21,8 @@ serve(async (req) => {
 
     console.log("Testing Shotstack API connection...");
     
-    // Use the correct Shotstack API endpoint for testing the connection
-    // Instead of /me, use the /templates endpoint which is a safe GET request to test the API key
-    const response = await fetch("https://api.shotstack.io/v1/templates", {
+    // Test the render endpoint which is the most important one
+    const response = await fetch("https://api.shotstack.io/v1/me", {
       method: "GET",
       headers: {
         "x-api-key": shotstackApiKey,

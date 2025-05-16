@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -227,7 +226,11 @@ serve(async (req) => {
         start: currentTime,
         length: duration,
         effect: "zoomIn",
-        transition
+        transition: {
+          // Only add transition properties if they're non-null strings
+          ...(index === 0 ? { in: "fade" } : { in: "slideLeft" }),
+          ...(index === (validScenesWithVideos.length - 1) ? { out: "fade" } : {})
+        }
       });
       
       // Add caption if enabled

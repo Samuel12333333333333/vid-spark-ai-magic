@@ -44,8 +44,8 @@ serve(async (req) => {
     
     console.log(`Checking status for render ${renderId}`);
     
-    // Call Shotstack API to check render status
-    const response = await fetch(`https://api.shotstack.io/stage/render/${renderId}`, {
+    // Call Shotstack API to check render status - use v1 instead of stage
+    const response = await fetch(`https://api.shotstack.io/v1/render/${renderId}`, {
       method: "GET",
       headers: {
         "x-api-key": shotstackApiKey,

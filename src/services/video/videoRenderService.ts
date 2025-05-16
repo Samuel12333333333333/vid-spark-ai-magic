@@ -77,6 +77,7 @@ export const videoRenderService = {
         return { success: false, error: errorMsg };
       }
       
+      console.log("Render started successfully with ID:", data.renderId);
       return { success: true, renderId: data.renderId };
     } catch (error) {
       console.error("Exception in startRender:", error);
@@ -87,6 +88,13 @@ export const videoRenderService = {
   
   async checkRenderStatus(renderId: string, projectId: string): Promise<RenderResponse> {
     try {
+      if (!renderId || !projectId) {
+        console.error("Missing render ID or project ID in checkRenderStatus");
+        return { status: 'failed', error: 'Missing render ID or project ID' };
+      }
+      
+      console.log(`Checking render status for: ${renderId}`);
+      
       const { data, error } = await withRetry(() => 
         supabase.functions.invoke("check-render-status", {
           body: { renderId, projectId }
@@ -103,6 +111,7 @@ export const videoRenderService = {
         return { status: 'failed', error: 'No data returned from status check' };
       }
       
+      console.log("Render status response:", data);
       return data as RenderResponse;
     } catch (error) {
       console.error("Exception in checkRenderStatus:", error);
@@ -112,6 +121,12 @@ export const videoRenderService = {
   },
   
   async pollRenderStatus(renderId: string, projectId: string, onUpdate: (status: RenderStatus, url?: string) => void): Promise<void> {
+    if (!renderId || !projectId) {
+      console.error("Missing render ID or project ID in pollRenderStatus");
+      onUpdate('failed', undefined);
+      return;
+    }
+    
     // Initial status check
     let response = await this.checkRenderStatus(renderId, projectId);
     onUpdate(response.status as RenderStatus, response.url);
@@ -128,16 +143,21 @@ export const videoRenderService = {
       // Set polling interval
       const interval = setInterval(async () => {
         attempts++;
+        console.log(`Polling attempt ${attempts} for render ${renderId}`);
+        
         if (attempts >= maxAttempts) {
           clearInterval(interval);
           toast.error("Video rendering took too long", {
             description: "Please check back later or try again."
           });
+          onUpdate('failed', undefined);
           return;
         }
         
         try {
           response = await this.checkRenderStatus(renderId, projectId);
+          console.log(`Poll result: status=${response.status}, url=${response.url || 'none'}`);
+          
           onUpdate(response.status as RenderStatus, response.url);
           
           if (response.status === 'done') {
@@ -154,6 +174,16 @@ export const videoRenderService = {
           // Don't clear interval, try again next time
         }
       }, 10000); // Check every 10 seconds
+      
+      // Return a promise that resolves when polling is complete
+      return new Promise((resolve) => {
+        const checkComplete = setInterval(() => {
+          if (response.status === 'done' || response.status === 'failed' || attempts >= maxAttempts) {
+            clearInterval(checkComplete);
+            resolve();
+          }
+        }, 1000);
+      });
     }
   }
 };
