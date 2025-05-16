@@ -111,6 +111,8 @@ export const videoRenderService = {
       console.log("Render started successfully with ID:", data.renderId);
       
       // Start monitoring the render status
+      // Fix: Don't use await here since we're not waiting for the polling to complete
+      // Instead, kick off the polling and return immediately
       setTimeout(() => {
         this.pollRenderStatus(data.renderId, projectId, (status, url) => {
           console.log(`Polling callback: status=${status}, url=${url || 'none'}`);
@@ -228,16 +230,6 @@ export const videoRenderService = {
           // Don't clear interval, try again next time
         }
       }, 10000); // Check every 10 seconds
-      
-      // Return a promise that resolves when polling is complete
-      return new Promise((resolve) => {
-        const checkComplete = setInterval(() => {
-          if (response.status === 'completed' || response.status === 'failed' || attempts >= maxAttempts) {
-            clearInterval(checkComplete);
-            resolve();
-          }
-        }, 1000);
-      });
     }
   }
 };
