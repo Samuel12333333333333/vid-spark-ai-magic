@@ -1,11 +1,12 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Play, FileEdit, Trash2, X } from "lucide-react";
+import { Play, FileEdit, Trash2, X, RefreshCw } from "lucide-react";
 import { VideoProject } from "@/types/supabase";
 import { videoService } from "@/services/videoService";
+import { renderStatusService } from "@/services/video/renderStatusService";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,7 +20,59 @@ interface RecentProjectsProps {
 export function RecentProjects({ projects }: RecentProjectsProps) {
   const [loadedVideos, setLoadedVideos] = useState<Record<string, boolean>>({});
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
+  const [processingProjects, setProcessingProjects] = useState<Record<string, boolean>>({});
   const { user } = useAuth();
+
+  // Setup processing status tracking
+  useEffect(() => {
+    const processingProjectsMap: Record<string, boolean> = {};
+    const processingIds: string[] = [];
+    
+    projects.forEach(project => {
+      if (project.status === "processing" && project.render_id) {
+        processingProjectsMap[project.id] = true;
+        processingIds.push(project.id);
+      }
+    });
+    
+    setProcessingProjects(processingProjectsMap);
+    
+    // Start polling for any processing projects
+    if (processingIds.length > 0) {
+      const pollIntervals: Record<string, NodeJS.Timeout> = {};
+      
+      processingIds.forEach(projectId => {
+        const project = projects.find(p => p.id === projectId);
+        if (project?.render_id) {
+          pollIntervals[projectId] = setInterval(() => {
+            checkProjectStatus(projectId, project.render_id!);
+          }, 10000); // Check every 10 seconds
+        }
+      });
+      
+      // Clean up intervals on unmount
+      return () => {
+        Object.values(pollIntervals).forEach(interval => clearInterval(interval));
+      };
+    }
+  }, [projects]);
+
+  // Function to check project status
+  const checkProjectStatus = async (projectId: string, renderId: string) => {
+    try {
+      const status = await renderStatusService.updateRenderStatus(projectId, renderId);
+      
+      if (status === 'completed' || status === 'failed') {
+        // Stop polling for this project
+        setProcessingProjects(prev => ({
+          ...prev,
+          [projectId]: false
+        }));
+      }
+    } catch (error) {
+      console.error(`Error checking status for project ${projectId}:`, error);
+    }
+  };
 
   // Handle video load start
   const handleVideoLoadStart = (id: string) => {
@@ -63,6 +116,52 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
     }
   };
 
+  // Retry processing a failed video
+  const retryProcessing = async (project: VideoProject) => {
+    if (!project || !project.id || !project.render_id) {
+      toast.error("Cannot retry processing - missing project information");
+      return;
+    }
+    
+    toast.info("Checking render status...");
+    
+    try {
+      // Mark as processing
+      setProcessingProjects(prev => ({
+        ...prev,
+        [project.id]: true
+      }));
+      
+      // Check the status again
+      const status = await renderStatusService.updateRenderStatus(project.id, project.render_id);
+      
+      if (status === 'completed') {
+        toast.success("Good news! Your video is actually complete.");
+        setProcessingProjects(prev => ({
+          ...prev,
+          [project.id]: false
+        }));
+      } else if (status === 'processing' || status === 'pending') {
+        toast.info("Video is still processing. We'll keep checking.");
+      } else {
+        // If still failed, offer to recreate
+        setProcessingProjects(prev => ({
+          ...prev,
+          [project.id]: false
+        }));
+        toast.error("Video processing failed. Please try creating a new video.");
+      }
+    } catch (error) {
+      console.error("Error retrying video processing:", error);
+      toast.error("Failed to check video status");
+      
+      setProcessingProjects(prev => ({
+        ...prev,
+        [project.id]: false
+      }));
+    }
+  };
+
   const deleteProject = async (id: string, title: string) => {
     try {
       // First, create a notification about the deletion
@@ -94,6 +193,9 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {projects.map((project) => {
         const isVideoReady = project.status === "completed" || project.status === "done";
+        const isProcessing = project.status === "processing" || processingProjects[project.id];
+        const isFailed = project.status === "failed" && !processingProjects[project.id];
+        
         return (
           <Card key={project.id} className="overflow-hidden">
             <div className="relative">
@@ -139,7 +241,7 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
                   />
                 )}
               </Link>
-              {project.status === "processing" && (
+              {isProcessing && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                   <div className="text-white text-sm font-medium px-3 py-1 bg-smartvid-600 rounded-full flex items-center gap-2">
                     <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
@@ -147,10 +249,25 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
                   </div>
                 </div>
               )}
-              {project.status === "failed" && (
+              {isFailed && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                  <div className="text-white text-sm font-medium px-3 py-1 bg-red-600 rounded-full">
-                    Failed
+                  <div className="flex flex-col gap-2 items-center">
+                    <div className="text-white text-sm font-medium px-3 py-1 bg-red-600 rounded-full">
+                      Failed
+                    </div>
+                    <Button 
+                      size="sm"
+                      variant="outline"
+                      className="bg-white text-black hover:bg-gray-100"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        retryProcessing(project);
+                      }}
+                    >
+                      <RefreshCw className="mr-1 h-3 w-3" />
+                      Check Status
+                    </Button>
                   </div>
                 </div>
               )}
@@ -178,7 +295,7 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
                   </p>
                 </div>
                 <div className="flex gap-1">
-                  {isVideoReady && (
+                  {(isVideoReady || isFailed) && (
                     <>
                       <Button size="icon" variant="ghost" className="h-8 w-8" asChild>
                         <Link to={`/dashboard/videos/${project.id}`}>
@@ -189,7 +306,11 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
                         size="icon" 
                         variant="ghost" 
                         className="h-8 w-8 text-destructive"
-                        onClick={() => deleteProject(project.id, project.title)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          deleteProject(project.id, project.title);
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

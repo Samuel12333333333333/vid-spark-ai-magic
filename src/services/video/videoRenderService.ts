@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { RenderResponse, RenderStatus } from "./types";
 import { toast } from "sonner";
 import { showErrorToast, withRetry } from "@/lib/error-handler";
+import { renderStatusService } from "./renderStatusService";
 
 export const videoRenderService = {
   async startRender(
@@ -49,7 +50,37 @@ export const videoRenderService = {
         console.error("Error checking videoUrls:", err);
       }
       
-      const { data, error } = await supabase.functions.invoke("render-video", {
+      // First, test the Shotstack API connection
+      try {
+        console.log("Testing Shotstack API connection before rendering");
+        const { data: testData, error: testError } = await supabase.functions.invoke("test-shotstack", {
+          body: {}
+        });
+        
+        if (testError) {
+          console.error("Shotstack API connection test failed:", testError);
+          showErrorToast("Failed to connect to Shotstack API. Please check your API key.");
+          return { success: false, error: "Shotstack API connection failed" };
+        }
+        
+        if (!testData?.success) {
+          console.error("Shotstack API test was unsuccessful:", testData);
+          showErrorToast(testData?.error || "Failed to validate Shotstack API connection");
+          return { success: false, error: testData?.error || "Shotstack API validation failed" };
+        }
+        
+        // Check if we have rendering credits (if that info is available)
+        if (testData.data?.response?.plan?.remainingCredits === 0) {
+          console.error("No Shotstack render credits available");
+          showErrorToast("No Shotstack render credits available. Please upgrade your Shotstack plan.");
+          return { success: false, error: "No render credits available" };
+        }
+      } catch (testErr) {
+        console.error("Exception testing Shotstack API:", testErr);
+        // Continue despite test error - the render might still work
+      }
+      
+      const { data, error } = await withRetry(() => supabase.functions.invoke("render-video", {
         body: {
           projectId,
           userId: (await supabase.auth.getUser()).data.user?.id,
@@ -62,7 +93,7 @@ export const videoRenderService = {
           audioUrl,
           captionsUrl
         }
-      });
+      }));
       
       if (error) {
         console.error("Error starting render:", error);
@@ -78,6 +109,14 @@ export const videoRenderService = {
       }
       
       console.log("Render started successfully with ID:", data.renderId);
+      
+      // Start monitoring the render status
+      setTimeout(() => {
+        this.pollRenderStatus(data.renderId, projectId, (status, url) => {
+          console.log(`Polling callback: status=${status}, url=${url || 'none'}`);
+        });
+      }, 3000);
+      
       return { success: true, renderId: data.renderId };
     } catch (error) {
       console.error("Exception in startRender:", error);
@@ -108,6 +147,7 @@ export const videoRenderService = {
       }
       
       if (!data) {
+        console.error("No data returned from status check");
         return { status: 'failed', error: 'No data returned from status check' };
       }
       
@@ -151,6 +191,16 @@ export const videoRenderService = {
             description: "Please check back later or try again."
           });
           onUpdate('failed', undefined);
+          
+          // Update the project status to failed
+          try {
+            await renderStatusService.updateProjectStatus(projectId, 'failed', {
+              status: 'failed',
+              error: 'Rendering timeout - took too long to complete'
+            });
+          } catch (updateErr) {
+            console.error("Error updating project status after timeout:", updateErr);
+          }
           return;
         }
         
@@ -160,14 +210,18 @@ export const videoRenderService = {
           
           onUpdate(response.status as RenderStatus, response.url);
           
-          if (response.status === 'completed') {
+          if (response.status === 'completed' || response.status === 'failed') {
             clearInterval(interval);
-            toast.success("Video rendering complete");
-          } else if (response.status === 'failed') {
-            clearInterval(interval);
-            toast.error("Video rendering failed", {
-              description: response.error || "Unknown error"
-            });
+            
+            if (response.status === 'completed') {
+              toast.success("Video rendering complete", {
+                description: "Your video is ready to view"
+              });
+            } else if (response.status === 'failed') {
+              toast.error("Video rendering failed", {
+                description: response.error || "Unknown error"
+              });
+            }
           }
         } catch (error) {
           console.error("Error during polling:", error);

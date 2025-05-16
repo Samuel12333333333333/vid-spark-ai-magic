@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { RenderResponse, RenderStatus } from "./types";
 import { renderNotifications } from "./renderNotifications";
 import { showErrorToast } from "@/lib/error-handler";
+import { toast } from "sonner";
 
 export const renderStatusService = {
   async updateRenderStatus(projectId: string, renderId: string): Promise<RenderStatus> {
@@ -25,10 +26,12 @@ export const renderStatusService = {
       }
       
       if (!data || !data.status) {
-        console.error("Invalid response from render status check");
+        console.error("Invalid response from render status check:", data);
         showErrorToast("Invalid response from render status check");
         return 'failed';
       }
+      
+      console.log("Render status check response:", data);
       
       // Map the Shotstack status to our application status
       const statusMap: Record<string, RenderStatus> = {
@@ -41,13 +44,30 @@ export const renderStatusService = {
       };
       
       // Get our application status from the map or use processing as default
-      const newStatus = statusMap[data.status] || 'processing';
-      await this.updateProjectStatus(projectId, newStatus, data);
+      const newStatus = data.status || (data.rawStatus ? statusMap[data.rawStatus] : 'processing');
+      
+      // If we got a valid status, update the project
+      if (newStatus && ['pending', 'processing', 'completed', 'failed'].includes(newStatus)) {
+        await this.updateProjectStatus(projectId, newStatus, data);
+        
+        // Show user feedback based on status
+        if (newStatus === 'completed' && data.url) {
+          toast.success("Video rendering completed", {
+            description: "Your video is ready to view"
+          });
+        } else if (newStatus === 'failed') {
+          toast.error("Video rendering failed", {
+            description: data.error || "Unknown error"
+          });
+        }
+      } else {
+        console.error("Invalid status received:", newStatus, "Raw status:", data.rawStatus);
+      }
       
       return newStatus;
     } catch (error) {
       console.error("Error in updateRenderStatus:", error);
-      showErrorToast(error);
+      showErrorToast(error instanceof Error ? error.message : String(error));
       return 'failed';
     }
   },
@@ -58,12 +78,18 @@ export const renderStatusService = {
     try {
       const { data: projectData, error: projectError } = await supabase
         .from('video_projects')
-        .select('user_id, title')
+        .select('user_id, title, status')
         .eq('id', projectId)
         .single();
 
       if (projectError || !projectData?.user_id) {
         console.error("Error fetching project data:", projectError);
+        return;
+      }
+
+      // Don't update if current status is already completed and we're trying to set processing
+      if (projectData.status === 'completed' && status === 'processing') {
+        console.log("Project is already completed, not updating to processing status");
         return;
       }
 
@@ -88,7 +114,7 @@ export const renderStatusService = {
           console.error("Failed to update video project:", updateError);
           showErrorToast("Failed to update video project status");
         } else {
-          console.log(`Project ${projectId} updated with completed status and URL`);
+          console.log(`Project ${projectId} updated with completed status and URL: ${data.url}`);
           await renderNotifications.handleRenderCompletedFlow(userId, title, projectId, data.url);
         }
       } else if (status === 'failed') {
@@ -128,7 +154,7 @@ export const renderStatusService = {
       }
     } catch (error) {
       console.error("Error updating project status:", error);
-      showErrorToast(error);
+      showErrorToast(error instanceof Error ? error.message : String(error));
     }
   }
 };

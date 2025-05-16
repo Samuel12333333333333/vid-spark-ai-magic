@@ -63,10 +63,17 @@ serve(async (req) => {
     const data = await response.json();
     console.log("Shotstack status response:", JSON.stringify(data));
     
+    if (!data.response) {
+      console.error("Invalid response from Shotstack API:", data);
+      throw new Error("Invalid response from Shotstack API");
+    }
+    
     // Get status from response
-    const status = data.response?.status?.toLowerCase();
-    const url = data.response?.url;
-    const error = data.response?.error;
+    const status = data.response.status?.toLowerCase();
+    const url = data.response.url;
+    const error = data.response.error;
+    
+    console.log(`Raw status from Shotstack: "${status}", URL: ${url || 'none'}`);
     
     // Define return status mapping
     let returnStatus;
@@ -78,12 +85,14 @@ serve(async (req) => {
         returnStatus = "failed";
         break;
       case "rendering":
+      case "fetching":
+      case "saving":
       case "queued":
       default:
         returnStatus = "processing";
     }
     
-    console.log(`Render status: ${returnStatus}, URL: ${url || 'none yet'}`);
+    console.log(`Mapped render status: ${returnStatus}, URL: ${url || 'none yet'}`);
     
     // Generate thumbnail URL if video URL exists
     let thumbnailUrl = null;
@@ -119,7 +128,7 @@ serve(async (req) => {
                 title: 'Video Ready',
                 message: `Your video "${projectData.title.substring(0, 30)}${projectData.title.length > 30 ? '...' : ''}" is ready to view.`,
                 is_read: false,
-                metadata: { videoId: projectId }
+                metadata: { videoId: projectId, url: url }
               });
               
               console.log(`Created completion notification for user ${projectData.user_id}`);
@@ -178,7 +187,8 @@ serve(async (req) => {
         status: returnStatus,
         url,
         thumbnail: thumbnailUrl,
-        error
+        error,
+        rawStatus: status
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

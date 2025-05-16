@@ -21,7 +21,7 @@ serve(async (req) => {
 
     console.log("Testing Shotstack API connection...");
     
-    // Test the me endpoint which is more reliable than /status which doesn't exist
+    // Let's test the API status endpoint, which is a good indicator of API functionality
     const response = await fetch("https://api.shotstack.io/v1/me", {
       method: "GET",
       headers: {
@@ -37,12 +37,32 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log("Shotstack API test successful:", data);
+    console.log("Shotstack API connection successful", data);
+
+    // Check if the user has rendering credits
+    let creditsMessage = "";
+    if (data.response && data.response.plan) {
+      const credits = data.response.plan.remainingCredits || 0;
+      creditsMessage = `Available credits: ${credits}`;
+      console.log("Credits available:", credits);
+      
+      if (credits <= 0) {
+        console.warn("WARNING: No credits available for rendering");
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "No rendering credits available. Please upgrade your Shotstack plan.",
+            data
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Shotstack API connection is working",
+        message: `Shotstack API connection is working. ${creditsMessage}`,
         data
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

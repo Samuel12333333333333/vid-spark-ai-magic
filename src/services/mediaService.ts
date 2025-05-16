@@ -1,3 +1,4 @@
+
 export const mediaService = {
   validateVideoUrl(url: string | null | undefined): string | null {
     if (!url) return null;
@@ -30,7 +31,7 @@ export const mediaService = {
         return null;
       }
     } catch (error) {
-      console.error("Invalid video URL:", url);
+      console.error("Invalid video URL:", url, error);
       return null;
     }
   },
@@ -98,6 +99,28 @@ export const mediaService = {
     const lastDotIndex = fileName.lastIndexOf('.');
     if (lastDotIndex === -1) return '';
     return fileName.substring(lastDotIndex).toLowerCase();
+  },
+  
+  // Check if a video URL is accessible
+  async checkVideoUrlAccessibility(url: string): Promise<boolean> {
+    try {
+      if (!url) return false;
+      
+      // Validate URL format
+      const validUrl = this.validateVideoUrl(url);
+      if (!validUrl) return false;
+      
+      // Attempt to fetch headers only to check accessibility
+      const response = await fetch(validUrl, { 
+        method: 'HEAD',
+        mode: 'no-cors' // This is a loose check since we can't access headers in no-cors
+      });
+      
+      return true; // If no error was thrown, assume it's accessible
+    } catch (error) {
+      console.error("Error checking video URL accessibility:", url, error);
+      return false;
+    }
   }
 };
 
