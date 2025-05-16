@@ -1,4 +1,3 @@
-
 export const mediaService = {
   validateVideoUrl(url: string | null | undefined): string | null {
     if (!url) return null;
@@ -10,28 +9,26 @@ export const mediaService = {
         return url;
       }
       
-      // Validate URL format
-      new URL(url);
-      
-      // Additional validation for common video formats
-      const videoExtensions = ['.mp4', '.webm', '.mov', '.avi', '.m4v', '.mkv'];
-      const hasValidExtension = videoExtensions.some(ext => 
-        url.toLowerCase().includes(ext) || 
-        url.includes('video') || 
-        url.includes('mp4') ||
-        url.includes('shotstack')
-      );
-      
-      // For URLs that don't have explicit extensions but are from known video providers
-      const knownVideoHosts = ['pexels.com', 'shotstack', 'youtube', 'vimeo', 'cloudinary'];
-      const isFromKnownHost = knownVideoHosts.some(host => url.includes(host));
-      
-      if (hasValidExtension || isFromKnownHost) {
-        return url;
+      // For URLs that explicitly include http/https, validate format
+      if (url.startsWith('http')) {
+        try {
+          // Validate URL format
+          new URL(url);
+          return url;
+        } catch (e) {
+          console.error("Invalid URL format:", url);
+          return null;
+        }
       }
       
-      console.warn("URL doesn't appear to be a video:", url);
-      return url; // Return it anyway, the player will handle invalid URLs
+      // Handle possible shorthand URLs by prepending https://
+      try {
+        new URL(`https://${url}`);
+        return `https://${url}`;
+      } catch {
+        console.error("Could not parse as URL even with https:// prefix:", url);
+        return null;
+      }
     } catch (error) {
       console.error("Invalid video URL:", url);
       return null;

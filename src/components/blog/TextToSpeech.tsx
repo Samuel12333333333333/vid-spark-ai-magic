@@ -45,10 +45,12 @@ export function TextToSpeech({ text, title }: TextToSpeechProps) {
 
     // Limit text to first 3000 characters to avoid API limits
     const trimmedText = cleanedText.substring(0, 3000);
-    const shortTitle = title.substring(0, 100);
+    const shortTitle = title?.substring(0, 100) || "Untitled";
 
     setIsLoading(true);
     try {
+      console.log("Generating audio for text:", trimmedText.substring(0, 100) + "...");
+      
       const { data, error } = await supabase.functions.invoke("generate-audio", {
         body: {
           text: trimmedText,
@@ -57,24 +59,30 @@ export function TextToSpeech({ text, title }: TextToSpeechProps) {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error invoking generate-audio:", error);
+        throw error;
+      }
 
-      if (data?.audioContent) {
-        // Convert base64 to blob URL
-        const blob = base64ToBlob(data.audioContent, "audio/mp3");
-        const url = URL.createObjectURL(blob);
-        
-        const newAudio = new Audio(url);
-        newAudio.addEventListener("ended", () => {
-          setIsPlaying(false);
-        });
-        
-        setAudio(newAudio);
-        newAudio.play();
-        setIsPlaying(true);
-      } else {
+      if (!data?.audioContent) {
+        console.error("No audio content returned:", data);
         throw new Error("No audio content returned");
       }
+      
+      // Convert base64 to blob URL
+      const blob = base64ToBlob(data.audioContent, "audio/mp3");
+      const url = URL.createObjectURL(blob);
+      
+      const newAudio = new Audio(url);
+      newAudio.addEventListener("ended", () => {
+        setIsPlaying(false);
+      });
+      
+      setAudio(newAudio);
+      newAudio.play();
+      setIsPlaying(true);
+      
+      toast.success("Audio generated successfully");
     } catch (error) {
       console.error("Error generating audio:", error);
       toast.error("Failed to generate audio. Please try again later.");
@@ -85,22 +93,27 @@ export function TextToSpeech({ text, title }: TextToSpeechProps) {
 
   // Helper to convert base64 to blob
   const base64ToBlob = (base64: string, mimeType: string) => {
-    const byteCharacters = atob(base64);
-    const byteArrays = [];
-    
-    for (let i = 0; i < byteCharacters.length; i += 512) {
-      const slice = byteCharacters.slice(i, i + 512);
+    try {
+      const byteCharacters = atob(base64);
+      const byteArrays = [];
       
-      const byteNumbers = new Array(slice.length);
-      for (let j = 0; j < slice.length; j++) {
-        byteNumbers[j] = slice.charCodeAt(j);
+      for (let i = 0; i < byteCharacters.length; i += 512) {
+        const slice = byteCharacters.slice(i, i + 512);
+        
+        const byteNumbers = new Array(slice.length);
+        for (let j = 0; j < slice.length; j++) {
+          byteNumbers[j] = slice.charCodeAt(j);
+        }
+        
+        const byteArray = new Uint8Array(byteNumbers);
+        byteArrays.push(byteArray);
       }
       
-      const byteArray = new Uint8Array(byteNumbers);
-      byteArrays.push(byteArray);
+      return new Blob(byteArrays, { type: mimeType });
+    } catch (error) {
+      console.error("Error converting base64 to blob:", error);
+      throw new Error("Failed to process audio data");
     }
-    
-    return new Blob(byteArrays, { type: mimeType });
   };
 
   return (

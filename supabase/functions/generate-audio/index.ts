@@ -29,6 +29,8 @@ serve(async (req) => {
       }
     }
     
+    console.log("Generate audio received request data:", JSON.stringify(requestData, null, 2));
+    
     // Extract parameters with fallbacks
     const { text, title = "Untitled", voice = "alloy" } = requestData;
     
@@ -125,7 +127,7 @@ serve(async (req) => {
           voice: voice,
           audio_content: base64Audio,
           created_at: new Date().toISOString()
-        });
+        }).select();
         
         if (error) {
           // Don't fail if table doesn't exist yet or other DB error

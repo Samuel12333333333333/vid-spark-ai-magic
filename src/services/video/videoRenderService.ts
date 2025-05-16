@@ -24,20 +24,30 @@ export const videoRenderService = {
       
       console.log(`Starting render for project ${projectId} with ${scenes.length} scenes`);
       
-      // Extract any media URLs from scenes for easier access in the edge function
-      const mediaUrls = scenes
-        .map(scene => scene.videoUrl || scene.media_url || (scene.media && scene.media.url))
-        .filter(Boolean);
-        
-      console.log(`Processed ${scenes.length} scenes with videos`);
+      // Make sure each scene has necessary properties
+      const validatedScenes = scenes.map(scene => {
+        // Ensure each scene has at least these properties
+        return {
+          scene: scene.scene || scene.title || "Unnamed Scene",
+          description: scene.description || "",
+          keywords: scene.keywords || [],
+          duration: scene.duration || 5,
+          videoUrl: scene.videoUrl || null
+        };
+      });
       
-      // Validate that we have at least some videos to work with
-      if (mediaUrls.length === 0) {
-        console.log("No video URLs found, will attempt to fetch stock videos");
+      // Log what we're sending for debugging
+      console.log(`Validated ${validatedScenes.length} scenes`);
+      
+      try {
+        // Check if at least one scene has a videoUrl
+        const hasVideoUrl = validatedScenes.some(scene => scene.videoUrl);
+        if (!hasVideoUrl) {
+          console.log("No scenes have videoUrl property - Shotstack will search for stock videos");
+        }
+      } catch (err) {
+        console.error("Error checking videoUrls:", err);
       }
-      
-      // Enhanced logging to help diagnose issues
-      console.log("Starting render with scenes:", JSON.stringify(scenes));
       
       const { data, error } = await supabase.functions.invoke("render-video", {
         body: {
@@ -45,8 +55,7 @@ export const videoRenderService = {
           userId: (await supabase.auth.getUser()).data.user?.id,
           prompt,
           style,
-          scenes,
-          mediaUrls,
+          scenes: validatedScenes,
           useStockMedia: true,
           has_audio: hasAudio,
           has_captions: hasCaptions,
@@ -62,7 +71,7 @@ export const videoRenderService = {
       }
       
       if (!data || !data.renderId) {
-        const errorMsg = "No render ID returned";
+        const errorMsg = data?.error || "No render ID returned";
         console.error(errorMsg);
         showErrorToast(errorMsg);
         return { success: false, error: errorMsg };
@@ -90,6 +99,10 @@ export const videoRenderService = {
         return { status: 'failed', error: error.message };
       }
       
+      if (!data) {
+        return { status: 'failed', error: 'No data returned from status check' };
+      }
+      
       return data as RenderResponse;
     } catch (error) {
       console.error("Exception in checkRenderStatus:", error);
@@ -109,26 +122,38 @@ export const videoRenderService = {
         description: "We'll notify you when it's complete."
       });
       
+      let attempts = 0;
+      const maxAttempts = 30; // 5 minutes (10s interval)
+      
       // Set polling interval
       const interval = setInterval(async () => {
-        response = await this.checkRenderStatus(renderId, projectId);
-        onUpdate(response.status as RenderStatus, response.url);
-        
-        if (response.status === 'done') {
+        attempts++;
+        if (attempts >= maxAttempts) {
           clearInterval(interval);
-          toast.success("Video rendering complete");
-        } else if (response.status === 'failed') {
-          clearInterval(interval);
-          toast.error("Video rendering failed", {
-            description: response.error || "Unknown error"
+          toast.error("Video rendering took too long", {
+            description: "Please check back later or try again."
           });
+          return;
+        }
+        
+        try {
+          response = await this.checkRenderStatus(renderId, projectId);
+          onUpdate(response.status as RenderStatus, response.url);
+          
+          if (response.status === 'done') {
+            clearInterval(interval);
+            toast.success("Video rendering complete");
+          } else if (response.status === 'failed') {
+            clearInterval(interval);
+            toast.error("Video rendering failed", {
+              description: response.error || "Unknown error"
+            });
+          }
+        } catch (error) {
+          console.error("Error during polling:", error);
+          // Don't clear interval, try again next time
         }
       }, 10000); // Check every 10 seconds
-      
-      // Clean up interval after 30 minutes (avoid endless polling)
-      setTimeout(() => {
-        clearInterval(interval);
-      }, 30 * 60 * 1000);
     }
   }
 };

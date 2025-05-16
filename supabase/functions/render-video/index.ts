@@ -38,7 +38,7 @@ serve(async (req) => {
     let params;
     try {
       params = await req.json();
-      console.log("Received render request with params:", JSON.stringify(params));
+      console.log("Received render request with params:", JSON.stringify(params, null, 2));
     } catch (parseError) {
       console.error("Error parsing request body:", parseError);
       throw new Error("Invalid request body");
@@ -202,8 +202,8 @@ serve(async (req) => {
       // Use provided duration or fallback to default
       const duration = scene.duration || defaultDuration;
       
-      // Create transition object with only valid values
-      const transition = {};
+      // Create transition object with only valid string values
+      const transition: any = {};
       
       // Only add transition.in if it's the first clip or a valid string
       if (index === 0) {
@@ -227,7 +227,7 @@ serve(async (req) => {
         start: currentTime,
         length: duration,
         effect: "zoomIn",
-        transition: transition
+        transition
       });
       
       // Add caption if enabled
@@ -284,8 +284,7 @@ serve(async (req) => {
     // Create full render request
     const renderRequest = {
       timeline,
-      output,
-      callback: null // Optional webhook URL can be added here
+      output
     };
     
     console.log("Sending render request to Shotstack API");
@@ -300,7 +299,7 @@ serve(async (req) => {
     }
     
     // Call Shotstack API to render video
-    const response = await fetch("https://api.shotstack.io/stage/render", {
+    const response = await fetch("https://api.shotstack.io/v1/render", {
       method: "POST",
       headers: {
         "x-api-key": shotstackApiKey,

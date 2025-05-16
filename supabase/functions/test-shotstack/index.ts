@@ -13,20 +13,17 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Checking Shotstack API key...");
-    
-    // Get the API key from environment variables
     const shotstackApiKey = Deno.env.get("SHOTSTACK_API_KEY");
+    
     if (!shotstackApiKey) {
-      console.error("SHOTSTACK_API_KEY is not set");
       throw new Error("Shotstack API key is not configured");
     }
 
-    console.log("Making request to Shotstack API...");
+    console.log("Testing Shotstack API connection...");
     
-    // Use the proper Shotstack API endpoint to test the key
-    // We're using the /status endpoint which is a safe endpoint to validate the API key
-    const response = await fetch("https://api.shotstack.io/v1/status", {
+    // Instead of using GET /status which doesn't exist, let's test a valid endpoint
+    // For example, let's test getting account/credits info which is a safe GET request
+    const response = await fetch("https://api.shotstack.io/v1/me", {
       method: "GET",
       headers: {
         "x-api-key": shotstackApiKey,
@@ -34,21 +31,20 @@ serve(async (req) => {
       },
     });
 
-    // Process the response
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Shotstack API error (${response.status}): ${errorText}`);
+      const errorData = await response.text();
+      console.error(`Shotstack API error (${response.status}): ${errorData}`);
       throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log("Shotstack API connection successful:", data);
+    console.log("Shotstack API test successful:", data);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Shotstack API connection successful",
-        data: data,
+        message: "Shotstack API connection is working",
+        data
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -58,7 +54,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || "Failed to connect to Shotstack API",
+        error: error.message || "An error occurred testing the Shotstack API",
       }),
       {
         status: 400,
