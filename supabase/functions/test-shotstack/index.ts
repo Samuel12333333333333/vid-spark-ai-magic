@@ -21,9 +21,9 @@ serve(async (req) => {
 
     console.log("Testing Shotstack API connection...");
     
-    // Instead of using GET /status which doesn't exist, let's test a valid endpoint
-    // For example, let's test getting account/credits info which is a safe GET request
-    const response = await fetch("https://api.shotstack.io/v1/me", {
+    // Use the correct Shotstack API endpoint for testing the connection
+    // Instead of /me, use the /templates endpoint which is a safe GET request to test the API key
+    const response = await fetch("https://api.shotstack.io/v1/templates", {
       method: "GET",
       headers: {
         "x-api-key": shotstackApiKey,
