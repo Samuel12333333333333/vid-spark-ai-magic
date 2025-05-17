@@ -1,4 +1,3 @@
-
 import { VideoGenerator } from "@/components/dashboard/VideoGenerator";
 import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
@@ -14,6 +13,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
 import { videoService } from "@/services/videoService";
+import { TemplateList } from "@/components/templates/TemplateList";
+import { templateService } from "@/services/templateService";
+import { Template } from "@/types/template";
+import { useNavigate } from "react-router-dom";
 
 export default function GeneratorPage() {
   const [apiStatus, setApiStatus] = useState<Record<string, ApiKeyStatus>>({});
@@ -24,12 +27,30 @@ export default function GeneratorPage() {
   const [showTemplateInput, setShowTemplateInput] = useState<boolean>(false);
   const [templateJson, setTemplateJson] = useState<string>("");
   const [isGeneratingTemplate, setIsGeneratingTemplate] = useState<boolean>(false);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [activeTab, setActiveTab] = useState("wizard");
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Check API keys on component mount
     checkApiKeys();
     checkLastError();
+    loadTemplates();
   }, []);
+
+  const loadTemplates = async () => {
+    try {
+      setIsLoadingTemplates(true);
+      const data = await templateService.getTemplates();
+      setTemplates(data.slice(0, 6)); // Show top 6 templates
+    } catch (error) {
+      console.error("Error loading templates:", error);
+      setTemplates([]);
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  };
 
   const checkLastError = async () => {
     try {
@@ -157,6 +178,9 @@ export default function GeneratorPage() {
         toast.success("Template video generation started", {
           description: "We'll notify you when your video is ready"
         });
+        
+        // Navigate to video page
+        navigate(`/dashboard/videos/${project.id}`);
       } else {
         toast.error("Template video generation failed", {
           description: error || "Unknown error occurred"
@@ -170,6 +194,10 @@ export default function GeneratorPage() {
     } finally {
       setIsGeneratingTemplate(false);
     }
+  };
+
+  const handleSelectTemplate = (id: string) => {
+    navigate(`/dashboard/templates/${id}`);
   };
 
   const apiStatusDetails = {
@@ -573,9 +601,46 @@ export default function GeneratorPage() {
       )}
       
       {!showTemplateInput && (
-        <ErrorBoundary>
-          <VideoGenerator />
-        </ErrorBoundary>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+          <TabsList className="mb-4">
+            <TabsTrigger value="wizard">Video Wizard</TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="wizard" className="pt-2">
+            <ErrorBoundary>
+              <VideoGenerator />
+            </ErrorBoundary>
+          </TabsContent>
+          
+          <TabsContent value="templates" className="pt-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Templates</CardTitle>
+                <CardDescription>
+                  Select a template to quickly create a customized video
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TemplateList 
+                  templates={templates} 
+                  viewMode="grid"
+                  isLoading={isLoadingTemplates}
+                  onSelectTemplate={handleSelectTemplate}
+                />
+                {templates.length > 0 && (
+                  <Button 
+                    variant="ghost" 
+                    className="w-full mt-4" 
+                    onClick={() => navigate('/dashboard/templates')}
+                  >
+                    View All Templates
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );

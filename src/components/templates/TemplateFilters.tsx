@@ -1,13 +1,17 @@
 
-import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Search, LayoutGrid, LayoutList } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { LayoutGrid, List } from "lucide-react";
 
 interface TemplateFiltersProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   viewMode: "grid" | "list";
   setViewMode: (mode: "grid" | "list") => void;
+  selectedCategory?: string;
+  setSelectedCategory?: (category: string) => void;
+  categories?: string[];
 }
 
 export function TemplateFilters({
@@ -15,36 +19,56 @@ export function TemplateFilters({
   setSearchQuery,
   viewMode,
   setViewMode,
+  selectedCategory,
+  setSelectedCategory,
+  categories = []
 }: TemplateFiltersProps) {
   return (
-    <div className="flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center">
-      <div className="relative flex-1 max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input 
-          placeholder="Search templates..." 
-          className="pl-9"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+    <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
+      <div className="flex items-center space-x-2 md:w-1/2 lg:w-1/3">
+        <div className="relative w-full">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search templates..."
+            className="pl-8"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        
+        {setSelectedCategory && categories.length > 0 && (
+          <div className="hidden md:flex space-x-2">
+            {categories.map((category) => (
+              <Button 
+                key={category}
+                size="sm"
+                variant={selectedCategory === category ? "default" : "outline"}
+                onClick={() => setSelectedCategory(category)}
+              >
+                {category}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
-      <div className="flex gap-2">
+      
+      <div className="flex items-center space-x-2">
         <Button
-          variant="outline"
+          variant={viewMode === "grid" ? "default" : "outline"}
           size="icon"
-          className={viewMode === "grid" ? "bg-primary/10" : ""}
           onClick={() => setViewMode("grid")}
+          title="Grid view"
         >
           <LayoutGrid className="h-4 w-4" />
-          <span className="sr-only">Grid view</span>
         </Button>
         <Button
-          variant="outline"
+          variant={viewMode === "list" ? "default" : "outline"}
           size="icon"
-          className={viewMode === "list" ? "bg-primary/10" : ""}
           onClick={() => setViewMode("list")}
+          title="List view"
         >
-          <LayoutList className="h-4 w-4" />
-          <span className="sr-only">List view</span>
+          <List className="h-4 w-4" />
         </Button>
       </div>
     </div>

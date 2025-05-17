@@ -1,14 +1,38 @@
 
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { TemplateCard } from "@/components/dashboard/TemplateCard";
+import { TemplateCard } from "@/components/templates/TemplateCard";
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
+import { templateService } from "@/services/templateService";
+import { Template } from "@/types/template";
 
 interface PopularTemplatesProps {
-  templates: any[];
+  limit?: number;
 }
 
-export function PopularTemplates({ templates = [] }: PopularTemplatesProps) {
+export function PopularTemplates({ limit = 3 }: PopularTemplatesProps) {
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    async function loadTemplates() {
+      try {
+        setIsLoading(true);
+        const allTemplates = await templateService.getTemplates();
+        setTemplates(allTemplates.slice(0, limit));
+      } catch (error) {
+        console.error("Error loading templates:", error);
+        // Fallback to sample templates
+        setTemplates([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    loadTemplates();
+  }, [limit]);
+
   // Fallback templates if none exist in the database
   const fallbackTemplates = [
     {
@@ -17,6 +41,8 @@ export function PopularTemplates({ templates = [] }: PopularTemplatesProps) {
       description: "Highlight your product features in a clean, professional format.",
       thumbnail: "/placeholder.svg",
       category: "Marketing",
+      is_premium: false,
+      created_at: new Date().toISOString(),
     },
     {
       id: "t2",
@@ -24,6 +50,8 @@ export function PopularTemplates({ templates = [] }: PopularTemplatesProps) {
       description: "Engaging vertical format optimized for Instagram and TikTok.",
       thumbnail: "/placeholder.svg",
       category: "Social",
+      is_premium: false,
+      created_at: new Date().toISOString(),
     },
     {
       id: "t3",
@@ -31,6 +59,8 @@ export function PopularTemplates({ templates = [] }: PopularTemplatesProps) {
       description: "Clear step-by-step format to explain complex concepts.",
       thumbnail: "/placeholder.svg",
       category: "Education",
+      is_premium: false,
+      created_at: new Date().toISOString(),
     },
   ];
 
@@ -47,11 +77,18 @@ export function PopularTemplates({ templates = [] }: PopularTemplatesProps) {
           </Link>
         </Button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {displayTemplates.map((template) => (
-          <TemplateCard key={template.id} {...template} />
-        ))}
-      </div>
+      
+      {isLoading ? (
+        <div className="flex justify-center items-center h-40">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {displayTemplates.map((template) => (
+            <TemplateCard key={template.id} {...template} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

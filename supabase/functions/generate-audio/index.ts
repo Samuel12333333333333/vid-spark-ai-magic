@@ -29,7 +29,11 @@ serve(async (req) => {
       }
     }
     
-    console.log("Generate audio received request data:", JSON.stringify(requestData, null, 2));
+    console.log("Generate audio received request data:", JSON.stringify({
+      textLength: requestData?.text?.length || 0,
+      title: requestData?.title || "Untitled",
+      voice: requestData?.voice || "alloy"
+    }, null, 2));
     
     // Extract parameters with fallbacks
     const { text, title = "Untitled", voice = "alloy" } = requestData;
@@ -72,9 +76,29 @@ serve(async (req) => {
       );
     }
     
+    // Try to use selected voice or default to a recommended voice
+    let voiceId = "21m00Tcm4TlvDq8ikWAM"; // Default Aria voice
+    
+    // Map common voice names to IDs
+    const voiceMap: {[key: string]: string} = {
+      "alloy": "21m00Tcm4TlvDq8ikWAM",  // Default voice
+      "aria": "21m00Tcm4TlvDq8ikWAM",
+      "roger": "CwhRBWXzGAHq8TQ4Fs17", 
+      "sarah": "EXAVITQu4vr4xnSDxMaL",
+      "laura": "FGY2WhTYpPnrIDTdsKH5",
+      "charlie": "IKne3meq5aSn9XLyUdCD"
+    };
+    
+    // Try to match by name (case insensitive)
+    const voiceLower = voice.toLowerCase();
+    if (voiceMap[voiceLower]) {
+      voiceId = voiceMap[voiceLower];
+    }
+    
+    console.log(`Using voice ID: ${voiceId}`);
+    
     // Generate audio using ElevenLabs API
     console.log("Calling ElevenLabs API...");
-    const voiceId = "21m00Tcm4TlvDq8ikWAM"; // Default voice ID if not provided
     
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: "POST",
@@ -120,6 +144,23 @@ serve(async (req) => {
         const hashArray = Array.from(new Uint8Array(textHash));
         const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         
+        // Make sure storage bucket exists
+        try {
+          // Check if the bucket exists first
+          const { data: buckets } = await supabase.storage.listBuckets();
+          const bucketExists = buckets?.some(b => b.name === 'video-assets');
+          
+          if (!bucketExists) {
+            // Create the bucket if it doesn't exist
+            console.log("Creating video-assets bucket");
+            await supabase.storage.createBucket('video-assets', {
+              public: true
+            });
+          }
+        } catch (storageError) {
+          console.error("Error checking/creating storage bucket:", storageError);
+        }
+        
         // Store in cache table (assuming a table named 'audio_cache' exists)
         const { error } = await supabase.from('audio_cache').upsert({
           text_hash: hashHex,
@@ -127,7 +168,7 @@ serve(async (req) => {
           voice: voice,
           audio_content: base64Audio,
           created_at: new Date().toISOString()
-        }).select();
+        });
         
         if (error) {
           // Don't fail if table doesn't exist yet or other DB error
