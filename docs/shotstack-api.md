@@ -7,6 +7,13 @@ Shotstack is a cloud video editing API that enables programmatic video creation,
 ## Authentication
 API keys are stored in Supabase secrets under `SHOTSTACK_API_KEY`.
 
+### Checking Your API Key
+To verify your Shotstack API key is working:
+
+1. Go to Supabase Edge Functions
+2. Visit the "test-shotstack" function and execute it
+3. A successful response will include `"success": true`
+
 ## Implementation Guidelines
 
 ### Required Headers
@@ -176,6 +183,21 @@ Shotstack operates on a credit-based system:
    - All media URLs must be publicly accessible
    - Media must be in compatible formats
    - Check console logs for detailed errors
+
+4. **Early Render Failures**:
+   - Ensure your API key is valid and has sufficient permissions (read + write)
+   - Check that all video URLs are accessible from the Shotstack servers
+   - Verify that all merge fields in templates have values provided
+   - Look for rate limiting or quota issues
+
+## Testing Your Integration
+We recommend testing your integration with this checklist:
+
+1. Verify API key works with the `/me` endpoint
+2. Test with a minimal template (single clip, no audio)
+3. Add complexity incrementally (audio, captions, etc.)
+4. Monitor render status and handle all possible status values
+5. Implement retry logic for transient failures
 
 ## Reference
 - [Shotstack API Documentation](https://shotstack.io/docs/api/)

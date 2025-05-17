@@ -25,9 +25,12 @@ serve(async (req) => {
     const params = await req.json().catch(() => ({}));
     const directTest = params?.direct === true;
     
-    // For direct key validation, always use the templates endpoint 
-    // which is more reliable than the /me endpoint
-    const endpoint = "https://api.shotstack.io/v1/templates";
+    // For direct key validation, use a more reliable endpoint that doesn't require permissions
+    const endpoint = directTest 
+      ? "https://api.shotstack.io/v1/me" 
+      : "https://api.shotstack.io/v1/templates";
+    
+    console.log(`Testing Shotstack API with endpoint: ${endpoint}`);
     
     // Test if API key works by making a simple request
     const response = await fetch(endpoint, {
@@ -41,17 +44,33 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Shotstack API error (${response.status}): ${errorText}`);
-      throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
+      throw new Error(`Shotstack API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
     
     const data = await response.json();
+    console.log("Shotstack API response:", JSON.stringify(data).substring(0, 200) + "...");
+    
+    // Verify that the API key is valid by checking specific properties in the response
+    if (directTest) {
+      // For /me endpoint, check if we have credits info
+      if (!data.response || !data.response.credits) {
+        throw new Error("Invalid Shotstack API key (no credits information returned)");
+      }
+    } else {
+      // For templates endpoint, check if we have a data array
+      if (!data.response || !data.response.data) {
+        throw new Error("Invalid Shotstack API key (no template data returned)");
+      }
+    }
     
     return new Response(
       JSON.stringify({
         success: true,
         message: "Shotstack API connection successful",
         data: { 
-          response: directTest ? { status: "success" } : data.response
+          response: directTest 
+            ? { status: "success", credits: data.response.credits } 
+            : { status: "success", templates: data.response.data.length }
         }
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -64,7 +83,8 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         message: error.message || "Failed to test Shotstack API",
-        error: error.message
+        error: error.message,
+        timestamp: new Date().toISOString()
       }),
       {
         status: 400,

@@ -41,15 +41,16 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Shotstack API error: ${response.status}`, errorText);
-      throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
+      throw new Error(`Shotstack API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
     
     const data = await response.json();
     const status = data.response?.status;
     const url = data.response?.url;
     const poster = data.response?.poster || data.response?.thumbnail;
+    const error = data.response?.error;
     
-    console.log(`Render status: ${status}, url: ${url || 'none'}`);
+    console.log(`Render status: ${status}, url: ${url || 'none'}, error: ${error || 'none'}`);
     
     // If complete, update the project in Supabase
     if (projectId && (status === "done" || status === "failed")) {
@@ -81,7 +82,7 @@ serve(async (req) => {
               .from("video_projects")
               .update({
                 status: "failed",
-                error_message: "Rendering failed with Shotstack",
+                error_message: error || "Rendering failed with Shotstack",
                 updated_at: new Date().toISOString()
               })
               .eq("id", projectId);
@@ -106,7 +107,8 @@ serve(async (req) => {
         url,
         thumbnail: poster,
         projectId,
-        renderId
+        renderId,
+        errorDetails: error || null
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -119,6 +121,7 @@ serve(async (req) => {
       JSON.stringify({
         status: "failed",
         error: error.message || "Failed to check render status",
+        timestamp: new Date().toISOString()
       }),
       {
         status: 400,

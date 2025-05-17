@@ -32,6 +32,7 @@ interface RetryOptions {
   maxRetries: number;
   delayMs: number;
   onRetry?: (attempt: number, error: any) => void;
+  retryOnlyIf?: (error: any) => boolean;
 }
 
 // Utility to retry API calls with exponential backoff
@@ -42,16 +43,19 @@ export const withRetry = async <T>(
   let maxRetries: number;
   let delayMs: number;
   let onRetry: ((attempt: number, error: any) => void) | undefined;
+  let retryOnlyIf: ((error: any) => boolean) | undefined;
   
   // Handle legacy number parameter for backward compatibility
   if (typeof options === 'number') {
     maxRetries = options;
     delayMs = 1000;
     onRetry = undefined;
+    retryOnlyIf = undefined;
   } else {
     maxRetries = options.maxRetries;
     delayMs = options.delayMs;
     onRetry = options.onRetry;
+    retryOnlyIf = options.retryOnlyIf;
   }
   
   let lastError: any;
@@ -73,6 +77,12 @@ export const withRetry = async <T>(
     } catch (error) {
       lastError = error;
       console.error(`Attempt ${attempt + 1}/${maxRetries + 1} failed:`, error);
+      
+      // If retry condition is provided and it returns false, don't retry
+      if (retryOnlyIf && !retryOnlyIf(error)) {
+        console.log("Not retrying due to retry condition");
+        throw error;
+      }
       
       // If this was the last attempt, throw the error
       if (attempt === maxRetries) {

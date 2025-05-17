@@ -6,8 +6,8 @@ export interface Template {
   thumbnail: string | null;
   category: string;
   is_premium: boolean | null;
-  is_pro_only?: boolean | null;
-  is_business_only?: boolean | null;
+  is_pro_only: boolean | null;
+  is_business_only: boolean | null;
   created_at: string;
 }
 

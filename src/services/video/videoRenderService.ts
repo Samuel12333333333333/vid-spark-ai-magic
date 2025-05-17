@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { RenderResponse, RenderStatus } from "./types";
 import { toast } from "sonner";
@@ -23,9 +22,13 @@ export const videoRenderService = {
       console.log(`Starting render for project ${projectId}`);
       console.log(`Audio settings: hasAudio=${hasAudio}, audioUrl=${audioUrl || 'none'}`);
       console.log(`Caption settings: hasCaptions=${hasCaptions}, captionsUrl=${captionsUrl || 'none'}`);
+      console.log(`Using template:`, template ? `yes (id: ${template.id || 'unknown'})` : 'no');
       
       // Check subscription status before rendering
-      const { data: subscriptionData, error: subscriptionError } = await supabase.functions.invoke("check-subscription");
+      const { data: subscriptionData, error: subscriptionError } = await withRetry(() => 
+        supabase.functions.invoke("check-subscription"), 
+        { maxRetries: 2, delayMs: 1000 }
+      );
       
       if (subscriptionError) {
         console.warn("Could not verify subscription, proceeding with caution:", subscriptionError);
@@ -33,8 +36,10 @@ export const videoRenderService = {
       
       const subscription = subscriptionData?.subscription;
       const hasActiveSubscription = subscription && subscription.status === 'active';
-      const isPro = hasActiveSubscription && subscription?.plan_name?.toLowerCase() === 'pro';
-      const isBusiness = hasActiveSubscription && subscription?.plan_name?.toLowerCase() === 'business';
+      const isPro = hasActiveSubscription && subscription?.plan_name?.toLowerCase().includes('pro');
+      const isBusiness = hasActiveSubscription && subscription?.plan_name?.toLowerCase().includes('business');
+      
+      console.log(`Subscription status: ${hasActiveSubscription ? 'active' : 'inactive'}, tier: ${isPro ? 'pro' : isBusiness ? 'business' : 'free'}`);
       
       // Template tier restrictions
       if (template) {
@@ -61,7 +66,10 @@ export const videoRenderService = {
       }
       
       // Check usage quota before proceeding with render
-      const { data: usageData, error: usageError } = await supabase.functions.invoke("get_video_usage");
+      const { data: usageData, error: usageError } = await withRetry(() => 
+        supabase.functions.invoke("get_video_usage"),
+        { maxRetries: 2, delayMs: 1000 }
+      );
       
       if (usageError) {
         console.warn("Could not verify usage quota, proceeding with caution:", usageError);
@@ -74,6 +82,8 @@ export const videoRenderService = {
               : 2 // Free tier
           : 2; // Default to free
         
+        console.log(`Video usage: ${usageData.count || 0}/${videosLimit}`);
+        
         if (usageData.count >= videosLimit) {
           console.error("Usage quota exceeded");
           showErrorToast(`You've reached your limit of ${videosLimit} videos. Please upgrade your plan to create more videos.`);
@@ -81,127 +91,9 @@ export const videoRenderService = {
         }
       }
       
-      // If a template is provided, we'll use that directly instead of scenes
-      if (template) {
-        console.log("Using provided template for rendering");
-        
-        // If audio is requested but not in template, try to generate it
-        if (hasAudio && !audioUrl && !template.timeline?.soundtrack) {
-          try {
-            const narrationScript = template.merge?.find(item => item.find === "VOICEOVER")?.replace;
-            if (narrationScript) {
-              console.log("Template has narration script, generating audio");
-              audioUrl = await this.generateAudioForTemplate(narrationScript, projectId);
-              
-              if (audioUrl) {
-                // Add soundtrack to template if audio was generated
-                if (!template.timeline.soundtrack) {
-                  template.timeline.soundtrack = {
-                    src: audioUrl,
-                    effect: "fadeOut"
-                  };
-                  console.log("Added soundtrack to template");
-                }
-              }
-            }
-          } catch (audioErr) {
-            console.error("Error generating audio for template:", audioErr);
-            // Continue without audio if generation fails
-          }
-        }
-        
-        // If captions are requested but not in template
-        if (hasCaptions && !captionsUrl && !template.timeline?.subtitles) {
-          try {
-            const narrationScript = template.merge?.find(item => item.find === "VOICEOVER")?.replace;
-            if (narrationScript) {
-              console.log("Template has narration script, adding captions");
-              // Add captions directly to template
-              
-              // Check if we already have a caption track
-              const hasCaptionTrack = template.timeline.tracks.some(track => 
-                track.clips?.some(clip => clip.asset?.type === "caption")
-              );
-              
-              if (!hasCaptionTrack) {
-                // Add a track for captions if not already present
-                template.timeline.tracks.push({
-                  clips: [
-                    {
-                      asset: {
-                        type: "caption",
-                        text: narrationScript,
-                        style: "minimal",
-                        background: {
-                          color: "#00000080",
-                          padding: 10,
-                          borderRadius: 5
-                        },
-                        font: {
-                          size: "30"
-                        }
-                      },
-                      start: 0,
-                      length: "end",
-                      position: "bottom"
-                    }
-                  ]
-                });
-                console.log("Added captions track to template");
-              }
-            }
-          } catch (captionErr) {
-            console.error("Error adding captions to template:", captionErr);
-            // Continue without captions if adding fails
-          }
-        }
-      } else if (!scenes || scenes.length === 0) {
-        console.error("No scenes or template provided for rendering");
-        showErrorToast("No scenes or template provided for video rendering");
-        return { success: false, error: "No scenes or template provided for video rendering" };
-      } else {
-        console.log(`Using ${scenes.length} scenes for rendering`);
-        
-        // Make sure each scene has necessary properties including videoUrl
-        const validatedScenes = scenes.map(scene => {
-          // Check if videoUrl is missing
-          if (!scene.videoUrl) {
-            console.warn(`Scene "${scene.scene || 'Unnamed Scene'}" is missing videoUrl property`);
-          }
-          
-          // Ensure each scene has at least these properties
-          return {
-            scene: scene.scene || scene.title || "Unnamed Scene",
-            description: scene.description || "",
-            keywords: scene.keywords || [],
-            duration: scene.duration || 5,
-            videoUrl: scene.videoUrl || scene.media_url || null // Try alternate field names
-          };
-        });
-        
-        // Log what we're sending for debugging
-        console.log(`Validated ${validatedScenes.length} scenes`);
-        
-        // Add audio generation if requested but not provided
-        if (hasAudio && !audioUrl) {
-          try {
-            // Generate a narrative script from the scenes
-            const narrationScript = this.generateNarrationFromScenes(scenes);
-            if (narrationScript) {
-              audioUrl = await this.generateAudioForTemplate(narrationScript, projectId);
-              console.log("Generated audio for scenes:", audioUrl ? "success" : "failed");
-            }
-          } catch (audioErr) {
-            console.error("Error generating audio for scenes:", audioErr);
-            // Continue without audio
-          }
-        }
-      }
-      
-      // Test the Shotstack API connection
+      // Test the Shotstack API connection before proceeding
       try {
         console.log("Testing Shotstack API connection before rendering");
-        // Use a more direct check to validate the Shotstack API key
         const shotstackApiKey = await this.validateShotstackApiKey();
         
         if (!shotstackApiKey) {
@@ -209,6 +101,8 @@ export const videoRenderService = {
           showErrorToast("Failed to validate Shotstack API key. Please check your API key in project settings.");
           return { success: false, error: "Shotstack API key validation failed" };
         }
+        
+        console.log("Shotstack API connection validated successfully");
       } catch (testErr) {
         console.error("Exception testing Shotstack API:", testErr);
         showErrorToast("Error validating Shotstack API: " + (testErr instanceof Error ? testErr.message : String(testErr)));
@@ -257,19 +151,35 @@ export const videoRenderService = {
             captionsUrl 
           };
       
-      console.log("Sending render-video request with audio/caption settings:", 
-        { hasAudio, hasCaptions, hasAudioUrl: !!audioUrl, hasCaptionsUrl: !!captionsUrl });
+      console.log("Sending render-video request with parameters:", { 
+        projectId,
+        style,
+        hasTemplate: !!template,
+        scenesCount: scenes?.length || 0,
+        hasAudio, 
+        hasCaptions,
+        hasAudioUrl: !!audioUrl, 
+        hasCaptionsUrl: !!captionsUrl 
+      });
       
       // Use the updated withRetry function with options object
-      const { data, error } = await withRetry(() => supabase.functions.invoke("render-video", {
+      const renderResult = await withRetry(() => supabase.functions.invoke("render-video", {
         body: requestBody
-      }), { maxRetries: 3, delayMs: 1000 });
+      }), { 
+        maxRetries: 2, 
+        delayMs: 1000,
+        onRetry: (attempt, error) => {
+          console.log(`Retrying render attempt ${attempt} after error:`, error);
+        } 
+      });
       
-      if (error) {
-        console.error("Error starting render:", error);
-        showErrorToast(error.message);
-        return { success: false, error: error.message };
+      if (renderResult.error) {
+        console.error("Error starting render:", renderResult.error);
+        showErrorToast(renderResult.error.message || "Failed to start render");
+        return { success: false, error: renderResult.error.message || "Failed to start render" };
       }
+      
+      const data = renderResult.data;
       
       if (!data || !data.renderId) {
         const errorMsg = data?.error || "No render ID returned";
@@ -301,12 +211,17 @@ export const videoRenderService = {
     }
   },
   
-  // New method to validate the Shotstack API key directly
+  // Validate the Shotstack API key specifically
   async validateShotstackApiKey(): Promise<boolean> {
     try {
+      console.log("Validating Shotstack API key");
+      
       // Use the direct test flag to simplify API validation
-      const { data, error } = await supabase.functions.invoke("test-shotstack", {
+      const { data, error } = await withRetry(() => supabase.functions.invoke("test-shotstack", {
         body: { direct: true }
+      }), {
+        maxRetries: 2,
+        delayMs: 1000
       });
       
       if (error) {
@@ -314,7 +229,13 @@ export const videoRenderService = {
         return false;
       }
       
-      return data?.success === true;
+      if (!data || data.success !== true) {
+        console.error("Shotstack API key validation failed:", data?.message || "Unknown error");
+        return false;
+      }
+      
+      console.log("Shotstack API key is valid");
+      return true;
     } catch (error) {
       console.error("Exception validating Shotstack API key:", error);
       return false;
@@ -436,8 +357,8 @@ export const videoRenderService = {
       
       if (error) {
         console.error("Error checking render status:", error);
-        showErrorToast(error.message);
-        return { status: 'failed', error: error.message };
+        showErrorToast(error.message || "Error checking render status");
+        return { status: 'failed', error: error.message || "Error checking render status" };
       }
       
       if (!data) {
@@ -446,6 +367,12 @@ export const videoRenderService = {
       }
       
       console.log("Render status response:", data);
+      
+      // If there are error details, log them for debugging
+      if (data.errorDetails) {
+        console.error("Render error details:", data.errorDetails);
+      }
+      
       return data as RenderResponse;
     } catch (error) {
       console.error("Exception in checkRenderStatus:", error);

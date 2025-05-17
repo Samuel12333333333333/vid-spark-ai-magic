@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { showErrorToast, withRetry } from "@/lib/error-handler";
 
 export interface ApiKeyStatus {
   name: string;
@@ -27,8 +28,12 @@ export const apiKeyValidator = {
       switch(apiName) {
         case 'pexels':
           // Test Pexels API with a simple query
-          const pexelsResult = await supabase.functions.invoke('search-videos', {
+          const pexelsResult = await withRetry(() => supabase.functions.invoke('search-videos', {
             body: { keywords: ["test"], limit: 1 }
+          }), {
+            maxRetries: 1,
+            delayMs: 1000,
+            retryOnlyIf: (err) => !err.message?.includes("Authentication")
           });
           
           isValid = !pexelsResult.error && 
@@ -44,8 +49,12 @@ export const apiKeyValidator = {
           
         case 'gemini':
           // Test Gemini API with a minimal prompt
-          const geminiResult = await supabase.functions.invoke('generate-scenes', {
+          const geminiResult = await withRetry(() => supabase.functions.invoke('generate-scenes', {
             body: { prompt: "Short test scene" }
+          }), {
+            maxRetries: 1,
+            delayMs: 1000,
+            retryOnlyIf: (err) => !err.message?.includes("Authentication") && !err.message?.includes("API key")
           });
           
           isValid = !geminiResult.error && 
@@ -61,28 +70,46 @@ export const apiKeyValidator = {
           
         case 'shotstack':
           // Test Shotstack API with direct validation method
-          const shotstackResult = await supabase.functions.invoke('test-shotstack', {
+          const shotstackResult = await withRetry(() => supabase.functions.invoke('test-shotstack', {
             body: { direct: true }
+          }), {
+            maxRetries: 2,
+            delayMs: 1000
           });
           
-          isValid = !shotstackResult.error && 
-                   shotstackResult.data && 
-                   shotstackResult.data.success === true;
-          
+          // New validation logic for Shotstack
           if (shotstackResult.error) {
+            isValid = false;
             errorMessage = `Error: ${shotstackResult.error.message || 'API request failed'}`;
-          } else if (!isValid) {
-            errorMessage = "Invalid or missing API key";
+            console.error("Shotstack validation error:", shotstackResult.error);
+          } else if (!shotstackResult.data) {
+            isValid = false;
+            errorMessage = "No data returned from Shotstack API";
+            console.error("Shotstack validation: no data returned");
+          } else {
+            // Check for success field in response
+            isValid = shotstackResult.data.success === true;
+            
+            if (!isValid) {
+              errorMessage = shotstackResult.data.message || "Invalid Shotstack API key";
+              console.error("Shotstack validation failed:", shotstackResult.data);
+            } else {
+              console.log("Shotstack API key is valid");
+            }
           }
           break;
           
         case 'elevenlabs':
           // Test ElevenLabs API with a minimal text
-          const elevenLabsResult = await supabase.functions.invoke('generate-audio', {
+          const elevenLabsResult = await withRetry(() => supabase.functions.invoke('generate-audio', {
             body: { 
               text: "This is a test",
               voice: "alloy"
             }
+          }), {
+            maxRetries: 1,
+            delayMs: 1000,
+            retryOnlyIf: (err) => !err.message?.includes("Authentication") && !err.message?.includes("API key")
           });
           
           isValid = !elevenLabsResult.error && 
@@ -132,6 +159,7 @@ export const apiKeyValidator = {
       results[apiName] = await this.validateApiKey(apiName);
     }
     
+    console.log("API key validation results:", results);
     return results as Record<ApiKeyName, ApiKeyStatus>;
   },
   
@@ -154,7 +182,7 @@ export const apiKeyValidator = {
       return "All API keys are valid.";
     }
     
-    const keyList = invalidKeys.map(key => key.key).join(', ');
+    const keyList = invalidKeys.map(key => `${key.key} (${key.errorMessage || 'Invalid'})`).join(', ');
     
     return `The following API keys are missing or invalid: ${keyList}. Please set them in your Supabase project's environment variables.`;
   }
