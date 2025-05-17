@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { RenderResponse, RenderStatus } from "./types";
 import { toast } from "sonner";
@@ -14,48 +13,41 @@ export const videoRenderService = {
     hasAudio: boolean = false,
     hasCaptions: boolean = false,
     audioUrl?: string,
-    captionsUrl?: string
+    captionsUrl?: string,
+    template?: any // Add support for direct template rendering
   ): Promise<{ renderId?: string; success: boolean; error?: string }> {
     try {
-      if (!scenes || scenes.length === 0) {
-        console.error("No scenes provided for rendering");
-        showErrorToast("No scenes provided for video rendering");
-        return { success: false, error: "No scenes provided for video rendering" };
-      }
+      console.log(`Starting render for project ${projectId}`);
       
-      console.log(`Starting render for project ${projectId} with ${scenes.length} scenes`);
-      
-      // Make sure each scene has necessary properties including videoUrl
-      const validatedScenes = scenes.map(scene => {
-        // Check if videoUrl is missing
-        if (!scene.videoUrl) {
-          console.warn(`Scene "${scene.scene || 'Unnamed Scene'}" is missing videoUrl property`);
-        }
+      // If a template is provided, we'll use that directly instead of scenes
+      if (template) {
+        console.log("Using provided template for rendering");
+      } else if (!scenes || scenes.length === 0) {
+        console.error("No scenes or template provided for rendering");
+        showErrorToast("No scenes or template provided for video rendering");
+        return { success: false, error: "No scenes or template provided for video rendering" };
+      } else {
+        console.log(`Using ${scenes.length} scenes for rendering`);
         
-        // Ensure each scene has at least these properties
-        return {
-          scene: scene.scene || scene.title || "Unnamed Scene",
-          description: scene.description || "",
-          keywords: scene.keywords || [],
-          duration: scene.duration || 5,
-          videoUrl: scene.videoUrl || scene.media_url || null // Try alternate field names
-        };
-      });
-      
-      // Log what we're sending for debugging
-      console.log(`Validated ${validatedScenes.length} scenes`);
-      
-      try {
-        // Check if at least one scene has a videoUrl
-        const hasVideoUrl = validatedScenes.some(scene => scene.videoUrl);
-        if (!hasVideoUrl) {
-          console.log("No scenes have videoUrl property - Shotstack will search for stock videos");
-          toast.info("Using auto-generated stock videos", {
-            description: "No custom videos provided, using stock footage instead."
-          });
-        }
-      } catch (err) {
-        console.error("Error checking videoUrls:", err);
+        // Make sure each scene has necessary properties including videoUrl
+        const validatedScenes = scenes.map(scene => {
+          // Check if videoUrl is missing
+          if (!scene.videoUrl) {
+            console.warn(`Scene "${scene.scene || 'Unnamed Scene'}" is missing videoUrl property`);
+          }
+          
+          // Ensure each scene has at least these properties
+          return {
+            scene: scene.scene || scene.title || "Unnamed Scene",
+            description: scene.description || "",
+            keywords: scene.keywords || [],
+            duration: scene.duration || 5,
+            videoUrl: scene.videoUrl || scene.media_url || null // Try alternate field names
+          };
+        });
+        
+        // Log what we're sending for debugging
+        console.log(`Validated ${validatedScenes.length} scenes`);
       }
       
       // First, test the Shotstack API connection
@@ -89,7 +81,13 @@ export const videoRenderService = {
       }
 
       // Get current user ID before making the function call
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser()
+        .catch(error => {
+          console.error("Error getting user:", error);
+          showErrorToast("Authentication error: Failed to get user");
+          throw new Error("Authentication error: Failed to get user");
+        });
+
       const userId = user?.id;
 
       if (!userId) {
@@ -98,19 +96,13 @@ export const videoRenderService = {
         return { success: false, error: "Authentication error: No user found" };
       }
       
+      // Build request body based on whether template or scenes are provided
+      const requestBody = template 
+        ? { projectId, userId, prompt, style, template, has_audio: hasAudio, has_captions: hasCaptions, audioUrl, captionsUrl } 
+        : { projectId, userId, prompt, style, scenes, useStockMedia: true, has_audio: hasAudio, has_captions: hasCaptions, audioUrl, captionsUrl };
+      
       const { data, error } = await withRetry(() => supabase.functions.invoke("render-video", {
-        body: {
-          projectId,
-          userId,
-          prompt,
-          style,
-          scenes: validatedScenes,
-          useStockMedia: true,
-          has_audio: hasAudio,
-          has_captions: hasCaptions,
-          audioUrl,
-          captionsUrl
-        }
+        body: requestBody
       }));
       
       if (error) {

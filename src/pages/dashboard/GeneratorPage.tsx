@@ -5,13 +5,15 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle2, ExternalLink, AlertTriangle, InfoIcon, TerminalIcon } from "lucide-react";
+import { AlertCircle, CheckCircle2, ExternalLink, AlertTriangle, InfoIcon, TerminalIcon, FileCode } from "lucide-react";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { showErrorToast } from "@/lib/error-handler";
 import apiKeyValidator, { ApiKeyStatus } from "@/services/apiKeyValidator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Textarea } from "@/components/ui/textarea";
+import { videoService } from "@/services/videoService";
 
 export default function GeneratorPage() {
   const [apiStatus, setApiStatus] = useState<Record<string, ApiKeyStatus>>({});
@@ -19,6 +21,9 @@ export default function GeneratorPage() {
   const [showDocs, setShowDocs] = useState<boolean>(false);
   const [lastRenderError, setLastRenderError] = useState<any>(null);
   const [isLoadingError, setIsLoadingError] = useState(false);
+  const [showTemplateInput, setShowTemplateInput] = useState<boolean>(false);
+  const [templateJson, setTemplateJson] = useState<string>("");
+  const [isGeneratingTemplate, setIsGeneratingTemplate] = useState<boolean>(false);
 
   useEffect(() => {
     // Check API keys on component mount
@@ -76,6 +81,97 @@ export default function GeneratorPage() {
     }
   };
 
+  const generateFromTemplate = async () => {
+    try {
+      if (!templateJson.trim()) {
+        toast.error("Template is empty", {
+          description: "Please provide a valid JSON template"
+        });
+        return;
+      }
+      
+      setIsGeneratingTemplate(true);
+      
+      let template;
+      try {
+        template = JSON.parse(templateJson);
+      } catch (parseError) {
+        toast.error("Invalid JSON template", {
+          description: "Please check your template format"
+        });
+        console.error("Template parsing error:", parseError);
+        return;
+      }
+      
+      // Check minimal required fields
+      if (!template.timeline || !template.output) {
+        toast.error("Invalid template structure", {
+          description: "Template must include timeline and output properties"
+        });
+        return;
+      }
+      
+      // Create basic project details
+      const title = template.merge?.find(m => m.find === "HEADLINE")?.replace || "Template Video";
+      const prompt = "Generated from custom template";
+      
+      // Create a new video project
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user?.id) {
+        toast.error("Authentication error", {
+          description: "Please sign in to generate videos"
+        });
+        return;
+      }
+      
+      const project = await videoService.createProject({
+        title,
+        prompt,
+        user_id: user.id,
+        status: "pending",
+        style: "custom-template"
+      });
+      
+      if (!project?.id) {
+        toast.error("Failed to create project", {
+          description: "Could not initialize video generation"
+        });
+        return;
+      }
+      
+      // Now render using the template
+      const { success, renderId, error } = await videoService.startRender(
+        project.id,
+        prompt,
+        "custom-template",
+        [], // No scenes needed with template
+        false, // Audio is handled in template
+        false, // Captions are handled in template
+        undefined, 
+        undefined,
+        template // Pass the template directly
+      );
+      
+      if (success && renderId) {
+        toast.success("Template video generation started", {
+          description: "We'll notify you when your video is ready"
+        });
+      } else {
+        toast.error("Template video generation failed", {
+          description: error || "Unknown error occurred"
+        });
+      }
+    } catch (error) {
+      console.error("Error generating from template:", error);
+      toast.error("Template generation failed", {
+        description: error instanceof Error ? error.message : "Unknown error occurred"
+      });
+    } finally {
+      setIsGeneratingTemplate(false);
+    }
+  };
+
   const apiStatusDetails = {
     pexels: {
       name: "Pexels API",
@@ -113,6 +209,14 @@ export default function GeneratorPage() {
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-bold">Create Video</h1>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowTemplateInput(!showTemplateInput)}
+            >
+              <FileCode className="h-4 w-4 mr-2" />
+              {showTemplateInput ? "Hide Template Mode" : "Use Template JSON"}
+            </Button>
             {lastRenderError && (
               <Button 
                 variant="outline"
@@ -132,6 +236,42 @@ export default function GeneratorPage() {
             </Button>
           </div>
         </div>
+        
+        {showTemplateInput && (
+          <Card className="mb-6">
+            <CardHeader className="pb-2">
+              <CardTitle>Template Mode</CardTitle>
+              <CardDescription>
+                Paste a Shotstack-compatible template JSON to generate video directly
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={templateJson}
+                onChange={(e) => setTemplateJson(e.target.value)}
+                placeholder='{"timeline": {...}, "output": {...}, "merge": [...]}'
+                className="font-mono h-64 mb-4"
+              />
+              <Button 
+                onClick={generateFromTemplate}
+                disabled={isGeneratingTemplate}
+                className="w-full"
+              >
+                {isGeneratingTemplate ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
+                    Generating...
+                  </>
+                ) : (
+                  "Generate from Template"
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2">
+                Template must be compatible with Shotstack API format including timeline, output, and optional merge fields.
+              </p>
+            </CardContent>
+          </Card>
+        )}
         
         {showDocs && (
           <Card className="mb-4">
@@ -207,8 +347,16 @@ export default function GeneratorPage() {
                     variant="outline" 
                     size="sm"
                     onClick={() => checkLastError()}
+                    disabled={isLoadingError}
                   >
-                    Refresh Error Data
+                    {isLoadingError ? (
+                      <>
+                        <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
+                        Loading...
+                      </>
+                    ) : (
+                      "Refresh Error Data"
+                    )}
                   </Button>
                 </div>
               </TabsContent>
@@ -253,6 +401,27 @@ export default function GeneratorPage() {
                     </AccordionContent>
                   </AccordionItem>
                   
+                  <AccordionItem value="template">
+                    <AccordionTrigger>Using Direct Templates</AccordionTrigger>
+                    <AccordionContent>
+                      <p className="mb-2">If scenes aren't working well, try using a direct template:</p>
+                      <ol className="list-decimal pl-4 space-y-2">
+                        <li>Click "Use Template JSON" at the top of this page</li>
+                        <li>Paste a complete Shotstack-compatible template</li>
+                        <li>Template must include timeline, output, and merge sections</li>
+                        <li>Generate directly without scene processing</li>
+                      </ol>
+                      <Button
+                        onClick={() => setShowTemplateInput(true)}
+                        size="sm"
+                        className="mt-4"
+                      >
+                        <FileCode className="h-4 w-4 mr-2" />
+                        Show Template Input
+                      </Button>
+                    </AccordionContent>
+                  </AccordionItem>
+                  
                   <AccordionItem value="network">
                     <AccordionTrigger>Network & Timeout Issues</AccordionTrigger>
                     <AccordionContent>
@@ -279,7 +448,7 @@ export default function GeneratorPage() {
                     </h3>
                     <ol className="list-decimal pl-4 space-y-2">
                       <li>Check the <a href="/docs/shotstack-api.md" className="text-blue-600 hover:underline">Shotstack API documentation</a> for specific error codes and solutions.</li>
-                      <li>Try generating a video with minimal scenes (1-2) to isolate the issue.</li>
+                      <li>Try the direct template method using "Use Template JSON" button.</li>
                       <li>Ensure your media URLs are publicly accessible and don't require authentication.</li>
                       <li>Check your network connection and try again in a few minutes.</li>
                     </ol>
@@ -403,9 +572,11 @@ export default function GeneratorPage() {
         </Card>
       )}
       
-      <ErrorBoundary>
-        <VideoGenerator />
-      </ErrorBoundary>
+      {!showTemplateInput && (
+        <ErrorBoundary>
+          <VideoGenerator />
+        </ErrorBoundary>
+      )}
     </div>
   );
 }

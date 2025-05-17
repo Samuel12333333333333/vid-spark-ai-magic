@@ -187,6 +187,36 @@ serve(async (req) => {
       case "done":
         mappedStatus = "completed";
         
+        // Check if url is actually present
+        if (!url) {
+          logError("Missing URL", "Status is 'done' but no URL was provided", { 
+            renderId, 
+            projectId,
+            response: JSON.stringify(data.response)
+          });
+          
+          // Update project with failed status due to missing URL
+          try {
+            const { error: updateError } = await supabaseAdmin
+              .from("video_projects")
+              .update({
+                status: "failed",
+                error_message: "Video completed but no URL was returned",
+                updated_at: new Date().toISOString()
+              })
+              .eq("id", projectId);
+              
+            if (updateError) {
+              logError("Database Update Error", updateError, { projectId });
+            }
+          } catch (dbError) {
+            logError("Database Error", dbError, { projectId, renderId });
+          }
+          
+          mappedStatus = "failed";
+          break;
+        }
+        
         // Update the project with the video URL if complete
         try {
           const { error: updateError } = await supabaseAdmin

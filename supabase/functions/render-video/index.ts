@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -61,7 +60,8 @@ serve(async (req) => {
         style: params.style,
         sceneCount: params.scenes?.length || 0,
         hasAudio: params.has_audio,
-        hasCaptions: params.has_captions
+        hasCaptions: params.has_captions,
+        templateProvided: Boolean(params.template)
       }, null, 2));
     } catch (parseError) {
       logError("Request Parsing Error", parseError);
@@ -80,7 +80,8 @@ serve(async (req) => {
       captionsFile,
       brandKit,
       mediaUrls = [],
-      useStockMedia = true
+      useStockMedia = true,
+      template = null
     } = params;
     
     // Check for required parameters
@@ -93,13 +94,187 @@ serve(async (req) => {
       throw new Error("User ID is required");
     }
     
-    // Check if scenes are provided, if not, we can't create the video
-    if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
-      logError("No Scenes Error", "No valid scenes provided, cannot create video", { projectId });
-      throw new Error("No valid scenes provided for video creation");
+    console.log(`Creating video for project ${projectId} for user ${userId}`);
+    
+    // Determine if we're using a prebuilt template or creating a timeline from scenes
+    let renderRequest;
+    
+    if (template) {
+      // Use the provided template directly
+      console.log("Using provided template for rendering");
+      renderRequest = template;
+      
+      // Log template structure for debugging
+      try {
+        console.log("Template includes:");
+        console.log(`- Timeline: ${Boolean(renderRequest.timeline)}`);
+        console.log(`- Output: ${Boolean(renderRequest.output)}`);
+        console.log(`- Merge fields: ${renderRequest.merge ? renderRequest.merge.length : 0}`);
+      } catch (err) {
+        logError("Template Logging Error", err);
+      }
+    } else {
+      // Check if scenes are provided for creating a custom timeline
+      if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
+        logError("No Scenes Error", "No valid scenes provided, cannot create video", { projectId });
+        throw new Error("No valid scenes provided for video creation");
+      }
+      
+      // Create Shotstack timeline from scenes
+      renderRequest = await createTimelineFromScenes(scenes, audioUrl, has_captions, mediaUrls, useStockMedia);
     }
     
-    console.log(`Creating video for project ${projectId} with ${scenes.length} scenes for user ${userId}`);
+    // Validate the renderRequest
+    if (!renderRequest) {
+      logError("Invalid Request", "Invalid render request: renderRequest is null", {
+        template: Boolean(template),
+        scenes: Boolean(scenes)
+      });
+      throw new Error("Failed to create render request");
+    }
+    
+    if (template && !validateTemplate(renderRequest)) {
+      logError("Invalid Template", "Template is missing required properties", {
+        hasTimeline: Boolean(renderRequest.timeline),
+        hasOutput: Boolean(renderRequest.output)
+      });
+      throw new Error("Invalid template structure - missing required properties");
+    } else if (!template && (!renderRequest.timeline || !renderRequest.timeline.tracks || renderRequest.timeline.tracks.length === 0)) {
+      logError("Invalid Request", "Invalid render request: Missing tracks", {
+        renderRequest: JSON.stringify(renderRequest)
+      });
+      throw new Error("Invalid render request: Missing tracks");
+    }
+    
+    // Call Shotstack API to render video
+    console.log("Sending render request to Shotstack API");
+    const response = await fetch("https://api.shotstack.io/v1/render", {
+      method: "POST",
+      headers: {
+        "x-api-key": shotstackApiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(renderRequest),
+    });
+    
+    // Handle response
+    if (!response.ok) {
+      const errorText = await response.text();
+      logError("Shotstack API Error", `${response.status} ${response.statusText}`, {
+        errorResponse: errorText,
+        renderRequestSize: JSON.stringify(renderRequest).length
+      });
+      throw new Error(`Shotstack API error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log("Shotstack render response:", JSON.stringify(data));
+    
+    // Get render ID from response
+    const renderId = data.response?.id;
+    if (!renderId) {
+      logError("Missing Render ID", "No render ID returned from Shotstack", {
+        response: JSON.stringify(data)
+      });
+      throw new Error("No render ID returned from Shotstack");
+    }
+    
+    console.log(`Got render ID: ${renderId}, updating project`);
+    
+    // Update project with render ID and status
+    try {
+      const { error: updateError } = await supabaseClient
+        .from("video_projects")
+        .update({
+          render_id: renderId,
+          status: "processing",
+          has_audio: Boolean(has_audio),
+          has_captions: Boolean(has_captions),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", projectId);
+        
+      if (updateError) {
+        logError("Database Update Error", updateError, { projectId });
+      }
+    } catch (dbError) {
+      logError("Database Error", dbError, { projectId });
+      // Continue execution even if DB update fails
+    }
+    
+    // Start polling for render status immediately to get URL faster
+    try {
+      pollRenderStatus(renderId, projectId, shotstackApiKey, supabaseClient);
+    } catch (pollError) {
+      logError("Poll Setup Error", pollError, { renderId, projectId });
+      // Continue despite error, polling can be retried separately
+    }
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        renderId,
+        message: "Video rendering started successfully"
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+    
+  } catch (error) {
+    logError("Render Function Error", error);
+    
+    // Try to update project status to failed if there's a projectId
+    try {
+      const { projectId } = await req.json().catch(() => ({}));
+      if (projectId) {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL");
+        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        
+        if (supabaseUrl && supabaseServiceKey) {
+          const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+          await supabaseClient
+            .from("video_projects")
+            .update({
+              status: "failed",
+              error_message: error.message || "Unknown error during video rendering",
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", projectId);
+          
+          console.log(`Updated project ${projectId} status to failed due to error`);
+        }
+      }
+    } catch (updateError) {
+      logError("Error updating project status", updateError);
+    }
+    
+    return new Response(
+      JSON.stringify({
+        error: error.message || "An error occurred during video rendering",
+        timestamp: new Date().toISOString(),
+        details: error.stack ? error.stack.split("\n").slice(0, 3).join("\n") : null
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  }
+});
+
+// Function to validate template structure
+function validateTemplate(template) {
+  if (!template) return false;
+  if (!template.timeline) return false;
+  if (!template.output) return false;
+  
+  // Minimum check - more detailed validation could be added
+  return true;
+}
+
+// Function to create a timeline from scenes
+async function createTimelineFromScenes(scenes, audioUrl, hasCaptions, mediaUrls, useStockMedia) {
+  
+  console.log(`Creating video for project with ${scenes.length} scenes`);
     
     // Create Shotstack timeline
     const timeline = {
@@ -160,7 +335,7 @@ serve(async (req) => {
     
     // Add scenes to timeline
     const videoClipTrack = { clips: [] };
-    const captionTrack = has_captions ? { clips: [] } : null;
+    const captionTrack = hasCaptions ? { clips: [] } : null;
     
     // Process scenes - we'll first check for provided videoUrl properties
     // If not available, we'll search for stock videos based on keywords
@@ -274,7 +449,7 @@ serve(async (req) => {
         });
         
         // Add caption if enabled
-        if (has_captions && captionTrack) {
+        if (hasCaptions && captionTrack) {
           captionTrack.clips.push({
             asset: {
               type: "title",
@@ -310,152 +485,98 @@ serve(async (req) => {
     }
     
     // Add audio if provided
-    if (has_audio && audioUrl) {
+    if (audioUrl) {
       console.log("Adding audio to timeline:", audioUrl);
       timeline.soundtrack = {
         src: audioUrl,
         effect: "fadeOut"
       };
     }
-    
-    // Apply brand styling if provided
-    if (brandKit) {
-      console.log("Applying brand styling");
-      // Brand styling logic would go here
-    }
-    
-    // Create output configuration
-    const output = {
-      format: "mp4",
-      resolution: "sd" // Standard definition (480p)
-    };
-    
-    // Create full render request
-    const renderRequest = {
-      timeline,
-      output
-    };
-    
-    console.log("Sending render request to Shotstack API");
-    
-    // Validate the renderRequest
-    if (!renderRequest.timeline || !renderRequest.timeline.tracks || renderRequest.timeline.tracks.length === 0) {
-      logError("Invalid Request", "Invalid render request: Missing tracks", {
-        renderRequest: JSON.stringify(renderRequest)
-      });
-      throw new Error("Invalid render request: Missing tracks");
-    }
-    
-    if (!renderRequest.timeline.tracks[0].clips || renderRequest.timeline.tracks[0].clips.length === 0) {
-      logError("Invalid Request", "Invalid render request: No clips in track", {
-        renderRequest: JSON.stringify(renderRequest)
-      });
-      throw new Error("Invalid render request: No clips in track");
-    }
-    
-    // Call Shotstack API to render video
-    const response = await fetch("https://api.shotstack.io/v1/render", {
-      method: "POST",
-      headers: {
-        "x-api-key": shotstackApiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(renderRequest),
-    });
-    
-    // Handle response
-    if (!response.ok) {
-      const errorText = await response.text();
-      logError("Shotstack API Error", `${response.status} ${response.statusText}`, {
-        errorResponse: errorText,
-        renderRequestSize: JSON.stringify(renderRequest).length,
-        firstClipUrl: renderRequest.timeline.tracks[0].clips[0]?.asset?.src || "No URL"
-      });
-      throw new Error(`Shotstack API error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-    
-    const data = await response.json();
-    console.log("Shotstack render response:", JSON.stringify(data));
-    
-    // Get render ID from response
-    const renderId = data.response?.id;
-    if (!renderId) {
-      logError("Missing Render ID", "No render ID returned from Shotstack", {
-        response: JSON.stringify(data)
-      });
-      throw new Error("No render ID returned from Shotstack");
-    }
-    
-    console.log(`Got render ID: ${renderId}, updating project`);
-    
-    // Update project with render ID and status
+  
+  // Create output configuration
+  const output = {
+    format: "mp4",
+    resolution: "sd" // Standard definition (480p)
+  };
+  
+  return {
+    timeline,
+    output
+  };
+}
+
+// Function to poll for render status and update the project when complete
+async function pollRenderStatus(renderId, projectId, shotstackApiKey, supabaseClient) {
+  console.log(`Starting background polling for project ${projectId} with render ID ${renderId}`);
+  
+  // Edge Functions only run for a limited time (10-60 seconds typically)
+  // So we can only do initial polling here, client needs to continue polling
+  
+  const maxAttempts = 5; // Only try a few times in the edge function
+  const interval = 3000; // 3 seconds between checks
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      const { error: updateError } = await supabaseClient
-        .from("video_projects")
-        .update({
-          render_id: renderId,
-          status: "processing",
-          has_audio: Boolean(has_audio),
-          has_captions: Boolean(has_captions),
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", projectId);
-        
-      if (updateError) {
-        logError("Database Update Error", updateError, { projectId });
+      // Wait between attempts
+      await new Promise(resolve => setTimeout(resolve, interval));
+      
+      // Check status
+      const response = await fetch(`https://api.shotstack.io/v1/render/${renderId}`, {
+        method: "GET",
+        headers: {
+          "x-api-key": shotstackApiKey,
+          "Content-Type": "application/json",
+        },
+      });
+      
+      if (!response.ok) {
+        console.error(`Error checking status: ${response.status} ${response.statusText}`);
+        continue;
       }
-    } catch (dbError) {
-      logError("Database Error", dbError, { projectId });
-      // Continue execution even if DB update fails
-    }
-    
-    return new Response(
-      JSON.stringify({
-        success: true,
-        renderId,
-        message: "Video rendering started successfully"
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-    
-  } catch (error) {
-    logError("Render Function Error", error);
-    
-    // Try to update project status to failed if there's a projectId
-    try {
-      const { projectId } = await req.json().catch(() => ({}));
-      if (projectId) {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL");
-        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      
+      const data = await response.json();
+      const status = data.response?.status;
+      const url = data.response?.url;
+      
+      console.log(`Poll attempt ${attempt+1}: status=${status}, url=${url || 'none'}`);
+      
+      // If rendering is complete, update the project
+      if (status === "done" && url) {
+        console.log(`Render completed early! Updating project with URL: ${url}`);
         
-        if (supabaseUrl && supabaseServiceKey) {
-          const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
-          await supabaseClient
-            .from("video_projects")
-            .update({
-              status: "failed",
-              error_message: error.message || "Unknown error during video rendering",
-              updated_at: new Date().toISOString()
-            })
-            .eq("id", projectId);
+        await supabaseClient
+          .from("video_projects")
+          .update({
+            status: "completed",
+            video_url: url,
+            thumbnail_url: data.response?.thumbnail || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", projectId);
           
-          console.log(`Updated project ${projectId} status to failed due to error`);
-        }
+        console.log("Project updated with video URL!");
+        break;
       }
-    } catch (updateError) {
-      logError("Error updating project status", updateError);
+      
+      // If failed, update project
+      if (status === "failed") {
+        console.log("Render failed in early polling!");
+        
+        await supabaseClient
+          .from("video_projects")
+          .update({
+            status: "failed",
+            error_message: data.response?.error || "Rendering failed",
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", projectId);
+          
+        break;
+      }
+    } catch (error) {
+      console.error("Error in polling:", error);
     }
-    
-    return new Response(
-      JSON.stringify({
-        error: error.message || "An error occurred during video rendering",
-        timestamp: new Date().toISOString(),
-        details: error.stack ? error.stack.split("\n").slice(0, 3).join("\n") : null
-      }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
   }
-});
+  
+  console.log("Background polling complete - client must continue polling");
+}
