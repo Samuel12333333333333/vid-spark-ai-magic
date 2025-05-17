@@ -87,7 +87,7 @@ export const apiKeyValidator = {
           
           isValid = !elevenLabsResult.error && 
                    elevenLabsResult.data && 
-                   elevenLabsResult.data.success === true;
+                   (elevenLabsResult.data.success === true || elevenLabsResult.data.audioContent);
           
           if (elevenLabsResult.error) {
             errorMessage = `Error: ${elevenLabsResult.error.message || 'API request failed'}`;

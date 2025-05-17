@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { showErrorToast, withRetry } from "@/lib/error-handler";
 import { renderStatusService } from "./renderStatusService";
 import { VideoRenderOptions, RenderRequestBody } from "@/types/custom-types";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 
 export const videoRenderService = {
   async startRender(
@@ -22,6 +23,63 @@ export const videoRenderService = {
       console.log(`Starting render for project ${projectId}`);
       console.log(`Audio settings: hasAudio=${hasAudio}, audioUrl=${audioUrl || 'none'}`);
       console.log(`Caption settings: hasCaptions=${hasCaptions}, captionsUrl=${captionsUrl || 'none'}`);
+      
+      // Check subscription status before rendering
+      const { data: subscriptionData, error: subscriptionError } = await supabase.functions.invoke("check-subscription");
+      
+      if (subscriptionError) {
+        console.warn("Could not verify subscription, proceeding with caution:", subscriptionError);
+      }
+      
+      const subscription = subscriptionData?.subscription;
+      const hasActiveSubscription = subscription && subscription.status === 'active';
+      const isPro = hasActiveSubscription && subscription?.plan_name?.toLowerCase() === 'pro';
+      const isBusiness = hasActiveSubscription && subscription?.plan_name?.toLowerCase() === 'business';
+      
+      // Template tier restrictions
+      if (template) {
+        // If template is marked as premium but user doesn't have subscription
+        if (template.is_premium && !hasActiveSubscription) {
+          console.error("Premium template requires subscription");
+          showErrorToast("This template requires a subscription");
+          return { success: false, error: "Premium template requires subscription" };
+        }
+        
+        // If template requires pro tier
+        if (template.is_pro_only && !isPro && !isBusiness) {
+          console.error("This template requires Pro subscription");
+          showErrorToast("This template requires Pro subscription or higher");
+          return { success: false, error: "Pro subscription required" };
+        }
+        
+        // If template requires business tier
+        if (template.is_business_only && !isBusiness) {
+          console.error("This template requires Business subscription");
+          showErrorToast("This template requires Business subscription");
+          return { success: false, error: "Business subscription required" };
+        }
+      }
+      
+      // Check usage quota before proceeding with render
+      const { data: usageData, error: usageError } = await supabase.functions.invoke("get_video_usage");
+      
+      if (usageError) {
+        console.warn("Could not verify usage quota, proceeding with caution:", usageError);
+      } else if (usageData) {
+        const videosLimit = hasActiveSubscription 
+          ? isPro 
+            ? 20 
+            : isBusiness 
+              ? 50 
+              : 2 // Free tier
+          : 2; // Default to free
+        
+        if (usageData.count >= videosLimit) {
+          console.error("Usage quota exceeded");
+          showErrorToast(`You've reached your limit of ${videosLimit} videos. Please upgrade your plan to create more videos.`);
+          return { success: false, error: "Usage quota exceeded" };
+        }
+      }
       
       // If a template is provided, we'll use that directly instead of scenes
       if (template) {
@@ -221,6 +279,14 @@ export const videoRenderService = {
       }
       
       console.log("Render started successfully with ID:", data.renderId);
+      
+      // Update usage statistics after successful render start
+      try {
+        await supabase.functions.invoke("increment_video_usage");
+      } catch (usageErr) {
+        console.warn("Failed to increment usage stats, but render has started:", usageErr);
+        // Don't block render success just because usage stats failed
+      }
       
       // Start monitoring the render status immediately
       this.pollRenderStatus(data.renderId, projectId, (status, url) => {

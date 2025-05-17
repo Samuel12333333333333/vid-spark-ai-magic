@@ -31,6 +31,8 @@ export default function GeneratorPage() {
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const [activeTab, setActiveTab] = useState("wizard");
   const navigate = useNavigate();
+  const isBusiness = true; // Example variable for business plan check
+  const hasActiveSubscription = true; // Example variable for subscription check
 
   useEffect(() => {
     // Check API keys on component mount
@@ -197,7 +199,37 @@ export default function GeneratorPage() {
   };
 
   const handleSelectTemplate = (id: string) => {
-    navigate(`/dashboard/templates/${id}`);
+    // Before navigating to the template, check if the user can access it
+    try {
+      const template = templates.find(t => t.id === id);
+      
+      if (!template) {
+        toast.error("Template not found");
+        return;
+      }
+      
+      // Check subscription requirements
+      if (template.is_business_only && !isBusiness) {
+        toast.error("Business plan required", {
+          description: "This template requires a Business subscription"
+        });
+        return;
+      }
+      
+      if ((template.is_premium || template.is_pro_only) && !hasActiveSubscription) {
+        toast.error("Subscription required", {
+          description: "Please upgrade to access premium templates"
+        });
+        return;
+      }
+      
+      // If all checks pass, navigate to the template
+      navigate(`/dashboard/templates/${id}`);
+    } catch (error) {
+      console.error("Error checking template access:", error);
+      // Allow navigation even if check fails
+      navigate(`/dashboard/templates/${id}`);
+    }
   };
 
   const apiStatusDetails = {

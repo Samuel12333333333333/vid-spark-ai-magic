@@ -2,9 +2,12 @@
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Star } from "lucide-react";
+import { Lock, Play, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Template } from "@/types/template";
+import { useSubscription } from "@/contexts/SubscriptionContext";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface TemplateCardProps extends Template {
   onSelect?: (id: string) => void;
@@ -18,11 +21,31 @@ export function TemplateCard({
   category,
   thumbnail,
   is_premium,
+  is_pro_only,
+  is_business_only,
   created_at,
   onSelect,
   compact = false
 }: TemplateCardProps) {
+  const { hasActiveSubscription, isPro, isBusiness } = useSubscription();
+  const [isHovering, setIsHovering] = useState(false);
+  
   const handleSelect = () => {
+    // Check if the user has the required subscription to use this template
+    if (is_business_only && !isBusiness) {
+      toast.error("Business subscription required", {
+        description: "This template requires a Business subscription"
+      });
+      return;
+    }
+    
+    if ((is_premium || is_pro_only) && !hasActiveSubscription) {
+      toast.error("Subscription required", {
+        description: "This template requires a subscription"
+      });
+      return;
+    }
+    
     if (onSelect) {
       onSelect(id);
     }
@@ -45,25 +68,63 @@ export function TemplateCard({
     // Fallback to default placeholder
     return "/placeholder.svg";
   };
+  
+  // Determine if template is locked based on subscription
+  const isLocked = (is_business_only && !isBusiness) || 
+                  ((is_premium || is_pro_only) && !hasActiveSubscription);
 
   return (
-    <Card className={`overflow-hidden ${compact ? "h-full" : ""} flex flex-col transition-shadow hover:shadow-md`}>
+    <Card 
+      className={`overflow-hidden ${compact ? "h-full" : ""} flex flex-col transition-shadow hover:shadow-md`}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+    >
       <div className="relative overflow-hidden" style={{ height: compact ? "120px" : "160px" }}>
         <img
           src={thumbnail || getPlaceholderImage()}
           alt={name}
-          className="h-full w-full object-cover transition-transform hover:scale-105"
+          className={`h-full w-full object-cover transition-transform ${isHovering ? 'scale-105' : ''}`}
           onError={(e) => {
             // Fallback if image fails to load
             e.currentTarget.src = getPlaceholderImage();
           }}
         />
+        {/* Premium badge */}
         {is_premium && (
           <div className="absolute top-2 right-2">
             <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
               <Star className="mr-1 h-3 w-3" />
               Premium
             </Badge>
+          </div>
+        )}
+        
+        {/* Subscription tier badges */}
+        {is_pro_only && !is_business_only && (
+          <div className="absolute top-2 left-2">
+            <Badge variant="default" className="bg-purple-500 hover:bg-purple-600">
+              Pro
+            </Badge>
+          </div>
+        )}
+        
+        {is_business_only && (
+          <div className="absolute top-2 left-2">
+            <Badge variant="default" className="bg-blue-500 hover:bg-blue-600">
+              Business
+            </Badge>
+          </div>
+        )}
+        
+        {/* Locked overlay for subscription-only templates */}
+        {isLocked && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+            <div className="text-center text-white">
+              <Lock className="mx-auto h-8 w-8 mb-2" />
+              <p className="text-sm font-medium">
+                {is_business_only ? "Business Plan" : "Subscription"} Required
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -85,15 +146,20 @@ export function TemplateCard({
       
       <CardFooter className={`${compact ? "p-3" : "p-4"} border-t bg-muted/20`}>
         {onSelect ? (
-          <Button className="w-full" size={compact ? "sm" : "default"} onClick={handleSelect}>
+          <Button 
+            className="w-full" 
+            size={compact ? "sm" : "default"} 
+            onClick={handleSelect}
+            disabled={isLocked}
+          >
             <Play className={`mr-2 ${compact ? "h-3 w-3" : "h-4 w-4"}`} />
-            Use Template
+            {isLocked ? "Upgrade to Use" : "Use Template"}
           </Button>
         ) : (
-          <Button className="w-full" size={compact ? "sm" : "default"} asChild>
-            <Link to={`/dashboard/templates/${id}`}>
+          <Button className="w-full" size={compact ? "sm" : "default"} asChild disabled={isLocked}>
+            <Link to={isLocked ? "#" : `/dashboard/templates/${id}`}>
               <Play className={`mr-2 ${compact ? "h-3 w-3" : "h-4 w-4"}`} />
-              Use Template
+              {isLocked ? "Upgrade to Use" : "Use Template"}
             </Link>
           </Button>
         )}

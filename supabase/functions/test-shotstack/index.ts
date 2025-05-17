@@ -25,10 +25,9 @@ serve(async (req) => {
     const params = await req.json().catch(() => ({}));
     const directTest = params?.direct === true;
     
-    // For direct key validation, use a simpler endpoint
-    const endpoint = directTest 
-      ? "https://api.shotstack.io/v1/templates" 
-      : "https://api.shotstack.io/v1/me";
+    // For direct key validation, always use the templates endpoint 
+    // which is more reliable than the /me endpoint
+    const endpoint = "https://api.shotstack.io/v1/templates";
     
     // Test if API key works by making a simple request
     const response = await fetch(endpoint, {

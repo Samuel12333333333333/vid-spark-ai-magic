@@ -1,65 +1,86 @@
 
 import { toast } from "sonner";
 
-// Show a consistent error toast
-export function showErrorToast(error: any): void {
-  const message = error.message || error.error_description || String(error);
-  toast.error(`Error: ${message}`);
-  console.error("Error details:", error);
+// Error handler utility
+export const showErrorToast = (error: unknown) => {
+  if (typeof error === "string") {
+    toast.error(error);
+    return;
+  }
+  
+  if (error instanceof Error) {
+    toast.error(error.message);
+    return;
+  }
+  
+  toast.error("An unknown error occurred");
+};
+
+export const parseErrorMessage = (error: unknown): string => {
+  if (typeof error === "string") {
+    return error;
+  }
+  
+  if (error instanceof Error) {
+    return error.message;
+  }
+  
+  return "An unknown error occurred";
+};
+
+interface RetryOptions {
+  maxRetries: number;
+  delayMs: number;
+  onRetry?: (attempt: number, error: any) => void;
 }
 
-// Define RetryOptions interface
-export interface RetryOptions {
-  maxRetries?: number;
-  delayMs?: number;
-}
-
-// Retry a function with exponential backoff
-export async function withRetry<T>(
+// Utility to retry API calls with exponential backoff
+export const withRetry = async <T>(
   fn: () => Promise<T>, 
   options: RetryOptions | number = 3
-): Promise<T> {
-  // Handle backward compatibility with number parameter
-  const maxRetries = typeof options === 'number' ? options : (options.maxRetries || 3);
-  const initialDelay = typeof options === 'number' ? 1000 : (options.delayMs || 1000);
+): Promise<T> => {
+  let maxRetries: number;
+  let delayMs: number;
+  let onRetry: ((attempt: number, error: any) => void) | undefined;
   
-  let retries = 0;
-  let delay = initialDelay;
+  // Handle legacy number parameter for backward compatibility
+  if (typeof options === 'number') {
+    maxRetries = options;
+    delayMs = 1000;
+    onRetry = undefined;
+  } else {
+    maxRetries = options.maxRetries;
+    delayMs = options.delayMs;
+    onRetry = options.onRetry;
+  }
   
-  while (true) {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      // First attempt or subsequent retries
+      if (attempt > 0) {
+        // Exponential backoff with jitter
+        const delay = Math.min(delayMs * Math.pow(2, attempt - 1), 10000) * (0.75 + Math.random() * 0.5);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        if (onRetry) {
+          onRetry(attempt, lastError);
+        }
+      }
+      
       return await fn();
     } catch (error) {
-      retries++;
-      if (retries > maxRetries) {
+      lastError = error;
+      console.error(`Attempt ${attempt + 1}/${maxRetries + 1} failed:`, error);
+      
+      // If this was the last attempt, throw the error
+      if (attempt === maxRetries) {
         throw error;
       }
-      console.log(`Attempt ${retries} failed, retrying in ${delay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      delay *= 2; // Exponential backoff
     }
   }
-}
-
-// Parse and extract error message from different error formats
-export function parseErrorMessage(error: any): string {
-  if (!error) return "Unknown error";
   
-  // Handle Supabase errors
-  if (error.message) return error.message;
-  
-  // Handle API response errors
-  if (error.error_description) return error.error_description;
-  
-  // Handle edge function errors
-  if (typeof error === 'object' && error.error) return error.error;
-  
-  // Fallback
-  return String(error);
-}
-
-export default {
-  showErrorToast,
-  withRetry,
-  parseErrorMessage
+  // This should never be reached due to the throw in the loop
+  throw lastError;
 };
