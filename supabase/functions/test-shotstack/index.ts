@@ -16,6 +16,7 @@ serve(async (req) => {
     const shotstackApiKey = Deno.env.get("SHOTSTACK_API_KEY");
     
     if (!shotstackApiKey) {
+      console.error("SHOTSTACK_API_KEY is not configured in Supabase secrets");
       throw new Error("Shotstack API key is not configured");
     }
 
@@ -30,10 +31,24 @@ serve(async (req) => {
       },
     });
 
+    // Check for network failures first
+    if (!response) {
+      throw new Error("Network failure when connecting to Shotstack API");
+    }
+
+    // Check if the response is not ok (non-200 status)
     if (!response.ok) {
       const errorData = await response.text();
-      console.error(`Shotstack API error (${response.status}): ${errorData}`);
-      throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
+      const status = response.status;
+      console.error(`Shotstack API error (${status}): ${errorData}`);
+      
+      if (status === 401 || status === 403) {
+        throw new Error(`Shotstack API authentication failed: Invalid API key or insufficient permissions`);
+      } else if (status === 429) {
+        throw new Error("Shotstack API rate limit exceeded. Please try again later.");
+      } else {
+        throw new Error(`Shotstack API error: ${status} ${response.statusText}`);
+      }
     }
 
     const data = await response.json();
@@ -70,11 +85,19 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error testing Shotstack API:", error);
     
+    // Create a more detailed error response with debugging info
+    const errorDetails = {
+      success: false,
+      error: error.message || "An error occurred testing the Shotstack API",
+      timestamp: new Date().toISOString(),
+      apiKeyConfigured: Boolean(Deno.env.get("SHOTSTACK_API_KEY")),
+      apiKeyFirstChars: Deno.env.get("SHOTSTACK_API_KEY") 
+        ? `${Deno.env.get("SHOTSTACK_API_KEY")?.substring(0, 3)}...` 
+        : "not set"
+    };
+    
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message || "An error occurred testing the Shotstack API",
-      }),
+      JSON.stringify(errorDetails),
       {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

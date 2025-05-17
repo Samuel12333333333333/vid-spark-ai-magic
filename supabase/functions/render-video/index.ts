@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -5,6 +6,22 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Enhanced error logging function
+function logError(title: string, error: any, context: Record<string, any> = {}) {
+  console.error(`====== ERROR: ${title} ======`);
+  console.error(error?.message || error);
+  
+  if (Object.keys(context).length > 0) {
+    console.error("Context:", JSON.stringify(context, null, 2));
+  }
+  
+  if (error?.stack) {
+    console.error("Stack:", error.stack);
+  }
+  
+  console.error("==============================");
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -18,7 +35,7 @@ serve(async (req) => {
     // Initialize Shotstack client with API key
     const shotstackApiKey = Deno.env.get("SHOTSTACK_API_KEY");
     if (!shotstackApiKey) {
-      console.error("SHOTSTACK_API_KEY is not set");
+      logError("Missing API Key", "SHOTSTACK_API_KEY is not set");
       throw new Error("Shotstack API key is not configured");
     }
 
@@ -27,7 +44,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error("Supabase environment variables are not set");
+      logError("Missing Supabase Config", "Supabase environment variables are not set");
       throw new Error("Supabase configuration is missing");
     }
     
@@ -37,10 +54,18 @@ serve(async (req) => {
     let params;
     try {
       params = await req.json();
-      console.log("Received render request with params:", JSON.stringify(params, null, 2));
+      console.log("Received render request with params:", JSON.stringify({
+        projectId: params.projectId,
+        userId: params.userId,
+        prompt: params.prompt?.substring(0, 50) + (params.prompt?.length > 50 ? '...' : ''),
+        style: params.style,
+        sceneCount: params.scenes?.length || 0,
+        hasAudio: params.has_audio,
+        hasCaptions: params.has_captions
+      }, null, 2));
     } catch (parseError) {
-      console.error("Error parsing request body:", parseError);
-      throw new Error("Invalid request body");
+      logError("Request Parsing Error", parseError);
+      throw new Error("Invalid request body: " + parseError.message);
     }
     
     const { 
@@ -63,7 +88,7 @@ serve(async (req) => {
     
     // Check if scenes are provided, if not, we can't create the video
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
-      console.error("No valid scenes provided, cannot create video");
+      logError("No Scenes Error", "No valid scenes provided, cannot create video", { projectId });
       throw new Error("No valid scenes provided for video creation");
     }
     
@@ -85,7 +110,7 @@ serve(async (req) => {
         }
 
         const searchTerm = Array.isArray(keywords) ? keywords.slice(0, 3).join(" ") : keywords;
-        console.log(`Searching videos for: ${searchTerm}`);
+        console.log(`Searching Pexels videos for: ${searchTerm}`);
         
         const response = await fetch(
           `https://api.pexels.com/videos/search?query=${encodeURIComponent(searchTerm)}&per_page=1&orientation=landscape`,
@@ -97,6 +122,11 @@ serve(async (req) => {
         );
 
         if (!response.ok) {
+          const responseText = await response.text();
+          logError("Pexels API Error", `${response.status} ${response.statusText}`, {
+            searchTerm,
+            responseText
+          });
           throw new Error(`Pexels API error: ${response.status}`);
         }
 
@@ -116,7 +146,7 @@ serve(async (req) => {
         
         throw new Error("No videos found for keywords");
       } catch (error) {
-        console.error(`Error fetching stock video: ${error.message}`);
+        logError("Stock Video Fetch Error", error, { keywords });
         return null;
       }
     }
@@ -144,10 +174,25 @@ serve(async (req) => {
         const scene = scenesWithVideos[i];
         const keywords = scene.keywords || [scene.scene, "video"];
         
-        const videoUrl = await fetchStockVideo(keywords);
-        if (videoUrl) {
-          scenesWithVideos[i] = { ...scene, videoUrl };
-          console.log(`Added video URL to scene ${i}: ${videoUrl}`);
+        try {
+          const videoUrl = await fetchStockVideo(keywords);
+          if (videoUrl) {
+            scenesWithVideos[i] = { ...scene, videoUrl };
+            console.log(`Added video URL to scene ${i}: ${videoUrl}`);
+          } else {
+            // Log and add a placeholder for the missing video
+            logError("Missing Video", "Failed to get video for scene", { 
+              sceneIndex: i,
+              sceneTitle: scene.scene || "Unnamed Scene",
+              keywords
+            });
+          }
+        } catch (fetchErr) {
+          logError("Video Fetch Error", fetchErr, {
+            sceneIndex: i,
+            sceneTitle: scene.scene || "Unnamed Scene",
+            keywords
+          });
         }
       }
     } else if (mediaUrls && mediaUrls.length > 0) {
@@ -170,7 +215,9 @@ serve(async (req) => {
       );
       
       if (!hasValidUrl) {
-        console.log(`Scene missing video URL: ${scene.scene || 'Unnamed scene'}`);
+        logError("Missing Video URL", `Scene missing video URL: ${scene.scene || 'Unnamed scene'}`, {
+          sceneData: JSON.stringify(scene)
+        });
       }
       
       return hasValidUrl;
@@ -187,73 +234,65 @@ serve(async (req) => {
     const defaultDuration = 5; // Default duration per scene in seconds
     
     validScenesWithVideos.forEach((scene, index) => {
-      // Extract video URL from various possible properties
-      const videoUrl = scene.videoUrl || scene.media_url || scene.url || 
-                    (scene.media && scene.media.url);
-      
-      if (!videoUrl) {
-        console.log(`Skipping scene ${index} - no video URL found`);
-        return; // Skip scenes without video URLs
-      }
-      
-      console.log(`Adding scene ${index} with video: ${videoUrl}`);
-      
-      // Use provided duration or fallback to default
-      const duration = scene.duration || defaultDuration;
-      
-      // Create transition object with only valid string values
-      const transition: any = {};
-      
-      // Only add transition.in if it's the first clip or a valid string
-      if (index === 0) {
-        transition.in = "fade";
-      } else {
-        transition.in = "slideLeft";
-      }
-      
-      // Only add transition.out if it's the last clip AND a valid string
-      if (index === (validScenesWithVideos.length - 1)) {
-        transition.out = "fade";
-      }
-      
-      // Add video clip
-      videoClipTrack.clips.push({
-        asset: {
-          type: "video",
-          src: videoUrl,
-          trim: 0,
-        },
-        start: currentTime,
-        length: duration,
-        effect: "zoomIn",
-        transition: {
-          // Only add transition properties if they're non-null strings
-          ...(index === 0 ? { in: "fade" } : { in: "slideLeft" }),
-          ...(index === (validScenesWithVideos.length - 1) ? { out: "fade" } : {})
+      try {
+        // Extract video URL from various possible properties
+        const videoUrl = scene.videoUrl || scene.media_url || scene.url || 
+                      (scene.media && scene.media.url);
+        
+        if (!videoUrl) {
+          console.log(`Skipping scene ${index} - no video URL found`);
+          return; // Skip scenes without video URLs
         }
-      });
-      
-      // Add caption if enabled
-      if (has_captions && captionTrack) {
-        captionTrack.clips.push({
+        
+        console.log(`Adding scene ${index} with video: ${videoUrl}`);
+        
+        // Use provided duration or fallback to default
+        const duration = scene.duration || defaultDuration;
+        
+        // Add video clip
+        videoClipTrack.clips.push({
           asset: {
-            type: "title",
-            text: scene.scene || `Scene ${index + 1}`,
-            style: "minimal",
-            size: "small",
-            position: "bottom"
+            type: "video",
+            src: videoUrl,
+            trim: 0,
           },
           start: currentTime,
-          length: duration
+          length: duration,
+          effect: "zoomIn",
+          transition: {
+            // Only add transition properties if they're non-null strings
+            ...(index === 0 ? { in: "fade" } : { in: "slideLeft" }),
+            ...(index === (validScenesWithVideos.length - 1) ? { out: "fade" } : {})
+          }
+        });
+        
+        // Add caption if enabled
+        if (has_captions && captionTrack) {
+          captionTrack.clips.push({
+            asset: {
+              type: "title",
+              text: scene.scene || `Scene ${index + 1}`,
+              style: "minimal",
+              size: "small",
+              position: "bottom"
+            },
+            start: currentTime,
+            length: duration
+          });
+        }
+        
+        currentTime += duration;
+      } catch (sceneError) {
+        logError("Scene Processing Error", sceneError, {
+          sceneIndex: index,
+          sceneTitle: scene.scene || "Unnamed Scene" 
         });
       }
-      
-      currentTime += duration;
     });
     
     // Check if we have any valid clips
-    if (videoClipTrack.clips.length === 0) {
-      console.error("No valid video clips could be created");
+    if (!videoClipTrack.clips || videoClipTrack.clips.length === 0) {
+      logError("No Valid Clips", "No valid video clips could be created");
       throw new Error("Failed to create video clips from the provided scenes.");
     }
     
@@ -294,10 +333,16 @@ serve(async (req) => {
     
     // Validate the renderRequest
     if (!renderRequest.timeline || !renderRequest.timeline.tracks || renderRequest.timeline.tracks.length === 0) {
+      logError("Invalid Request", "Invalid render request: Missing tracks", {
+        renderRequest: JSON.stringify(renderRequest)
+      });
       throw new Error("Invalid render request: Missing tracks");
     }
     
     if (!renderRequest.timeline.tracks[0].clips || renderRequest.timeline.tracks[0].clips.length === 0) {
+      logError("Invalid Request", "Invalid render request: No clips in track", {
+        renderRequest: JSON.stringify(renderRequest)
+      });
       throw new Error("Invalid render request: No clips in track");
     }
     
@@ -314,8 +359,12 @@ serve(async (req) => {
     // Handle response
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Shotstack API error (${response.status}): ${errorText}`);
-      throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
+      logError("Shotstack API Error", `${response.status} ${response.statusText}`, {
+        errorResponse: errorText,
+        renderRequestSize: JSON.stringify(renderRequest).length,
+        firstClipUrl: renderRequest.timeline.tracks[0].clips[0]?.asset?.src || "No URL"
+      });
+      throw new Error(`Shotstack API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
     
     const data = await response.json();
@@ -324,6 +373,9 @@ serve(async (req) => {
     // Get render ID from response
     const renderId = data.response?.id;
     if (!renderId) {
+      logError("Missing Render ID", "No render ID returned from Shotstack", {
+        response: JSON.stringify(data)
+      });
       throw new Error("No render ID returned from Shotstack");
     }
     
@@ -343,10 +395,10 @@ serve(async (req) => {
         .eq("id", projectId);
         
       if (updateError) {
-        console.error("Error updating project:", updateError);
+        logError("Database Update Error", updateError, { projectId });
       }
     } catch (dbError) {
-      console.error("Database error:", dbError);
+      logError("Database Error", dbError, { projectId });
       // Continue execution even if DB update fails
     }
     
@@ -360,7 +412,7 @@ serve(async (req) => {
     );
     
   } catch (error) {
-    console.error("Error in render-video function:", error);
+    logError("Render Function Error", error);
     
     // Try to update project status to failed if there's a projectId
     try {
@@ -379,15 +431,19 @@ serve(async (req) => {
               updated_at: new Date().toISOString()
             })
             .eq("id", projectId);
+          
+          console.log(`Updated project ${projectId} status to failed due to error`);
         }
       }
     } catch (updateError) {
-      console.error("Error updating project status:", updateError);
+      logError("Error updating project status", updateError);
     }
     
     return new Response(
       JSON.stringify({
         error: error.message || "An error occurred during video rendering",
+        timestamp: new Date().toISOString(),
+        details: error.stack ? error.stack.split("\n").slice(0, 3).join("\n") : null
       }),
       {
         status: 400,

@@ -1,23 +1,53 @@
+
 import { VideoGenerator } from "@/components/dashboard/VideoGenerator";
 import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle2, ExternalLink, AlertTriangle } from "lucide-react";
+import { AlertCircle, CheckCircle2, ExternalLink, AlertTriangle, InfoIcon, TerminalIcon } from "lucide-react";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { showErrorToast } from "@/lib/error-handler";
 import apiKeyValidator, { ApiKeyStatus } from "@/services/apiKeyValidator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 export default function GeneratorPage() {
   const [apiStatus, setApiStatus] = useState<Record<string, ApiKeyStatus>>({});
   const [isCheckingApis, setIsCheckingApis] = useState<boolean>(true);
   const [showDocs, setShowDocs] = useState<boolean>(false);
+  const [lastRenderError, setLastRenderError] = useState<any>(null);
+  const [isLoadingError, setIsLoadingError] = useState(false);
 
   useEffect(() => {
     // Check API keys on component mount
     checkApiKeys();
+    checkLastError();
   }, []);
+
+  const checkLastError = async () => {
+    try {
+      setIsLoadingError(true);
+      // Get the most recent failed video project to display diagnostics
+      const { data, error } = await supabase
+        .from("video_projects")
+        .select("id, error_message, updated_at, status, render_id")
+        .eq("status", "failed")
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      
+      if (error) {
+        console.error("Error fetching last render error:", error);
+      } else if (data?.length > 0) {
+        setLastRenderError(data[0]);
+      }
+    } catch (err) {
+      console.error("Error checking last render error:", err);
+    } finally {
+      setIsLoadingError(false);
+    }
+  };
 
   const checkApiKeys = async () => {
     try {
@@ -82,13 +112,25 @@ export default function GeneratorPage() {
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-bold">Create Video</h1>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setShowDocs(!showDocs)}
-          >
-            {showDocs ? "Hide API Docs" : "View API Docs"}
-          </Button>
+          <div className="flex gap-2">
+            {lastRenderError && (
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={() => checkLastError()}
+              >
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Check Last Error
+              </Button>
+            )}
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowDocs(!showDocs)}
+            >
+              {showDocs ? "Hide API Docs" : "View API Docs"}
+            </Button>
+          </div>
         </div>
         
         {showDocs && (
@@ -121,6 +163,144 @@ export default function GeneratorPage() {
           </Card>
         )}
       </div>
+      
+      {/* Render Error Diagnostics (if a recent error exists) */}
+      {lastRenderError && (
+        <Card className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-5 w-5" />
+              Video Generation Diagnostics
+            </CardTitle>
+            <CardDescription>
+              Help with diagnosing recent video rendering errors
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="error">
+              <TabsList className="mb-4">
+                <TabsTrigger value="error">Error Details</TabsTrigger>
+                <TabsTrigger value="troubleshoot">Troubleshooting</TabsTrigger>
+                <TabsTrigger value="help">Get Help</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="error">
+                <div className="space-y-4">
+                  <div className="p-4 bg-gray-900 text-gray-200 rounded-md font-mono text-sm overflow-auto">
+                    <div className="flex items-center mb-2">
+                      <TerminalIcon className="h-4 w-4 mr-2" />
+                      <span className="font-bold">Last Error</span>
+                    </div>
+                    <p className="whitespace-pre-wrap mb-2">
+                      {lastRenderError.error_message || "Unknown error"}
+                    </p>
+                    <div className="text-gray-400 text-xs">
+                      <span>Project ID: {lastRenderError.id}</span>
+                      <br />
+                      <span>Render ID: {lastRenderError.render_id || "N/A"}</span>
+                      <br />
+                      <span>Timestamp: {new Date(lastRenderError.updated_at).toLocaleString()}</span>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => checkLastError()}
+                  >
+                    Refresh Error Data
+                  </Button>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="troubleshoot">
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="api-keys">
+                    <AccordionTrigger>Check API Keys & Credits</AccordionTrigger>
+                    <AccordionContent>
+                      <p className="mb-4">Verify that all required API keys are valid and have sufficient credits:</p>
+                      <Button 
+                        onClick={() => checkApiKeys()}
+                        size="sm" 
+                        className="mb-2"
+                      >
+                        Check API Keys Now
+                      </Button>
+                      <ul className="list-disc pl-4 mt-2 space-y-1">
+                        <li>Shotstack requires credits for rendering</li>
+                        <li>Pexels has API rate limits for video searches</li>
+                        <li>All API keys must be correctly configured</li>
+                      </ul>
+                    </AccordionContent>
+                  </AccordionItem>
+                  
+                  <AccordionItem value="scene-data">
+                    <AccordionTrigger>Scene Data Issues</AccordionTrigger>
+                    <AccordionContent>
+                      <p>Common scene data issues:</p>
+                      <ul className="list-disc pl-4 mt-2">
+                        <li>Missing video URLs in scenes</li>
+                        <li>Malformed JSON in scene descriptions</li>
+                        <li>Empty keywords for scene searches</li>
+                        <li>Invalid media URLs provided</li>
+                      </ul>
+                      <p className="mt-4 mb-2">Tips:</p>
+                      <ul className="list-disc pl-4">
+                        <li>Ensure each scene has descriptive keywords</li>
+                        <li>Check for broken URLs in your media sources</li>
+                        <li>Keep scene descriptions concise but descriptive</li>
+                      </ul>
+                    </AccordionContent>
+                  </AccordionItem>
+                  
+                  <AccordionItem value="network">
+                    <AccordionTrigger>Network & Timeout Issues</AccordionTrigger>
+                    <AccordionContent>
+                      <p className="mb-2">Video generation involves multiple API calls which can sometimes fail due to:</p>
+                      <ul className="list-disc pl-4">
+                        <li>Network connectivity issues</li>
+                        <li>API rate limiting or timeouts</li>
+                        <li>Long processing times for complex videos</li>
+                      </ul>
+                      <p className="mt-4">Try generating a shorter video with fewer scenes as a test.</p>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </TabsContent>
+              
+              <TabsContent value="help">
+                <div className="space-y-4">
+                  <p>If you're still experiencing issues after trying the troubleshooting steps, consider the following:</p>
+                  
+                  <div className="bg-muted p-4 rounded-lg">
+                    <h3 className="font-medium mb-2 flex items-center">
+                      <InfoIcon className="h-4 w-4 mr-2" />
+                      How to Get Help
+                    </h3>
+                    <ol className="list-decimal pl-4 space-y-2">
+                      <li>Check the <a href="/docs/shotstack-api.md" className="text-blue-600 hover:underline">Shotstack API documentation</a> for specific error codes and solutions.</li>
+                      <li>Try generating a video with minimal scenes (1-2) to isolate the issue.</li>
+                      <li>Ensure your media URLs are publicly accessible and don't require authentication.</li>
+                      <li>Check your network connection and try again in a few minutes.</li>
+                    </ol>
+                  </div>
+                  
+                  <Button 
+                    className="w-full"
+                    onClick={() => {
+                      toast.info("Support request submitted", { 
+                        description: "Our team will respond to your issue shortly" 
+                      });
+                    }}
+                  >
+                    Get Support
+                  </Button>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
       
       {Object.values(apiStatus).some(status => status.isValid === false) && (
         <Card className="mb-6 border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800">

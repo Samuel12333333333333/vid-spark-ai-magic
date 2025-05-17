@@ -7,198 +7,204 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Enhanced error logging function
+function logError(title: string, error: any, context: Record<string, any> = {}) {
+  console.error(`====== ERROR: ${title} ======`);
+  console.error(error?.message || error);
+  
+  if (Object.keys(context).length > 0) {
+    console.error("Context:", JSON.stringify(context, null, 2));
+  }
+  
+  if (error?.stack) {
+    console.error("Stack:", error.stack);
+  }
+  
+  console.error("==============================");
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-  
+
   try {
-    console.log("Check render status function called");
-    
-    // Initialize Shotstack client with API key
-    const shotstackApiKey = Deno.env.get("SHOTSTACK_API_KEY");
-    if (!shotstackApiKey) {
-      console.error("SHOTSTACK_API_KEY is not set");
-      throw new Error("Shotstack API key is not configured");
-    }
-    
-    // Create Supabase client to update project status
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error("Supabase environment variables are not set");
-      throw new Error("Supabase configuration is missing");
-    }
-    
-    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
-    
     // Parse request body
-    let { renderId, projectId } = await req.json();
+    const reqBody = await req.json();
+    const { renderId, projectId } = reqBody;
     
-    // Validate required parameters
     if (!renderId) {
       throw new Error("Render ID is required");
     }
     
-    console.log(`Checking status for render ${renderId}`);
+    if (!projectId) {
+      throw new Error("Project ID is required");
+    }
     
-    // Call Shotstack API to check render status - using correct endpoint for v1
+    console.log(`Checking render status for: ${renderId}, Project: ${projectId}`);
+    
+    // Get Shotstack API key
+    const shotstackApiKey = Deno.env.get("SHOTSTACK_API_KEY");
+    if (!shotstackApiKey) {
+      throw new Error("Shotstack API key is not configured");
+    }
+    
+    // Check render status in Shotstack API
     const response = await fetch(`https://api.shotstack.io/v1/render/${renderId}`, {
       method: "GET",
       headers: {
         "x-api-key": shotstackApiKey,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
     });
     
-    // Handle response
+    // Handle non-200 responses
     if (!response.ok) {
+      // Get the error text for better diagnostics
       const errorText = await response.text();
-      console.error(`Shotstack API error (${response.status}): ${errorText}`);
-      throw new Error(`Shotstack API error: ${response.status} ${response.statusText}`);
+      
+      // For 404 errors, the render might be deleted or invalid
+      if (response.status === 404) {
+        return new Response(
+          JSON.stringify({
+            status: "failed",
+            error: `Render not found (404): The render ID ${renderId} doesn't exist or has been deleted`,
+            rawStatus: "not_found"
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // For other errors
+      logError("Shotstack Status API Error", `${response.status} ${response.statusText}`, {
+        renderId,
+        projectId,
+        errorResponse: errorText
+      });
+      
+      return new Response(
+        JSON.stringify({
+          status: "failed",
+          error: `Shotstack API error: ${response.status} ${response.statusText}`,
+          rawStatus: "error",
+          details: errorText
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
     
+    // Parse the JSON response
     const data = await response.json();
-    console.log("Shotstack status response:", JSON.stringify(data));
+    console.log(`Render status response for ${renderId}:`, JSON.stringify(data));
     
     if (!data.response) {
-      console.error("Invalid response from Shotstack API:", data);
       throw new Error("Invalid response from Shotstack API");
     }
     
     // Get status from response
-    const status = data.response.status?.toLowerCase();
+    const rawStatus = data.response.status;
     const url = data.response.url;
-    const error = data.response.error;
+    const thumbnail = data.response.thumbnail;
     
-    console.log(`Raw status from Shotstack: "${status}", URL: ${url || 'none'}`);
+    // Create Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
-    // Define return status mapping
-    let returnStatus;
-    switch (status) {
-      case "done":
-        returnStatus = "completed";
-        break;
-      case "failed":
-        returnStatus = "failed";
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // If the render is done, update the project in the database
+    let mappedStatus: string = rawStatus;
+    
+    // Map Shotstack status to our application status
+    switch (rawStatus) {
+      case "queued":
+      case "fetching":
+        mappedStatus = "pending";
         break;
       case "rendering":
-      case "fetching":
       case "saving":
-      case "queued":
+        mappedStatus = "processing";
+        break;
+      case "done":
+        mappedStatus = "completed";
+        
+        // Update the project with the video URL if complete
+        try {
+          const { error: updateError } = await supabaseAdmin
+            .from("video_projects")
+            .update({
+              status: "completed",
+              video_url: url,
+              thumbnail_url: thumbnail || null,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", projectId);
+            
+          if (updateError) {
+            logError("Database Update Error", updateError, { projectId });
+          } else {
+            console.log(`Updated project ${projectId} with completed status and URL: ${url}`);
+          }
+        } catch (dbError) {
+          logError("Database Error", dbError, { projectId, renderId });
+        }
+        break;
+      case "failed":
+        mappedStatus = "failed";
+        
+        // Update the project with failed status
+        try {
+          const errorMessage = data.response.error || "Unknown rendering error";
+          const { error: updateError } = await supabaseAdmin
+            .from("video_projects")
+            .update({
+              status: "failed",
+              error_message: errorMessage,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", projectId);
+            
+          if (updateError) {
+            logError("Database Update Error", updateError, { projectId });
+          } else {
+            console.log(`Updated project ${projectId} with failed status`);
+          }
+        } catch (dbError) {
+          logError("Database Error", dbError, { projectId, renderId });
+        }
+        break;
       default:
-        returnStatus = "processing";
+        mappedStatus = rawStatus;
     }
     
-    console.log(`Mapped render status: ${returnStatus}, URL: ${url || 'none yet'}`);
-    
-    // Generate thumbnail URL if video URL exists
-    let thumbnailUrl = null;
-    if (url && url.endsWith('.mp4')) {
-      thumbnailUrl = url.replace(/\.mp4$/, "-poster.jpg");
-      console.log(`Generated thumbnail URL: ${thumbnailUrl}`);
-    }
-    
-    // If done or failed, update the project in the database
-    if (projectId && (returnStatus === "completed" || returnStatus === "failed")) {
-      try {
-        const updateData: Record<string, any> = {
-          status: returnStatus,
-          updated_at: new Date().toISOString()
-        };
-        
-        if (returnStatus === "completed" && url) {
-          updateData.video_url = url;
-          updateData.thumbnail_url = thumbnailUrl;
-          
-          // Create notification for completed video
-          try {
-            const { data: projectData } = await supabaseClient
-              .from('video_projects')
-              .select('user_id, title')
-              .eq('id', projectId)
-              .single();
-              
-            if (projectData) {
-              await supabaseClient.from('notifications').insert({
-                user_id: projectData.user_id,
-                type: 'video_completed',
-                title: 'Video Ready',
-                message: `Your video "${projectData.title.substring(0, 30)}${projectData.title.length > 30 ? '...' : ''}" is ready to view.`,
-                is_read: false,
-                metadata: { videoId: projectId, url: url }
-              });
-              
-              console.log(`Created completion notification for user ${projectData.user_id}`);
-            }
-          } catch (notificationError) {
-            console.error("Error creating notification:", notificationError);
-          }
-        }
-        
-        if (returnStatus === "failed" && error) {
-          updateData.status = "failed";
-          updateData.error_message = error;
-          
-          // Create notification for failed video
-          try {
-            const { data: projectData } = await supabaseClient
-              .from('video_projects')
-              .select('user_id, title')
-              .eq('id', projectId)
-              .single();
-              
-            if (projectData) {
-              await supabaseClient.from('notifications').insert({
-                user_id: projectData.user_id,
-                type: 'video_failed',
-                title: 'Video Generation Failed',
-                message: `We couldn't generate your video "${projectData.title.substring(0, 30)}${projectData.title.length > 30 ? '...' : ''}". Please try again.`,
-                is_read: false,
-                metadata: { videoId: projectId, error: error }
-              });
-              
-              console.log(`Created failure notification for user ${projectData.user_id}`);
-            }
-          } catch (notificationError) {
-            console.error("Error creating notification:", notificationError);
-          }
-        }
-        
-        const { error: updateError } = await supabaseClient
-          .from("video_projects")
-          .update(updateData)
-          .eq("id", projectId);
-          
-        if (updateError) {
-          console.error("Error updating project:", updateError);
-        } else {
-          console.log(`Updated project ${projectId} with status ${returnStatus}`);
-        }
-      } catch (dbError) {
-        console.error("Database error:", dbError);
-      }
-    }
+    // Create the response object
+    const responseObj = {
+      status: mappedStatus,
+      rawStatus,
+      url,
+      thumbnail,
+      shotstack: data.response
+    };
     
     return new Response(
-      JSON.stringify({
-        status: returnStatus,
-        url,
-        thumbnail: thumbnailUrl,
-        error,
-        rawStatus: status
-      }),
+      JSON.stringify(responseObj),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
     
   } catch (error) {
-    console.error("Error in check-render-status function:", error);
+    logError("Check Render Status Error", error, { reqBody: await req.json().catch(() => ({})) });
+    
+    // Create error response
     return new Response(
       JSON.stringify({
         status: "failed",
         error: error.message || "An error occurred checking render status",
+        timestamp: new Date().toISOString()
       }),
       {
         status: 400,
