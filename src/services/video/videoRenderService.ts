@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { RenderResponse, RenderStatus } from "./types";
 import { toast } from "sonner";
@@ -201,6 +202,7 @@ export const videoRenderService = {
       console.log("Sending render-video request with audio/caption settings:", 
         { hasAudio, hasCaptions, hasAudioUrl: !!audioUrl, hasCaptionsUrl: !!captionsUrl });
       
+      // Use the updated withRetry function with options object
       const { data, error } = await withRetry(() => supabase.functions.invoke("render-video", {
         body: requestBody
       }), { maxRetries: 3, delayMs: 1000 });
@@ -236,6 +238,7 @@ export const videoRenderService = {
   // New method to validate the Shotstack API key directly
   async validateShotstackApiKey(): Promise<boolean> {
     try {
+      // Use the direct test flag to simplify API validation
       const { data, error } = await supabase.functions.invoke("test-shotstack", {
         body: { direct: true }
       });
