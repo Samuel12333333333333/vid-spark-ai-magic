@@ -6,6 +6,7 @@ import { mediaService } from "@/services/mediaService";
 import { renderNotifications } from "@/services/video/renderNotifications";
 import { VideoProjectUpdate } from "@/services/video/types";
 import { Json } from "@/integrations/supabase/types";
+import { videoRenderService } from "./video/videoRenderService";
 
 export interface VideoProject {
   id: string;
@@ -58,6 +59,31 @@ interface VideoGenerationResult {
 }
 
 export const videoService = {
+  // Add the startRender method that delegates to videoRenderService
+  async startRender(
+    projectId: string,
+    prompt: string,
+    style: string,
+    scenes: any[] = [],
+    hasAudio: boolean = false,
+    hasCaptions: boolean = false,
+    audioUrl?: string,
+    captionsUrl?: string,
+    template?: any // For direct template rendering
+  ) {
+    return videoRenderService.startRender(
+      projectId,
+      prompt,
+      style,
+      scenes,
+      hasAudio,
+      hasCaptions,
+      audioUrl,
+      captionsUrl,
+      template
+    );
+  },
+
   /**
    * Generate a video based on user prompt and preferences
    */
