@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { RenderResponse, RenderStatus } from "./types";
 import { toast } from "sonner";
@@ -361,7 +360,8 @@ export const videoRenderService = {
       const { data, error } = await withRetry(() => 
         supabase.functions.invoke("check-render-status", {
           body: { renderId, projectId }
-        })
+        }),
+        { maxRetries: 3, delayMs: 1000 }
       );
       
       if (error) {

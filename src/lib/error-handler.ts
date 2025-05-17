@@ -8,12 +8,21 @@ export function showErrorToast(error: any): void {
   console.error("Error details:", error);
 }
 
+// Define RetryOptions interface
+export interface RetryOptions {
+  maxRetries?: number;
+  delayMs?: number;
+}
+
 // Retry a function with exponential backoff
 export async function withRetry<T>(
   fn: () => Promise<T>, 
-  maxRetries = 3,
-  initialDelay = 1000
+  options: RetryOptions | number = 3
 ): Promise<T> {
+  // Handle backward compatibility with number parameter
+  const maxRetries = typeof options === 'number' ? options : (options.maxRetries || 3);
+  const initialDelay = typeof options === 'number' ? 1000 : (options.delayMs || 1000);
+  
   let retries = 0;
   let delay = initialDelay;
   
