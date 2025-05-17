@@ -3,6 +3,7 @@ import { RenderResponse, RenderStatus } from "./types";
 import { toast } from "sonner";
 import { showErrorToast, withRetry } from "@/lib/error-handler";
 import { renderStatusService } from "./renderStatusService";
+import { VideoRenderOptions, RenderRequestBody } from "@/types/custom-types";
 
 export const videoRenderService = {
   async startRender(
@@ -138,7 +139,7 @@ export const videoRenderService = {
         }
       }
       
-      // First, test the Shotstack API connection
+      // Test the Shotstack API connection
       try {
         console.log("Testing Shotstack API connection before rendering");
         // Use a more direct check to validate the Shotstack API key
@@ -155,7 +156,7 @@ export const videoRenderService = {
         return { success: false, error: "Error validating Shotstack API" };
       }
 
-      // Get current user ID before making the function call
+      // Get current user ID
       const { data: { user } } = await supabase.auth.getUser()
         .catch(error => {
           console.error("Error getting user:", error);
@@ -172,7 +173,7 @@ export const videoRenderService = {
       }
       
       // Build request body based on whether template or scenes are provided
-      const requestBody = template 
+      const requestBody: RenderRequestBody = template 
         ? { 
             projectId, 
             userId, 
