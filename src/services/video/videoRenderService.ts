@@ -25,15 +25,20 @@ export const videoRenderService = {
       
       console.log(`Starting render for project ${projectId} with ${scenes.length} scenes`);
       
-      // Make sure each scene has necessary properties
+      // Make sure each scene has necessary properties including videoUrl
       const validatedScenes = scenes.map(scene => {
+        // Check if videoUrl is missing
+        if (!scene.videoUrl) {
+          console.warn(`Scene "${scene.scene || 'Unnamed Scene'}" is missing videoUrl property`);
+        }
+        
         // Ensure each scene has at least these properties
         return {
           scene: scene.scene || scene.title || "Unnamed Scene",
           description: scene.description || "",
           keywords: scene.keywords || [],
           duration: scene.duration || 5,
-          videoUrl: scene.videoUrl || null
+          videoUrl: scene.videoUrl || scene.media_url || null // Try alternate field names
         };
       });
       
@@ -45,6 +50,9 @@ export const videoRenderService = {
         const hasVideoUrl = validatedScenes.some(scene => scene.videoUrl);
         if (!hasVideoUrl) {
           console.log("No scenes have videoUrl property - Shotstack will search for stock videos");
+          toast.info("Using auto-generated stock videos", {
+            description: "No custom videos provided, using stock footage instead."
+          });
         }
       } catch (err) {
         console.error("Error checking videoUrls:", err);
@@ -83,7 +91,7 @@ export const videoRenderService = {
       const { data, error } = await withRetry(() => supabase.functions.invoke("render-video", {
         body: {
           projectId,
-          userId: (await supabase.auth.getUser()).data.user?.id,
+          userId: (supabase.auth.getUser()).then(result => result.data.user?.id),
           prompt,
           style,
           scenes: validatedScenes,
@@ -162,6 +170,7 @@ export const videoRenderService = {
     }
   },
   
+  // Fix: Removing async and await as this function doesn't need to be async
   pollRenderStatus(renderId: string, projectId: string, onUpdate: (status: RenderStatus, url?: string) => void): void {
     if (!renderId || !projectId) {
       console.error("Missing render ID or project ID in pollRenderStatus");

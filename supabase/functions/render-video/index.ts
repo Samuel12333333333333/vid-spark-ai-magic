@@ -78,7 +78,8 @@ serve(async (req) => {
       has_captions,
       captionsFile,
       brandKit,
-      mediaUrls = []
+      mediaUrls = [],
+      useStockMedia = true
     } = params;
     
     // Validate required parameters
@@ -160,13 +161,13 @@ serve(async (req) => {
     let currentTime = 0;
     const scenesWithVideos = [...scenes]; // Clone array to avoid mutating original
     
-    // First, let's check if we have any valid video URLs
+    // First, check if we have any valid video URLs
     const hasAnyVideoUrls = scenes.some(scene => 
       scene.videoUrl || scene.media_url || scene.url || (scene.media && scene.media.url)
     );
     
-    // If no scenes have videoUrls, fetch videos for each scene
-    if (!hasAnyVideoUrls && mediaUrls.length === 0) {
+    // If no scenes have videoUrls, fetch videos for each scene if useStockMedia is true
+    if (!hasAnyVideoUrls && mediaUrls.length === 0 && useStockMedia) {
       console.log("No video URLs found in scenes, searching for stock videos");
       
       // We need to fetch videos for each scene
@@ -225,7 +226,7 @@ serve(async (req) => {
     
     if (validScenesWithVideos.length === 0) {
       console.error("No valid video URLs found in scenes after processing");
-      throw new Error("No valid video URLs found in scenes. Please ensure each scene has a videoUrl property.");
+      throw new Error("No valid video URLs found in scenes. Please ensure each scene has a videoUrl property or enable stock videos.");
     }
     
     console.log(`Found ${validScenesWithVideos.length} valid scenes with videos`);
