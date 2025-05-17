@@ -91,6 +91,51 @@ export const videoService = {
     try {
       console.log("Starting video generation with params:", params);
       
+      // IMPORTANT: Check user's video quota BEFORE starting any video generation
+      // This prevents wasting resources on users who have exceeded their limits
+      try {
+        const { data: usageData, error: usageError } = await supabase.functions.invoke("get_video_usage");
+        
+        if (!usageError && usageData) {
+          // Determine user's tier and limits
+          const { data: subscriptionData } = await supabase.functions.invoke("check-subscription");
+          const subscription = subscriptionData?.subscription;
+          const hasActiveSubscription = subscription && subscription.status === 'active';
+          const isPro = hasActiveSubscription && subscription?.plan_name?.toLowerCase().includes('pro');
+          const isBusiness = hasActiveSubscription && subscription?.plan_name?.toLowerCase().includes('business');
+          
+          // Set video limit based on plan tier
+          const videosLimit = hasActiveSubscription 
+            ? isPro 
+              ? 20 
+              : isBusiness 
+                ? 50 
+                : 2 // Free tier
+            : 2; // Default free tier
+          
+          console.log(`Video usage check: ${usageData.count || 0}/${videosLimit}`);
+          
+          // Block video generation if user is over their limit
+          if (usageData.count >= videosLimit) {
+            toast.error(
+              `You've reached your limit of ${videosLimit} videos${hasActiveSubscription ? ' this billing period' : ' on the free tier'}.`,
+              {
+                description: hasActiveSubscription 
+                  ? `Your limit will reset on ${new Date(usageData.reset_at).toLocaleDateString()}.` 
+                  : "Please upgrade to create more videos."
+              }
+            );
+            return { 
+              success: false, 
+              error: "Usage quota exceeded" 
+            };
+          }
+        }
+      } catch (quotaError) {
+        console.error("Error checking video quota:", quotaError);
+        // Proceed with caution if quota check fails
+      }
+      
       // Create video project in the database
       const { data: projectData, error: projectError } = await supabase
         .from("video_projects")

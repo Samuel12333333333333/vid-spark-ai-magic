@@ -27,6 +27,14 @@ interface ApiHealth {
   };
 }
 
+// Add quota information to health tracking
+interface QuotaInfo {
+  used: number;
+  limit: number;
+  resetAt?: Date;
+  isExceeded: boolean;
+}
+
 const DEFAULT_HEALTH: ApiHealth = {
   shotstack: { isHealthy: false, lastChecked: null },
   pexels: { isHealthy: false, lastChecked: null },
@@ -39,6 +47,7 @@ const DEFAULT_HEALTH: ApiHealth = {
  */
 export const apiHealthService = {
   healthStatus: {...DEFAULT_HEALTH} as ApiHealth,
+  quotaInfo: null as QuotaInfo | null,
   
   /**
    * Check the health of the Shotstack API specifically
@@ -102,6 +111,57 @@ export const apiHealthService = {
   },
   
   /**
+   * Check user's video quota and update health status
+   */
+  async checkUserQuota(): Promise<QuotaInfo | null> {
+    try {
+      const { data, error } = await withRetry(() => 
+        supabase.functions.invoke("get_video_usage"),
+        { maxRetries: 1, delayMs: 1000 }
+      );
+      
+      if (error) {
+        console.error("Error checking video usage quota:", error);
+        return null;
+      }
+      
+      if (!data) {
+        console.log("No quota data returned");
+        return null;
+      }
+      
+      // Check subscription for correct limits
+      const { data: subscriptionData } = await supabase.functions.invoke("check-subscription");
+      const subscription = subscriptionData?.subscription;
+      const hasActiveSubscription = subscription && subscription.status === 'active';
+      const isPro = hasActiveSubscription && subscription?.plan_name?.toLowerCase().includes('pro');
+      const isBusiness = hasActiveSubscription && subscription?.plan_name?.toLowerCase().includes('business');
+      
+      // Set limit based on subscription tier
+      const limit = hasActiveSubscription 
+        ? isPro 
+          ? 20 
+          : isBusiness 
+            ? 50 
+            : 2 // Free tier
+        : 2; // Default free tier
+      
+      const quotaInfo: QuotaInfo = {
+        used: data.count || 0,
+        limit,
+        resetAt: data.reset_at ? new Date(data.reset_at) : undefined,
+        isExceeded: (data.count || 0) >= limit
+      };
+      
+      this.quotaInfo = quotaInfo;
+      return quotaInfo;
+    } catch (error) {
+      console.error("Error checking quota:", error);
+      return null;
+    }
+  },
+  
+  /**
    * Check the health status of all APIs
    */
   async checkAllApiHealth(): Promise<ApiHealth> {
@@ -125,6 +185,9 @@ export const apiHealthService = {
       if (validationResults.shotstack?.isValid) {
         await this.checkShotstackHealth();
       }
+      
+      // Check user quota as part of health check
+      await this.checkUserQuota();
       
       return this.healthStatus;
     } catch (error) {
@@ -158,6 +221,17 @@ export const apiHealthService = {
   },
   
   /**
+   * Check if user has remaining quota for video creation
+   */
+  async hasRemainingQuota(forceCheck: boolean = false): Promise<boolean> {
+    if (forceCheck || !this.quotaInfo) {
+      const quota = await this.checkUserQuota();
+      return quota ? !quota.isExceeded : true; // Default to true if check fails
+    }
+    return !this.quotaInfo.isExceeded;
+  },
+  
+  /**
    * Get health summary for all APIs
    */
   getHealthSummary(): string {
@@ -173,7 +247,12 @@ export const apiHealthService = {
         return `${key}: ${apiStatus.isHealthy ? '✅' : '❌'} (checked: ${lastChecked})`;
       })
       .join(', ');
+    
+    // Add quota information to summary if available
+    const quotaSummary = this.quotaInfo 
+      ? `Quota: ${this.quotaInfo.used}/${this.quotaInfo.limit} ${this.quotaInfo.isExceeded ? '❌' : '✅'}`
+      : '';
       
-    return healthySummary;
+    return healthySummary + (quotaSummary ? `, ${quotaSummary}` : '');
   }
 };

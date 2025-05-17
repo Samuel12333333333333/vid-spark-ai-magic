@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { RenderResponse, RenderStatus } from "./types";
 import { toast } from "sonner";
@@ -5,6 +6,7 @@ import { showErrorToast, withRetry } from "@/lib/error-handler";
 import { renderStatusService } from "./renderStatusService";
 import { VideoRenderOptions, RenderRequestBody } from "@/types/custom-types";
 import { useSubscription } from "@/contexts/SubscriptionContext";
+import { useVideoLimits } from "@/hooks/useVideoLimits";
 
 export const videoRenderService = {
   async startRender(
@@ -41,6 +43,34 @@ export const videoRenderService = {
       
       console.log(`Subscription status: ${hasActiveSubscription ? 'active' : 'inactive'}, tier: ${isPro ? 'pro' : isBusiness ? 'business' : 'free'}`);
       
+      // IMPORTANT: Check user's video usage quota before proceeding with render
+      // This helps prevent unnecessary render attempts for users who have exceeded their limits
+      const { data: usageData, error: usageError } = await withRetry(() => 
+        supabase.functions.invoke("get_video_usage"),
+        { maxRetries: 2, delayMs: 1000 }
+      );
+      
+      if (usageError) {
+        console.warn("Could not verify usage quota, proceeding with caution:", usageError);
+      } else if (usageData) {
+        const videosLimit = hasActiveSubscription 
+          ? isPro 
+            ? 20 
+            : isBusiness 
+              ? 50 
+              : 2 // Free tier
+          : 2; // Default to free
+        
+        console.log(`Video usage: ${usageData.count || 0}/${videosLimit}`);
+        
+        // Block render if user has exceeded their quota
+        if (usageData.count >= videosLimit) {
+          console.error("Usage quota exceeded");
+          showErrorToast(`You've reached your limit of ${videosLimit} videos. Please upgrade your plan to create more videos.`);
+          return { success: false, error: "Usage quota exceeded" };
+        }
+      }
+      
       // Template tier restrictions
       if (template) {
         // If template is marked as premium but user doesn't have subscription
@@ -62,32 +92,6 @@ export const videoRenderService = {
           console.error("This template requires Business subscription");
           showErrorToast("This template requires Business subscription");
           return { success: false, error: "Business subscription required" };
-        }
-      }
-      
-      // Check usage quota before proceeding with render
-      const { data: usageData, error: usageError } = await withRetry(() => 
-        supabase.functions.invoke("get_video_usage"),
-        { maxRetries: 2, delayMs: 1000 }
-      );
-      
-      if (usageError) {
-        console.warn("Could not verify usage quota, proceeding with caution:", usageError);
-      } else if (usageData) {
-        const videosLimit = hasActiveSubscription 
-          ? isPro 
-            ? 20 
-            : isBusiness 
-              ? 50 
-              : 2 // Free tier
-          : 2; // Default to free
-        
-        console.log(`Video usage: ${usageData.count || 0}/${videosLimit}`);
-        
-        if (usageData.count >= videosLimit) {
-          console.error("Usage quota exceeded");
-          showErrorToast(`You've reached your limit of ${videosLimit} videos. Please upgrade your plan to create more videos.`);
-          return { success: false, error: "Usage quota exceeded" };
         }
       }
       
