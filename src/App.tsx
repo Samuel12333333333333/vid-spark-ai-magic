@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ToastProvider, ToastViewport } from "@/components/ui/toast";
 import { Toaster as Sonner } from "sonner";
@@ -146,6 +145,9 @@ const App = () => {
                       <Route path="settings" element={<SettingsPage />} />
                       <Route path="upgrade" element={<UpgradePage />} />
                       <Route path="notifications" element={<NotificationsPage />} />
+                      
+                      {/* Add a redirect for index routes */}
+                      <Route path="*" element={<NotFound />} />
                     </Route>
                     
                     {/* 404 Route */}

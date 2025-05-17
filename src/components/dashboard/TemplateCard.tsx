@@ -1,7 +1,8 @@
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { LayoutTemplate, ImagePlay, Film } from "lucide-react";
+import { Play, Film } from "lucide-react";
 
 interface TemplateCardProps {
   id: string;
@@ -11,42 +12,53 @@ interface TemplateCardProps {
   category: string;
 }
 
-const getPlaceholderImage = (category: string) => {
-  // Use dynamic placeholder based on category or fallback
-  return `/lovable-uploads/placeholder-${category}.png`; // Update this logic as needed
-};
-
 export function TemplateCard({ id, name, description, thumbnail, category }: TemplateCardProps) {
   const navigate = useNavigate();
   
   const handleUseTemplate = () => {
-    navigate(`/dashboard/generator`, { state: { templateId: id } });
+    navigate(`/dashboard/templates/${id}`);
   };
   
+  const getPlaceholderImage = (category: string) => {
+    // Convert category to lowercase for case-insensitive matching
+    const lowerCategory = category.toLowerCase();
+    
+    if (lowerCategory === 'marketing') {
+      return "/lovable-uploads/placeholder-marketing.png";
+    } else if (lowerCategory === 'social') {
+      return "/lovable-uploads/placeholder-social.png";  
+    } else if (lowerCategory === 'education') {
+      return "/lovable-uploads/placeholder-education.png";
+    } else if (lowerCategory === 'business') {
+      return "/lovable-uploads/placeholder-business.png";
+    }
+    
+    // Default fallback
+    return "/placeholder.svg";
+  };
+
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg border border-border/40 hover:border-primary/20 bg-card" role="article" aria-labelledby={`template-${id}-title`}>
       <div className="relative">
-        {thumbnail || getPlaceholderImage(category) ? (
-          <img
-            src={thumbnail || getPlaceholderImage(category)}
-            alt={`Preview of ${name} template`}
-            className="w-full aspect-video object-cover"
-            loading="lazy"
-            width="600"
-            height="400"
-          />
-        ) : (
-          <div className="w-full aspect-video bg-gradient-to-br from-secondary/10 to-primary/10 flex items-center justify-center" aria-label="Template placeholder image">
-            <Film className="h-16 w-16 text-primary/40" aria-hidden="true" />
-          </div>
-        )}
+        <img
+          src={thumbnail || getPlaceholderImage(category)}
+          alt={`Preview of ${name} template`}
+          className="w-full aspect-video object-cover"
+          loading="lazy"
+          width="600"
+          height="400"
+          onError={(e) => {
+            // Fallback if image fails to load
+            e.currentTarget.src = getPlaceholderImage(category);
+          }}
+        />
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
           <span className="text-xs font-medium text-white px-2 py-1 rounded-full bg-primary/90 backdrop-blur-sm">
             {category}
           </span>
         </div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-          <ImagePlay className="h-12 w-12 text-white/80 bg-black/30 p-2 rounded-full" />
+          <Play className="h-12 w-12 text-white/80 bg-black/30 p-2 rounded-full" />
         </div>
       </div>
       <CardContent className="p-4">
@@ -64,4 +76,3 @@ export function TemplateCard({ id, name, description, thumbnail, category }: Tem
     </Card>
   );
 }
-

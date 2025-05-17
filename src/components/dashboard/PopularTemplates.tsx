@@ -83,7 +83,11 @@ export function PopularTemplates({ limit = 3 }: PopularTemplatesProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {templates.map((template) => (
-            <TemplateCard key={template.id} {...template} />
+            <TemplateCard 
+              key={template.id} 
+              {...template} 
+              compact={false}
+            />
           ))}
         </div>
       )}
