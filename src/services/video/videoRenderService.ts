@@ -58,8 +58,6 @@ export const videoRenderService = {
             if (narrationScript) {
               console.log("Template has narration script, adding captions");
               // Add captions directly to template
-              // For now, we're using a simple text track for captions
-              // A more advanced approach would be to generate a VTT file and link it
               
               // Check if we already have a caption track
               const hasCaptionTrack = template.timeline.tracks.some(track => 
@@ -144,31 +142,18 @@ export const videoRenderService = {
       // First, test the Shotstack API connection
       try {
         console.log("Testing Shotstack API connection before rendering");
-        const { data: testData, error: testError } = await supabase.functions.invoke("test-shotstack", {
-          body: {}
-        });
+        // Use a more direct check to validate the Shotstack API key
+        const shotstackApiKey = await this.validateShotstackApiKey();
         
-        if (testError) {
-          console.error("Shotstack API connection test failed:", testError);
-          showErrorToast("Failed to connect to Shotstack API. Please check your API key.");
-          return { success: false, error: "Shotstack API connection failed" };
-        }
-        
-        if (!testData?.success) {
-          console.error("Shotstack API test was unsuccessful:", testData);
-          showErrorToast(testData?.error || "Failed to validate Shotstack API connection");
-          return { success: false, error: testData?.error || "Shotstack API validation failed" };
-        }
-        
-        // Check if we have rendering credits (if that info is available)
-        if (testData.data?.response?.plan?.remainingCredits === 0) {
-          console.error("No Shotstack render credits available");
-          showErrorToast("No Shotstack render credits available. Please upgrade your Shotstack plan.");
-          return { success: false, error: "No render credits available" };
+        if (!shotstackApiKey) {
+          console.error("Shotstack API key validation failed");
+          showErrorToast("Failed to validate Shotstack API key. Please check your API key in project settings.");
+          return { success: false, error: "Shotstack API key validation failed" };
         }
       } catch (testErr) {
         console.error("Exception testing Shotstack API:", testErr);
-        // Continue despite test error - the render might still work
+        showErrorToast("Error validating Shotstack API: " + (testErr instanceof Error ? testErr.message : String(testErr)));
+        return { success: false, error: "Error validating Shotstack API" };
       }
 
       // Get current user ID before making the function call
@@ -218,7 +203,7 @@ export const videoRenderService = {
       
       const { data, error } = await withRetry(() => supabase.functions.invoke("render-video", {
         body: requestBody
-      }));
+      }), { maxRetries: 3, delayMs: 1000 });
       
       if (error) {
         console.error("Error starting render:", error);
@@ -245,6 +230,25 @@ export const videoRenderService = {
       console.error("Exception in startRender:", error);
       showErrorToast(error instanceof Error ? error.message : String(error));
       return { success: false, error: String(error) };
+    }
+  },
+  
+  // New method to validate the Shotstack API key directly
+  async validateShotstackApiKey(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.functions.invoke("test-shotstack", {
+        body: { direct: true }
+      });
+      
+      if (error) {
+        console.error("Error validating Shotstack API key:", error);
+        return false;
+      }
+      
+      return data?.success === true;
+    } catch (error) {
+      console.error("Exception validating Shotstack API key:", error);
+      return false;
     }
   },
   

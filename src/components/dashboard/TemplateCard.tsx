@@ -57,7 +57,7 @@ export function TemplateCard({ id, name, description, thumbnail, category }: Tem
             {category}
           </span>
         </div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
           <Play className="h-12 w-12 text-white/80 bg-black/30 p-2 rounded-full" />
         </div>
       </div>

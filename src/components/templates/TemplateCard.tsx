@@ -72,7 +72,7 @@ export function TemplateCard({
         <div className="flex items-start justify-between">
           <div>
             <h3 className={`font-medium leading-tight ${compact ? "text-sm" : "text-base"}`}>{name}</h3>
-            {!compact && <Badge variant="outline" className="mt-1">{category}</Badge>}
+            {!compact && category && <Badge variant="outline" className="mt-1">{category}</Badge>}
           </div>
         </div>
       </CardHeader>

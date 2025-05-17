@@ -28,7 +28,7 @@ export const apiKeyValidator = {
         case 'pexels':
           // Test Pexels API with a simple query
           const pexelsResult = await supabase.functions.invoke('search-videos', {
-            body: { keywords: ["test"] }
+            body: { keywords: ["test"], limit: 1 }
           });
           
           isValid = !pexelsResult.error && 
@@ -60,9 +60,9 @@ export const apiKeyValidator = {
           break;
           
         case 'shotstack':
-          // Test Shotstack API
+          // Test Shotstack API with direct validation method
           const shotstackResult = await supabase.functions.invoke('test-shotstack', {
-            body: {}
+            body: { direct: true }
           });
           
           isValid = !shotstackResult.error && 
