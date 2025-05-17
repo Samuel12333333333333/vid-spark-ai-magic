@@ -11,6 +11,37 @@ interface PopularTemplatesProps {
   limit?: number;
 }
 
+// Default templates to show when none are found in the database
+const defaultTemplates: Template[] = [
+  {
+    id: "default-1",
+    name: "Product Showcase",
+    description: "Highlight your product features with animations and text overlays",
+    thumbnail: "/lovable-uploads/placeholder-marketing.png",
+    category: "Marketing",
+    is_premium: false,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: "default-2",
+    name: "Social Media Story",
+    description: "Vertical format optimized for Instagram and TikTok with text animations",
+    thumbnail: "/lovable-uploads/placeholder-social.png",
+    category: "Social",
+    is_premium: false,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: "default-3",
+    name: "Educational Explainer",
+    description: "Step-by-step format to explain concepts clearly with animated transitions",
+    thumbnail: "/lovable-uploads/placeholder-education.png",
+    category: "Education",
+    is_premium: false,
+    created_at: new Date().toISOString()
+  }
+];
+
 export function PopularTemplates({ limit = 3 }: PopularTemplatesProps) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,11 +51,11 @@ export function PopularTemplates({ limit = 3 }: PopularTemplatesProps) {
       try {
         setIsLoading(true);
         const allTemplates = await templateService.getTemplates();
-        setTemplates(allTemplates.slice(0, limit));
+        // Use the templates from the database if available, otherwise use defaults
+        setTemplates(allTemplates.length > 0 ? allTemplates.slice(0, limit) : defaultTemplates.slice(0, limit));
       } catch (error) {
         console.error("Error loading templates:", error);
-        // Fallback to sample templates
-        setTemplates([]);
+        setTemplates(defaultTemplates.slice(0, limit));
       } finally {
         setIsLoading(false);
       }
@@ -32,39 +63,6 @@ export function PopularTemplates({ limit = 3 }: PopularTemplatesProps) {
     
     loadTemplates();
   }, [limit]);
-
-  // Fallback templates if none exist in the database
-  const fallbackTemplates = [
-    {
-      id: "t1",
-      name: "Product Showcase",
-      description: "Highlight your product features in a clean, professional format.",
-      thumbnail: "/placeholder.svg",
-      category: "Marketing",
-      is_premium: false,
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: "t2",
-      name: "Social Media Story",
-      description: "Engaging vertical format optimized for Instagram and TikTok.",
-      thumbnail: "/placeholder.svg",
-      category: "Social",
-      is_premium: false,
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: "t3",
-      name: "Educational Explainer",
-      description: "Clear step-by-step format to explain complex concepts.",
-      thumbnail: "/placeholder.svg",
-      category: "Education",
-      is_premium: false,
-      created_at: new Date().toISOString(),
-    },
-  ];
-
-  const displayTemplates = templates.length > 0 ? templates : fallbackTemplates;
 
   return (
     <div>
@@ -84,7 +82,7 @@ export function PopularTemplates({ limit = 3 }: PopularTemplatesProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {displayTemplates.map((template) => (
+          {templates.map((template) => (
             <TemplateCard key={template.id} {...template} />
           ))}
         </div>

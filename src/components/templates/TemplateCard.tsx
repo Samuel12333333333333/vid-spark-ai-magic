@@ -2,7 +2,7 @@
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Star } from "lucide-react";
+import { Play, Star, Image } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Template } from "@/types/template";
 
@@ -31,11 +31,21 @@ export function TemplateCard({
   return (
     <Card className={`overflow-hidden ${compact ? "h-full" : ""} flex flex-col transition-shadow hover:shadow-md`}>
       <div className="relative overflow-hidden" style={{ height: compact ? "120px" : "160px" }}>
-        <img
-          src={thumbnail || "/placeholder.svg"}
-          alt={name}
-          className="h-full w-full object-cover transition-transform hover:scale-105"
-        />
+        {thumbnail ? (
+          <img
+            src={thumbnail}
+            alt={name}
+            className="h-full w-full object-cover transition-transform hover:scale-105"
+            onError={(e) => {
+              // Fallback if image fails to load
+              e.currentTarget.src = "/placeholder.svg";
+            }}
+          />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center bg-muted">
+            <Image className="h-12 w-12 text-muted-foreground/50" />
+          </div>
+        )}
         {is_premium && (
           <div className="absolute top-2 right-2">
             <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">

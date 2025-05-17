@@ -3,6 +3,7 @@ import { TemplateCard } from "@/components/templates/TemplateCard";
 import { Template } from "@/types/template";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, SearchX } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface TemplateListProps {
   templates: Template[];
@@ -33,6 +34,13 @@ export function TemplateList({
         <p className="text-muted-foreground mt-1 max-w-md">
           No templates match your current search criteria. Try adjusting your filters or search term.
         </p>
+        <Button 
+          variant="outline" 
+          className="mt-4"
+          onClick={() => window.location.reload()}
+        >
+          Refresh Templates
+        </Button>
       </div>
     );
   }

@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Template } from "@/types/template";
 import { toast } from "sonner";
@@ -30,10 +29,10 @@ export const templateService = {
         throw error;
       }
       
-      return data as Template[];
+      return data as Template[] || [];
     } catch (error) {
       console.error('Error in getTemplates:', error);
-      throw error;
+      return []; // Return empty array instead of throwing
     }
   },
   
