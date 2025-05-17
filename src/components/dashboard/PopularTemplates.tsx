@@ -20,6 +20,8 @@ const defaultTemplates: Template[] = [
     thumbnail: "/lovable-uploads/placeholder-marketing.png",
     category: "Marketing",
     is_premium: false,
+    is_pro_only: false,
+    is_business_only: false,
     created_at: new Date().toISOString()
   },
   {
@@ -29,6 +31,8 @@ const defaultTemplates: Template[] = [
     thumbnail: "/lovable-uploads/placeholder-social.png",
     category: "Social",
     is_premium: false,
+    is_pro_only: false,
+    is_business_only: false,
     created_at: new Date().toISOString()
   },
   {
@@ -38,6 +42,8 @@ const defaultTemplates: Template[] = [
     thumbnail: "/lovable-uploads/placeholder-education.png",
     category: "Education",
     is_premium: false,
+    is_pro_only: false,
+    is_business_only: false,
     created_at: new Date().toISOString()
   }
 ];

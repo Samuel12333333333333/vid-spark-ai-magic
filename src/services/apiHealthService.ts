@@ -163,11 +163,14 @@ export const apiHealthService = {
   getHealthSummary(): string {
     const healthySummary = Object.entries(this.healthStatus)
       .map(([key, status]) => {
-        const lastChecked = status.lastChecked 
-          ? status.lastChecked.toLocaleTimeString() 
+        const apiKey = key as keyof ApiHealth;
+        const apiStatus = status as ApiHealth[keyof ApiHealth];
+        
+        const lastChecked = apiStatus.lastChecked 
+          ? apiStatus.lastChecked.toLocaleTimeString() 
           : 'never';
         
-        return `${key}: ${status.isHealthy ? '✅' : '❌'} (checked: ${lastChecked})`;
+        return `${key}: ${apiStatus.isHealthy ? '✅' : '❌'} (checked: ${lastChecked})`;
       })
       .join(', ');
       
