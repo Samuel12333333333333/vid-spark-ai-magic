@@ -66,6 +66,34 @@ serve(async (req) => {
       
       // For 404 errors, the render might be deleted or invalid
       if (response.status === 404) {
+        // Create Supabase client
+        const supabaseUrl = Deno.env.get("SUPABASE_URL");
+        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        
+        if (!supabaseUrl || !supabaseServiceKey) {
+          throw new Error("Supabase environment variables not configured");
+        }
+        
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+        
+        // Update the project with failed status and error message
+        try {
+          const { error: updateError } = await supabaseAdmin
+            .from("video_projects")
+            .update({
+              status: "failed",
+              error_message: `Render not found (404): The render ID ${renderId} doesn't exist or has been deleted`,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", projectId);
+            
+          if (updateError) {
+            logError("Database Update Error", updateError, { projectId });
+          }
+        } catch (dbError) {
+          logError("Database Error", dbError, { projectId, renderId });
+        }
+        
         return new Response(
           JSON.stringify({
             status: "failed",
@@ -82,6 +110,32 @@ serve(async (req) => {
         projectId,
         errorResponse: errorText
       });
+      
+      // Create Supabase client
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      
+      if (supabaseUrl && supabaseServiceKey) {
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+        
+        // Update the project with failed status
+        try {
+          const { error: updateError } = await supabaseAdmin
+            .from("video_projects")
+            .update({
+              status: "failed",
+              error_message: `Shotstack API error: ${response.status} ${response.statusText}`,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", projectId);
+            
+          if (updateError) {
+            logError("Database Update Error", updateError, { projectId });
+          }
+        } catch (dbError) {
+          logError("Database Error", dbError, { projectId, renderId });
+        }
+      }
       
       return new Response(
         JSON.stringify({

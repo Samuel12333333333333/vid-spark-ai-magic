@@ -293,6 +293,11 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
                   <p className="text-xs text-muted-foreground">
                     {formatDistanceToNow(new Date(project.created_at || ''), { addSuffix: true })}
                   </p>
+                  {project.render_id && (
+                    <p className="text-xs text-muted-foreground truncate" title={project.render_id}>
+                      ID: {project.render_id.substring(0, 8)}...
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-1">
                   {(isVideoReady || isFailed) && (

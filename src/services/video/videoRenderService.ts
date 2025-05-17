@@ -87,11 +87,21 @@ export const videoRenderService = {
         console.error("Exception testing Shotstack API:", testErr);
         // Continue despite test error - the render might still work
       }
+
+      // Get current user ID before making the function call
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+
+      if (!userId) {
+        console.error("No authenticated user found");
+        showErrorToast("Authentication error: No user found");
+        return { success: false, error: "Authentication error: No user found" };
+      }
       
       const { data, error } = await withRetry(() => supabase.functions.invoke("render-video", {
         body: {
           projectId,
-          userId: (supabase.auth.getUser()).then(result => result.data.user?.id),
+          userId,
           prompt,
           style,
           scenes: validatedScenes,
@@ -118,14 +128,10 @@ export const videoRenderService = {
       
       console.log("Render started successfully with ID:", data.renderId);
       
-      // Start monitoring the render status
-      // Fix: Don't use await here since we're not waiting for the polling to complete
-      // Instead, kick off the polling and return immediately
-      setTimeout(() => {
-        this.pollRenderStatus(data.renderId, projectId, (status, url) => {
-          console.log(`Polling callback: status=${status}, url=${url || 'none'}`);
-        });
-      }, 3000);
+      // Start monitoring the render status immediately
+      this.pollRenderStatus(data.renderId, projectId, (status, url) => {
+        console.log(`Polling callback: status=${status}, url=${url || 'none'}`);
+      });
       
       return { success: true, renderId: data.renderId };
     } catch (error) {
@@ -170,7 +176,6 @@ export const videoRenderService = {
     }
   },
   
-  // Fix: Removing async and await as this function doesn't need to be async
   pollRenderStatus(renderId: string, projectId: string, onUpdate: (status: RenderStatus, url?: string) => void): void {
     if (!renderId || !projectId) {
       console.error("Missing render ID or project ID in pollRenderStatus");
@@ -178,72 +183,80 @@ export const videoRenderService = {
       return;
     }
     
-    // Initial status check - using an async function to allow for await
-    const checkInitialStatus = async () => {
-      const response = await this.checkRenderStatus(renderId, projectId);
-      onUpdate(response.status as RenderStatus, response.url);
-      
-      // If not done or failed yet, start polling
-      if (response.status !== 'completed' && response.status !== 'failed') {
-        toast.info("Video rendering in progress", {
-          description: "We'll notify you when it's complete."
-        });
+    console.log(`Starting render status polling for project ${projectId} with render ID ${renderId}`);
+    toast.info("Video rendering in progress", {
+      description: "We'll notify you when it's complete."
+    });
+    
+    // Check initial status immediately
+    const checkStatus = async () => {
+      try {
+        const response = await this.checkRenderStatus(renderId, projectId);
+        console.log(`Initial status check: ${response.status}`);
         
-        let attempts = 0;
-        const maxAttempts = 30; // 5 minutes (10s interval)
+        onUpdate(response.status as RenderStatus, response.url);
         
-        // Set polling interval
-        const interval = setInterval(async () => {
-          attempts++;
-          console.log(`Polling attempt ${attempts} for render ${renderId}`);
+        // If not done or failed yet, start polling
+        if (response.status !== 'completed' && response.status !== 'failed') {
+          let attempts = 0;
+          const maxAttempts = 30; // 5 minutes (10s interval)
           
-          if (attempts >= maxAttempts) {
-            clearInterval(interval);
-            toast.error("Video rendering took too long", {
-              description: "Please check back later or try again."
-            });
-            onUpdate('failed', undefined);
+          // Set polling interval
+          const interval = setInterval(async () => {
+            attempts++;
+            console.log(`Polling attempt ${attempts} for render ${renderId}`);
             
-            // Update the project status to failed
-            try {
-              await renderStatusService.updateProjectStatus(projectId, 'failed', {
-                status: 'failed',
-                error: 'Rendering timeout - took too long to complete'
-              });
-            } catch (updateErr) {
-              console.error("Error updating project status after timeout:", updateErr);
-            }
-            return;
-          }
-          
-          try {
-            const response = await this.checkRenderStatus(renderId, projectId);
-            console.log(`Poll result: status=${response.status}, url=${response.url || 'none'}`);
-            
-            onUpdate(response.status as RenderStatus, response.url);
-            
-            if (response.status === 'completed' || response.status === 'failed') {
+            if (attempts >= maxAttempts) {
               clearInterval(interval);
+              toast.error("Video rendering took too long", {
+                description: "Please check back later or try again."
+              });
+              onUpdate('failed', undefined);
               
-              if (response.status === 'completed') {
-                toast.success("Video rendering complete", {
-                  description: "Your video is ready to view"
+              // Update the project status to failed
+              try {
+                await renderStatusService.updateProjectStatus(projectId, 'failed', {
+                  status: 'failed',
+                  error: 'Rendering timeout - took too long to complete'
                 });
-              } else if (response.status === 'failed') {
-                toast.error("Video rendering failed", {
-                  description: response.error || "Unknown error"
-                });
+              } catch (updateErr) {
+                console.error("Error updating project status after timeout:", updateErr);
               }
+              return;
             }
-          } catch (error) {
-            console.error("Error during polling:", error);
-            // Don't clear interval, try again next time
-          }
-        }, 10000); // Check every 10 seconds
+            
+            try {
+              const response = await this.checkRenderStatus(renderId, projectId);
+              console.log(`Poll result: status=${response.status}, url=${response.url || 'none'}`);
+              
+              onUpdate(response.status as RenderStatus, response.url);
+              
+              if (response.status === 'completed' || response.status === 'failed') {
+                clearInterval(interval);
+                
+                if (response.status === 'completed') {
+                  toast.success("Video rendering complete", {
+                    description: "Your video is ready to view"
+                  });
+                } else if (response.status === 'failed') {
+                  toast.error("Video rendering failed", {
+                    description: response.error || "Unknown error"
+                  });
+                }
+              }
+            } catch (error) {
+              console.error("Error during polling:", error);
+              // Don't clear interval, try again next time
+            }
+          }, 10000); // Check every 10 seconds
+        }
+      } catch (error) {
+        console.error("Error during initial status check:", error);
+        onUpdate('failed', undefined);
       }
     };
     
-    // Start the initial check process
-    checkInitialStatus();
+    // Start the polling process
+    checkStatus();
   }
 };

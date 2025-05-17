@@ -70,6 +70,7 @@ serve(async (req) => {
     
     const { 
       projectId, 
+      userId,
       prompt,
       scenes,
       style,
@@ -82,9 +83,14 @@ serve(async (req) => {
       useStockMedia = true
     } = params;
     
-    // Validate required parameters
+    // Check for required parameters
     if (!projectId) {
       throw new Error("Project ID is required");
+    }
+    
+    if (!userId) {
+      logError("Missing User ID", "User ID is required", { projectId });
+      throw new Error("User ID is required");
     }
     
     // Check if scenes are provided, if not, we can't create the video
@@ -93,7 +99,7 @@ serve(async (req) => {
       throw new Error("No valid scenes provided for video creation");
     }
     
-    console.log(`Creating video for project ${projectId} with ${scenes.length} scenes`);
+    console.log(`Creating video for project ${projectId} with ${scenes.length} scenes for user ${userId}`);
     
     // Create Shotstack timeline
     const timeline = {
