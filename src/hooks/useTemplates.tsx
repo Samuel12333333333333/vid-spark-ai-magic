@@ -1,7 +1,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Template } from "@/types/supabase";
+import type { Template } from "@/types/template";
 
 export function useTemplates(category?: string) {
   return useQuery({
@@ -12,12 +12,13 @@ export function useTemplates(category?: string) {
         .select('*');
         
       if (category && category !== 'all') {
-        query = query.eq('category', category);
+        query = query.eq('category', category.toLowerCase());
       }
       
-      const { data, error } = await query;
+      const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) {
+        console.error("Error fetching templates:", error);
         throw error;
       }
       

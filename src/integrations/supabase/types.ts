@@ -177,6 +177,41 @@ export type Database = {
         }
         Relationships: []
       }
+      template_data: {
+        Row: {
+          created_at: string | null
+          id: string
+          template_id: string
+          template_json: Json
+          updated_at: string | null
+          variables: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          template_id: string
+          template_json: Json
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          template_id?: string
+          template_json?: Json
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_data_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       templates: {
         Row: {
           category: string | null

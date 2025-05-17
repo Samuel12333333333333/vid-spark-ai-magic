@@ -2,7 +2,7 @@
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Star, Image } from "lucide-react";
+import { Play, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Template } from "@/types/template";
 
@@ -27,13 +27,20 @@ export function TemplateCard({
       onSelect(id);
     }
   };
+  
+  const getPlaceholderImage = () => {
+    if (category) {
+      return `/lovable-uploads/placeholder-${category.toLowerCase()}.png`;
+    }
+    return "/placeholder.svg";
+  };
 
   return (
     <Card className={`overflow-hidden ${compact ? "h-full" : ""} flex flex-col transition-shadow hover:shadow-md`}>
       <div className="relative overflow-hidden" style={{ height: compact ? "120px" : "160px" }}>
-        {thumbnail ? (
+        {(thumbnail || getPlaceholderImage()) ? (
           <img
-            src={thumbnail}
+            src={thumbnail || getPlaceholderImage()}
             alt={name}
             className="h-full w-full object-cover transition-transform hover:scale-105"
             onError={(e) => {
@@ -43,7 +50,11 @@ export function TemplateCard({
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center bg-muted">
-            <Image className="h-12 w-12 text-muted-foreground/50" />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-muted-foreground/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+              <circle cx="9" cy="9" r="2"></circle>
+              <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+            </svg>
           </div>
         )}
         {is_premium && (

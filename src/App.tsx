@@ -42,6 +42,7 @@ import DashboardHome from "./pages/dashboard/DashboardHome";
 import VideosPage from "./pages/dashboard/VideosPage";
 import VideoDetailPage from "./pages/dashboard/VideoDetailPage";
 import TemplatesPage from "./pages/dashboard/TemplatesPage";
+import TemplateDetailPage from "./pages/dashboard/TemplateDetailPage";
 import ScriptsPage from "./pages/dashboard/ScriptsPage";
 import GeneratorPage from "./pages/dashboard/GeneratorPage";
 import BrandKitPage from "./pages/dashboard/BrandKitPage";
@@ -138,6 +139,7 @@ const App = () => {
                       <Route path="videos" element={<VideosPage />} />
                       <Route path="videos/:id" element={<VideoDetailPage />} />
                       <Route path="templates" element={<TemplatesPage />} />
+                      <Route path="templates/:id" element={<TemplateDetailPage />} />
                       <Route path="scripts" element={<ScriptsPage />} />
                       <Route path="generator" element={<GeneratorPage />} />
                       <Route path="brand" element={<BrandKitPage />} />
