@@ -5,7 +5,7 @@ import { notificationService } from "@/services/notificationService";
 export const testNotification = async (userId: string) => {
   console.log("🔍 Testing notification creation for user:", userId);
   
-  // Method 1: Using the notification service
+  // Method 1: Using the notification service with edge function
   console.log("Method 1: Using notificationService...");
   try {
     const notif1 = await notificationService.createNotification({
@@ -21,25 +21,30 @@ export const testNotification = async (userId: string) => {
     console.error("❌ Method 1 error:", err);
   }
 
-  // Method 2: Direct database insert
-  console.log("Method 2: Direct insert...");
+  // Method 2: Direct insert is discouraged due to RLS policies
+  // We're now using the edge function for all notification operations
+  console.log("Method 2: Using edge function directly...");
   try {
-    const { data: directData, error: directError } = await supabase
-      .from('notifications')
-      .insert([{
+    const response = await fetch('/api/create-notification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
         user_id: userId,
         title: "Test Notification (Direct)",
-        message: "This is a test notification using direct insert.",
+        message: "This is a test notification using direct API call.",
         type: 'video',
         is_read: false
-      }])
-      .select();
-      
-    if (directError) {
-      console.error("❌ Method 2 error:", directError);
-    } else {
-      console.log("✅ Method 2 result:", directData);
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API responded with status: ${response.status}`);
     }
+    
+    const data = await response.json();
+    console.log("✅ Method 2 result:", data);
   } catch (err) {
     console.error("❌ Method 2 error:", err);
   }
