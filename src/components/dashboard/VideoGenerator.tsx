@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -34,8 +35,19 @@ const VOICE_OPTIONS = [
 ];
 
 export function VideoGenerator() {
-  const { usageCount, remainingVideos, maxVideosPerMonth, canGenerateVideo, resetDate } = useVideoLimits();
-  const [isCheckingQuota, setIsCheckingQuota] = useState(false);
+  const { usageCount, remainingVideos, maxVideosPerMonth, canGenerateVideo, resetDate, incrementUsage, refreshUsage } = useVideoLimits();
+  const [isCheckingQuota, setIsCheckingQuota] = useState<boolean>(false);
+  
+  // Core video generation state
+  const [prompt, setPrompt] = useState<string>('');
+  const [style, setStyle] = useState<string>('modern');
+  const [format, setFormat] = useState<string>('16:9');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showTips, setShowTips] = useState<boolean>(false);
+  
+  // Navigation state
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [activeTab, setActiveTab] = useState<string>('content');
   
   // Brand kit options
   const [useBrandKit, setUseBrandKit] = useState<boolean>(false);
