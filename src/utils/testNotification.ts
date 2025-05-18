@@ -21,8 +21,7 @@ export const testNotification = async (userId: string) => {
     console.error("❌ Method 1 error:", err);
   }
 
-  // Method 2: Direct insert is discouraged due to RLS policies
-  // We're now using the edge function for all notification operations
+  // Method 2: Using the edge function directly
   console.log("Method 2: Using edge function directly...");
   try {
     const response = await fetch('/api/create-notification', {
@@ -40,7 +39,8 @@ export const testNotification = async (userId: string) => {
     });
     
     if (!response.ok) {
-      throw new Error(`API responded with status: ${response.status}`);
+      const errorData = await response.json();
+      throw new Error(`API responded with status: ${response.status} - ${JSON.stringify(errorData)}`);
     }
     
     const data = await response.json();

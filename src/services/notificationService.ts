@@ -155,18 +155,16 @@ export const notificationService = {
       
       console.log('Creating notification with data:', notificationData);
       
-      // Use server-side API via edge function for notifications
-      // This allows bypassing RLS policies with service role
+      // Use edge function for notifications to bypass RLS
       const response = await fetch('/api/create-notification', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(notificationData),
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to create notification: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(`Failed to create notification (${response.status}): ${errorData.error || response.statusText}`);
       }
       
       const data = await response.json();

@@ -12,30 +12,24 @@ interface Notification {
   metadata?: any;
 }
 
-// Create a Supabase client with the service role key
-const supabaseClient = createClient(
-  Deno.env.get("SUPABASE_URL") ?? "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-);
-
 serve(async (req) => {
   try {
     // CORS headers
-    const headers = {
+    const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     };
 
     // Handle preflight OPTIONS request
     if (req.method === "OPTIONS") {
-      return new Response("ok", { headers });
+      return new Response("ok", { headers: corsHeaders });
     }
 
     // Only accept POST requests
     if (req.method !== "POST") {
       return new Response(JSON.stringify({ error: "Method not allowed" }), {
         status: 405,
-        headers: { ...headers, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -48,13 +42,22 @@ serve(async (req) => {
         JSON.stringify({ error: "Missing required notification fields" }),
         {
           status: 400,
-          headers: { ...headers, "Content-Type": "application/json" },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
 
-    // Insert the notification using service role
-    const { data, error } = await supabaseClient
+    console.log("Creating notification:", notification);
+    
+    // Create a Supabase client with the service role key
+    // This bypasses RLS policies
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    // Insert the notification using service role to bypass RLS policies
+    const { data, error } = await supabaseAdmin
       .from("notifications")
       .insert({
         user_id: notification.user_id,
@@ -73,15 +76,17 @@ serve(async (req) => {
         JSON.stringify({ error: `Failed to create notification: ${error.message}` }),
         {
           status: 500,
-          headers: { ...headers, "Content-Type": "application/json" },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
 
+    console.log("Notification created successfully:", data);
+
     // Return the created notification
     return new Response(JSON.stringify(data), {
       status: 200,
-      headers: { ...headers, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("Unexpected error:", error);
