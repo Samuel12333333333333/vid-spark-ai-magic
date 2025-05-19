@@ -24,7 +24,7 @@ export const testNotification = async (userId: string) => {
   // Method 2: Using the edge function directly
   console.log("Method 2: Using edge function directly...");
   try {
-    const response = await fetch('/api/create-notification', {
+    const response = await fetch('https://rtzitylynowjenfoztum.supabase.co/functions/v1/create-notification', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

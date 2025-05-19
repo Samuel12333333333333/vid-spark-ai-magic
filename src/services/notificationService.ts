@@ -156,7 +156,8 @@ export const notificationService = {
       console.log('Creating notification with data:', notificationData);
       
       // Use edge function for notifications to bypass RLS
-      const response = await fetch('/api/create-notification', {
+      // IMPORTANT: Use the FULL URL for the edge function
+      const response = await fetch('https://rtzitylynowjenfoztum.supabase.co/functions/v1/create-notification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(notificationData),
@@ -164,7 +165,7 @@ export const notificationService = {
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`Failed to create notification (${response.status}): ${errorData.error || response.statusText}`);
+        throw new Error(`Failed to create notification (${response.status}): ${JSON.stringify(errorData)}`);
       }
       
       const data = await response.json();

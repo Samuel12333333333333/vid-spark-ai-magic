@@ -104,3 +104,4 @@ enable_confirmations = false
 # Invoke dedicated function for notifications without JWT auth
 [functions.create-notification]
 verify_jwt = false
+
