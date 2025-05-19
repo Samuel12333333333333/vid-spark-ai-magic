@@ -7,14 +7,26 @@ import { notificationService } from "@/services/notificationService";
 export const renderNotifications = {
   async createVideoCompletedNotification(userId: string, videoId: string, title: string): Promise<void> {
     try {
-      await notificationService.createNotification({
+      console.log(`Creating video completed notification for user: ${userId}, video: ${videoId}, title: ${title}`);
+      
+      const notification = await notificationService.createNotification({
         user_id: userId,
         title: "Video Ready",
         message: `Your video "${title.substring(0, 30)}${title.length > 30 ? '...' : ''}" is ready to view.`,
         type: "video_complete",
         is_read: false,
-        metadata: { videoId, timestamp: new Date().toISOString() }
+        metadata: { 
+          videoId, 
+          status: 'completed',
+          timestamp: new Date().toISOString() 
+        }
       });
+      
+      if (notification) {
+        console.log("Video completed notification created successfully:", notification);
+      } else {
+        console.error("Failed to create video completed notification");
+      }
     } catch (error) {
       console.error("Exception in createVideoCompletedNotification:", error);
     }
@@ -22,7 +34,9 @@ export const renderNotifications = {
   
   async createVideoFailedNotification(userId: string, videoId: string, title: string, errorMessage?: string): Promise<void> {
     try {
-      await notificationService.createNotification({
+      console.log(`Creating video failed notification for user: ${userId}, video: ${videoId}, title: ${title}`);
+      
+      const notification = await notificationService.createNotification({
         user_id: userId,
         title: "Video Generation Failed",
         message: `We couldn't generate your video "${title.substring(0, 30)}${title.length > 30 ? '...' : ''}". Please try again.`,
@@ -31,9 +45,16 @@ export const renderNotifications = {
         metadata: { 
           videoId, 
           errorMessage,
+          status: 'failed',
           timestamp: new Date().toISOString() 
         }
       });
+      
+      if (notification) {
+        console.log("Video failed notification created successfully:", notification);
+      } else {
+        console.error("Failed to create video failed notification");
+      }
     } catch (error) {
       console.error("Exception in createVideoFailedNotification:", error);
     }
@@ -41,14 +62,25 @@ export const renderNotifications = {
   
   async createVideoDeletedNotification(userId: string, title: string): Promise<void> {
     try {
-      await notificationService.createNotification({
+      console.log(`Creating video deleted notification for user: ${userId}, title: ${title}`);
+      
+      const notification = await notificationService.createNotification({
         user_id: userId,
         title: "Video Deleted",
         message: `Your video "${title.substring(0, 30)}${title.length > 30 ? '...' : ''}" has been deleted.`,
         type: "video_deleted",
         is_read: false,
-        metadata: { action: "delete", timestamp: new Date().toISOString() }
+        metadata: { 
+          action: "delete", 
+          timestamp: new Date().toISOString() 
+        }
       });
+      
+      if (notification) {
+        console.log("Video deleted notification created successfully:", notification);
+      } else {
+        console.error("Failed to create video deleted notification");
+      }
     } catch (error) {
       console.error("Exception in createVideoDeletedNotification:", error);
     }
@@ -70,6 +102,8 @@ export const renderNotifications = {
   // Add the missing handler methods
   async handleRenderCompletedFlow(userId: string, title: string, projectId: string, videoUrl: string): Promise<void> {
     try {
+      console.log(`Starting render completed flow for user: ${userId}, project: ${projectId}`);
+      
       // Create notification
       await this.createVideoCompletedNotification(userId, projectId, title);
       
@@ -84,6 +118,8 @@ export const renderNotifications = {
   
   async handleRenderFailedFlow(userId: string, title: string, projectId: string, errorMessage: string): Promise<void> {
     try {
+      console.log(`Starting render failed flow for user: ${userId}, project: ${projectId}`);
+      
       // Create notification
       await this.createVideoFailedNotification(userId, projectId, title, errorMessage);
       

@@ -164,11 +164,18 @@ export const notificationService = {
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Failed to create notification (${response.status}): ${JSON.stringify(errorData)}`);
+        let errorMessage = response.statusText;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // If parsing fails, use status text
+        }
+        throw new Error(`Failed to create notification (${response.status}): ${errorMessage}`);
       }
       
       const data = await response.json();
+      console.log('Notification created successfully:', data);
       return data as Notification;
     } catch (error) {
       console.error('Error in createNotification:', error);

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
@@ -164,10 +163,11 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
 
   const deleteProject = async (id: string, title: string) => {
     try {
-      // First, create a notification about the deletion
       if (user?.id) {
+        console.log(`Creating notification for video deletion: ${id}, title: ${title}`);
+        
         // Create notification for video deletion
-        await notificationService.createNotification({
+        const notification = await notificationService.createNotification({
           user_id: user.id, 
           title: "Video Deleted",
           message: `Your video "${title || 'Untitled'}" has been deleted.`,
@@ -177,6 +177,14 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
             timestamp: new Date().toISOString()
           }
         });
+        
+        if (notification) {
+          console.log("Video deleted notification created successfully:", notification);
+        } else {
+          console.error("Failed to create video deleted notification");
+        }
+      } else {
+        console.warn("Cannot create notification: No user ID");
       }
 
       // Now delete the video project
