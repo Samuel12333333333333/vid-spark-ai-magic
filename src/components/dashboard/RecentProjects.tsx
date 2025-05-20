@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
@@ -10,7 +11,6 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { notificationService } from "@/services/notificationService";
 
 interface RecentProjectsProps {
   projects: VideoProject[];
@@ -163,31 +163,7 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
 
   const deleteProject = async (id: string, title: string) => {
     try {
-      if (user?.id) {
-        console.log(`Creating notification for video deletion: ${id}, title: ${title}`);
-        
-        // Create notification for video deletion
-        const notification = await notificationService.createNotification({
-          user_id: user.id, 
-          title: "Video Deleted",
-          message: `Your video "${title || 'Untitled'}" has been deleted.`,
-          type: 'video_deleted',
-          metadata: { 
-            action: 'delete',
-            timestamp: new Date().toISOString()
-          }
-        });
-        
-        if (notification) {
-          console.log("Video deleted notification created successfully:", notification);
-        } else {
-          console.error("Failed to create video deleted notification");
-        }
-      } else {
-        console.warn("Cannot create notification: No user ID");
-      }
-
-      // Now delete the video project
+      // Delete the project - notification is created by the videoService.deleteProject method
       await videoService.deleteProject(id);
       toast.success("Video deleted successfully");
       // You would typically refresh the videos list here

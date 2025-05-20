@@ -7,33 +7,8 @@ export const testNotification = async (userId: string) => {
   console.log("🔍 Testing notification creation for user:", userId);
   let results = [];
   
-  // Method 1: Using the notification service with edge function
-  console.log("Method 1: Using notificationService...");
-  try {
-    const notif1 = await notificationService.createNotification({
-      user_id: userId, 
-      title: "Test Notification (Service)",
-      message: "This is a test notification using the notification service.",
-      type: 'video',
-      metadata: { test: true, method: 'service', timestamp: new Date().toISOString() }
-    });
-    
-    console.log("✅ Method 1 result:", notif1);
-    if (notif1) {
-      toast.success("Notification created successfully via service");
-      results.push("Method 1: Success");
-    } else {
-      toast.error("Failed to create notification via service");
-      results.push("Method 1: Failed");
-    }
-  } catch (err) {
-    console.error("❌ Method 1 error:", err);
-    toast.error(`Method 1 error: ${err instanceof Error ? err.message : String(err)}`);
-    results.push(`Method 1: Error - ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  // Method 2: Using the edge function directly
-  console.log("Method 2: Using edge function directly...");
+  // Just use the edge function to create a test notification
+  console.log("Using edge function to create test notification...");
   try {
     const response = await fetch('https://rtzitylynowjenfoztum.supabase.co/functions/v1/create-notification', {
       method: 'POST',
@@ -42,7 +17,7 @@ export const testNotification = async (userId: string) => {
       },
       body: JSON.stringify({
         user_id: userId,
-        title: "Test Notification (Direct)",
+        title: "Test Notification",
         message: "This is a test notification using direct API call.",
         type: 'video',
         is_read: false,
@@ -62,16 +37,14 @@ export const testNotification = async (userId: string) => {
     }
     
     const data = await response.json();
-    console.log("✅ Method 2 result:", data);
-    toast.success("Notification created successfully via direct API call");
-    results.push("Method 2: Success");
+    console.log("✅ Test notification created successfully:", data);
+    toast.success("Notification created successfully");
+    results.push("Success: Notification created via edge function");
   } catch (err) {
-    console.error("❌ Method 2 error:", err);
-    toast.error(`Method 2 error: ${err instanceof Error ? err.message : String(err)}`);
-    results.push(`Method 2: Error - ${err instanceof Error ? err.message : String(err)}`);
+    console.error("❌ Error creating test notification:", err);
+    toast.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    results.push(`Error: ${err instanceof Error ? err.message : String(err)}`);
   }
-  
-  // Update existing notification related components in Video Render service
   
   return {
     message: "Notification test complete - check console and toasts for results",

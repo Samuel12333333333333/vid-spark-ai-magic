@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { aiService, SceneBreakdown } from "@/services/aiService";
 import { toast } from "sonner";
@@ -591,6 +590,7 @@ export const videoService = {
       
       console.log(`Video project ${id} deleted successfully`);
       
+      // Create notification only if we have user_id and title
       if (projectData && projectData.user_id) {
         await renderNotifications.createVideoDeletedNotification(
           projectData.user_id,
