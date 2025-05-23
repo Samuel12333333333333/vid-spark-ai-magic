@@ -2,12 +2,16 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notificationService } from "@/services/notificationService";
+import { withRetry } from "@/lib/error-handler";
 
 // Use auth service role for server-side notifications
 export const renderNotifications = {
   async createVideoCompletedNotification(userId: string, videoId: string, title: string): Promise<void> {
     try {
       console.log(`Creating video completed notification for user: ${userId}, video: ${videoId}, title: ${title}`);
+      
+      // Create a unique reference to prevent duplicates
+      const uniqueReference = `video_complete_${videoId}`;
       
       const notification = await notificationService.createNotification({
         user_id: userId,
@@ -18,7 +22,8 @@ export const renderNotifications = {
         metadata: { 
           videoId, 
           status: 'completed',
-          timestamp: new Date().toISOString() 
+          timestamp: new Date().toISOString(),
+          uniqueReference
         }
       });
       
@@ -36,6 +41,9 @@ export const renderNotifications = {
     try {
       console.log(`Creating video failed notification for user: ${userId}, video: ${videoId}, title: ${title}`);
       
+      // Create a unique reference to prevent duplicates
+      const uniqueReference = `video_failed_${videoId}`;
+      
       const notification = await notificationService.createNotification({
         user_id: userId,
         title: "Video Generation Failed",
@@ -46,7 +54,8 @@ export const renderNotifications = {
           videoId, 
           errorMessage,
           status: 'failed',
-          timestamp: new Date().toISOString() 
+          timestamp: new Date().toISOString(),
+          uniqueReference
         }
       });
       
@@ -64,17 +73,27 @@ export const renderNotifications = {
     try {
       console.log(`Creating video deleted notification for user: ${userId}, title: ${title}`);
       
-      const notification = await notificationService.createNotification({
-        user_id: userId,
-        title: "Video Deleted",
-        message: `Your video "${title.substring(0, 30)}${title.length > 30 ? '...' : ''}" has been deleted.`,
-        type: "video_deleted",
-        is_read: false,
-        metadata: { 
-          action: "delete", 
-          timestamp: new Date().toISOString() 
-        }
-      });
+      // Create a unique reference to prevent duplicates
+      const uniqueReference = `video_deleted_${title}_${Date.now()}`;
+      
+      // Use retry mechanism to ensure notification is delivered
+      const notification = await withRetry(
+        async () => {
+          return notificationService.createNotification({
+            user_id: userId,
+            title: "Video Deleted",
+            message: `Your video "${title.substring(0, 30)}${title.length > 30 ? '...' : ''}" has been deleted.`,
+            type: "video_deleted",
+            is_read: false,
+            metadata: { 
+              action: "delete", 
+              timestamp: new Date().toISOString(),
+              uniqueReference
+            }
+          });
+        },
+        { maxRetries: 2, delayMs: 1000 }
+      );
       
       if (notification) {
         console.log("Video deleted notification created successfully:", notification);

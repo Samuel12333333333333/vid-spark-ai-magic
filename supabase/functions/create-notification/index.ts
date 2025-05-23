@@ -74,12 +74,41 @@ serve(async (req) => {
       );
     }
 
-    console.log("Creating notification:", notification);
-    
     // Create a Supabase client with the service role key
     // This bypasses RLS policies
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
+    // Check for duplicate notifications if we have a unique reference
+    if (notification.metadata?.uniqueReference) {
+      console.log(`Checking for existing notification with reference: ${notification.metadata.uniqueReference}`);
+      
+      const { data: existingNotifications, error: checkError } = await supabaseAdmin
+        .from("notifications")
+        .select("id")
+        .eq("user_id", notification.user_id)
+        .contains("metadata", { uniqueReference: notification.metadata.uniqueReference })
+        .limit(1);
+      
+      if (checkError) {
+        console.error("Error checking for duplicate notifications:", checkError);
+        // Continue with insertion even if check fails
+      } else if (existingNotifications && existingNotifications.length > 0) {
+        console.log("Duplicate notification detected, skipping creation");
+        return new Response(
+          JSON.stringify({ 
+            message: "Notification with this reference already exists",
+            data: existingNotifications[0] 
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+    }
+
+    console.log("Creating notification:", notification);
+    
     // Insert the notification using service role to bypass RLS policies
     const { data, error } = await supabaseAdmin
       .from("notifications")

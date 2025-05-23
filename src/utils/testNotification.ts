@@ -2,28 +2,42 @@
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "@/services/notificationService";
 import { toast } from "sonner";
+import { withRetry } from "@/lib/error-handler";
 
 export const testNotification = async (userId: string) => {
   console.log("🔍 Testing notification creation for user:", userId);
   let results = [];
   
-  // Just use the edge function to create a test notification
+  // Use a unique timestamp to avoid duplicate notifications
+  const timestamp = new Date().toISOString();
+  const uniqueReference = `test_${Date.now()}`;
+  
   console.log("Using edge function to create test notification...");
   try {
-    const response = await fetch('https://rtzitylynowjenfoztum.supabase.co/functions/v1/create-notification', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await withRetry(
+      async () => {
+        return fetch('https://rtzitylynowjenfoztum.supabase.co/functions/v1/create-notification', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            title: "Test Notification",
+            message: "This is a test notification with unique reference: " + uniqueReference,
+            type: 'video',
+            is_read: false,
+            metadata: { 
+              test: true, 
+              method: 'direct', 
+              timestamp: timestamp,
+              uniqueReference: uniqueReference
+            }
+          }),
+        });
       },
-      body: JSON.stringify({
-        user_id: userId,
-        title: "Test Notification",
-        message: "This is a test notification using direct API call.",
-        type: 'video',
-        is_read: false,
-        metadata: { test: true, method: 'direct', timestamp: new Date().toISOString() }
-      }),
-    });
+      { maxRetries: 1, delayMs: 1000 }
+    );
     
     if (!response.ok) {
       let errorMessage = response.statusText;

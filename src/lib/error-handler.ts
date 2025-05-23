@@ -33,6 +33,7 @@ interface RetryOptions {
   delayMs: number;
   onRetry?: (attempt: number, error: any) => void;
   retryOnlyIf?: (error: any) => boolean;
+  timeout?: number;
 }
 
 // Utility to retry API calls with exponential backoff
@@ -44,6 +45,7 @@ export const withRetry = async <T>(
   let delayMs: number;
   let onRetry: ((attempt: number, error: any) => void) | undefined;
   let retryOnlyIf: ((error: any) => boolean) | undefined;
+  let timeout: number | undefined;
   
   // Handle legacy number parameter for backward compatibility
   if (typeof options === 'number') {
@@ -56,6 +58,7 @@ export const withRetry = async <T>(
     delayMs = options.delayMs;
     onRetry = options.onRetry;
     retryOnlyIf = options.retryOnlyIf;
+    timeout = options.timeout;
   }
   
   let lastError: any;
@@ -66,6 +69,7 @@ export const withRetry = async <T>(
       if (attempt > 0) {
         // Exponential backoff with jitter
         const delay = Math.min(delayMs * Math.pow(2, attempt - 1), 10000) * (0.75 + Math.random() * 0.5);
+        console.log(`Retrying operation, attempt ${attempt}/${maxRetries}, waiting ${Math.round(delay)}ms`);
         await new Promise(resolve => setTimeout(resolve, delay));
         
         if (onRetry) {
@@ -73,7 +77,18 @@ export const withRetry = async <T>(
         }
       }
       
-      return await fn();
+      // If timeout is specified, wrap the function call with a timeout
+      if (timeout) {
+        const result = await Promise.race([
+          fn(),
+          new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error(`Operation timed out after ${timeout}ms`)), timeout);
+          })
+        ]);
+        return result;
+      } else {
+        return await fn();
+      }
     } catch (error) {
       lastError = error;
       console.error(`Attempt ${attempt + 1}/${maxRetries + 1} failed:`, error);
@@ -93,4 +108,27 @@ export const withRetry = async <T>(
   
   // This should never be reached due to the throw in the loop
   throw lastError;
+};
+
+// Utility to safely parse JSON with error handling
+export const safeJsonParse = <T>(json: string, defaultValue: T): T => {
+  try {
+    return JSON.parse(json) as T;
+  } catch (error) {
+    console.error("Error parsing JSON:", error);
+    return defaultValue;
+  }
+};
+
+// Function to add a debounce to any function
+export const debounce = <F extends (...args: any[]) => any>(func: F, waitFor: number) => {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  
+  return (...args: Parameters<F>): void => {
+    if (timeout !== null) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+    timeout = setTimeout(() => func(...args), waitFor);
+  };
 };

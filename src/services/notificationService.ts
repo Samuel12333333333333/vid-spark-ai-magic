@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { withRetry } from "@/lib/error-handler";
 import type { Notification, NotificationType } from "@/types/supabase";
 
 export type { Notification, NotificationType };
@@ -143,25 +144,42 @@ export const notificationService = {
         throw new Error('User ID is required for creating notifications');
       }
       
+      // Generate a unique reference if one isn't provided
+      const uniqueRef = notification.metadata?.uniqueReference || `notif_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+      
       // Extract only the valid properties for the database
       const notificationData = {
         user_id,
         title: notification.title,
         message: notification.message,
         type: validateNotificationType(notification.type),
-        metadata: notification.metadata || null,
+        metadata: {
+          ...(notification.metadata || {}),
+          uniqueReference: uniqueRef,
+          timestamp: notification.metadata?.timestamp || new Date().toISOString()
+        },
         is_read: notification.is_read !== undefined ? notification.is_read : false
       };
       
-      console.log('Creating notification with data:', notificationData);
+      console.log('Creating notification with unique reference:', uniqueRef);
       
-      // Use edge function for notifications to bypass RLS
-      // IMPORTANT: Use the FULL URL for the edge function
-      const response = await fetch('https://rtzitylynowjenfoztum.supabase.co/functions/v1/create-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(notificationData),
-      });
+      // Use edge function for notifications to bypass RLS with retry capability
+      const response = await withRetry(
+        async () => {
+          return fetch('https://rtzitylynowjenfoztum.supabase.co/functions/v1/create-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(notificationData),
+          });
+        },
+        { 
+          maxRetries: 2, 
+          delayMs: 1000,
+          onRetry: (attempt) => {
+            console.log(`Retrying notification creation, attempt ${attempt}`);
+          }
+        }
+      );
       
       if (!response.ok) {
         let errorMessage = response.statusText;

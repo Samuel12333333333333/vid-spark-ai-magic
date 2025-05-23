@@ -9,7 +9,6 @@ import { videoService } from "@/services/videoService";
 import { renderStatusService } from "@/services/video/renderStatusService";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface RecentProjectsProps {
@@ -163,12 +162,18 @@ export function RecentProjects({ projects }: RecentProjectsProps) {
 
   const deleteProject = async (id: string, title: string) => {
     try {
-      // Delete the project - notification is created by the videoService.deleteProject method
+      // Show loading toast
+      toast.loading("Deleting video...");
+      
+      // Delete the project - notification is handled within the videoService
       await videoService.deleteProject(id);
+      
+      // Remove loading toast and show success
+      toast.dismiss();
       toast.success("Video deleted successfully");
-      // You would typically refresh the videos list here
     } catch (error) {
       console.error("Error deleting video:", error);
+      toast.dismiss();
       toast.error("Failed to delete video");
     }
   };
