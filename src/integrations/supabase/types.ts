@@ -9,6 +9,33 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_users: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          role?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       blog_posts: {
         Row: {
           category: string | null
@@ -110,6 +137,65 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
+      }
+      render_logs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          duration: number | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          render_id: string | null
+          retry_count: number | null
+          started_at: string
+          status: string
+          template_name: string | null
+          user_id: string
+          video_project_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          duration?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          render_id?: string | null
+          retry_count?: number | null
+          started_at?: string
+          status?: string
+          template_name?: string | null
+          user_id: string
+          video_project_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          duration?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          render_id?: string | null
+          retry_count?: number | null
+          started_at?: string
+          status?: string
+          template_name?: string | null
+          user_id?: string
+          video_project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "render_logs_video_project_id_fkey"
+            columns: ["video_project_id"]
+            isOneToOne: false
+            referencedRelation: "video_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       scripts: {
         Row: {
@@ -245,6 +331,75 @@ export type Database = {
         }
         Relationships: []
       }
+      user_activity: {
+        Row: {
+          activity_type: string
+          created_at: string
+          id: string
+          ip_address: unknown | null
+          metadata: Json | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_quotas: {
+        Row: {
+          created_at: string
+          current_usage: number
+          id: string
+          monthly_limit: number
+          plan_type: string
+          reset_date: string
+          storage_limit_mb: number
+          storage_used_mb: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_usage?: number
+          id?: string
+          monthly_limit?: number
+          plan_type?: string
+          reset_date?: string
+          storage_limit_mb?: number
+          storage_used_mb?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_usage?: number
+          id?: string
+          monthly_limit?: number
+          plan_type?: string
+          reset_date?: string
+          storage_limit_mb?: number
+          storage_used_mb?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       video_projects: {
         Row: {
           audio_url: string | null
@@ -349,6 +504,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_stats: {
+        Args: { target_user_id: string }
+        Returns: Json
+      }
       get_video_usage: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -362,6 +521,14 @@ export type Database = {
           count: number
           reset_at: string
         }[]
+      }
+      is_admin: {
+        Args: { user_id?: string }
+        Returns: boolean
+      }
+      reset_user_quota: {
+        Args: { target_user_id: string }
+        Returns: boolean
       }
       reset_video_usage: {
         Args: { user_id_param: string }
