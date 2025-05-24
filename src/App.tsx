@@ -8,7 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminProvider } from "@/contexts/AdminContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import MainLayout from "@/layouts/MainLayout";
+import MainLayout from "@/components/layout/MainLayout";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 
 const queryClient = new QueryClient();
