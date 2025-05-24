@@ -1,4 +1,3 @@
-
 import { Outlet, useNavigate } from "react-router-dom";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -15,7 +14,7 @@ import { NotificationsDropdown } from "@/components/notifications/NotificationsD
 import { Profile } from "@/types/supabase";
 import { profileService } from "@/services/profileService";
 
-export function DashboardLayout() {
+function DashboardLayout() {
   const { user, signOut, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const navigate = useNavigate();
@@ -171,3 +170,5 @@ export function DashboardLayout() {
     </div>
   );
 }
+
+export default DashboardLayout;
