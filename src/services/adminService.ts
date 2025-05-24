@@ -179,11 +179,21 @@ class AdminService {
   }
 
   async retryRender(renderId: string): Promise<void> {
+    // First get the current retry count
+    const { data: currentLog, error: fetchError } = await supabase
+      .from("render_logs")
+      .select("retry_count")
+      .eq('id', renderId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Update with incremented retry count
     const { error } = await supabase
       .from("render_logs")
       .update({ 
         status: 'pending',
-        retry_count: supabase.sql`retry_count + 1`
+        retry_count: (currentLog?.retry_count || 0) + 1
       })
       .eq('id', renderId);
 
