@@ -46,7 +46,7 @@ export function MainHeader() {
           <Link to="/pricing" className="text-sm font-medium hover:text-primary transition-colors">
             Pricing
           </Link>
-          <Link to="/templates" className="text-sm font-medium hover:text-primary transition-colors">
+          <Link to="/dashboard/templates" className="text-sm font-medium hover:text-primary transition-colors">
             Templates
           </Link>
           <Link to="/integrations" className="text-sm font-medium hover:text-primary transition-colors">

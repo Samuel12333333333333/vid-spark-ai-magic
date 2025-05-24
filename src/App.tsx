@@ -1,3 +1,4 @@
+
 import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,7 +8,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminProvider } from "@/contexts/AdminContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import MainLayout from "@/components/layout/MainLayout";
+import { MainHeader } from "@/components/layout/MainHeader";
+import Footer from "@/components/layout/Footer";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 
 const queryClient = new QueryClient();
@@ -56,22 +58,124 @@ function App() {
                       </div>
                     }>
                       <Routes>
-                        {/* Public routes with MainLayout */}
-                        <Route path="/" element={<MainLayout />}>
-                          <Route index element={<LandingPage />} />
-                          <Route path="auth" element={<AuthPage />} />
-                          <Route path="login" element={<AuthPage />} />
-                          <Route path="register" element={<AuthPage />} />
-                          <Route path="product" element={<ProductOverviewPage />} />
-                          <Route path="features" element={<FeaturesPage />} />
-                          <Route path="pricing" element={<PricingPage />} />
-                          <Route path="integrations" element={<IntegrationsPage />} />
-                          <Route path="use-cases" element={<UseCasesPage />} />
-                          <Route path="about" element={<AboutPage />} />
-                          <Route path="contact" element={<ContactPage />} />
-                          <Route path="terms" element={<TermsPage />} />
-                          <Route path="privacy" element={<PrivacyPage />} />
-                        </Route>
+                        {/* Public routes with shared header/footer */}
+                        <Route path="/" element={
+                          <div className="min-h-screen flex flex-col">
+                            <MainHeader />
+                            <main className="flex-1">
+                              <LandingPage />
+                            </main>
+                            <Footer />
+                          </div>
+                        } />
+                        
+                        <Route path="/auth" element={
+                          <div className="min-h-screen">
+                            <AuthPage />
+                          </div>
+                        } />
+                        
+                        <Route path="/login" element={
+                          <div className="min-h-screen">
+                            <AuthPage />
+                          </div>
+                        } />
+                        
+                        <Route path="/register" element={
+                          <div className="min-h-screen">
+                            <AuthPage />
+                          </div>
+                        } />
+                        
+                        <Route path="/product" element={
+                          <div className="min-h-screen flex flex-col">
+                            <MainHeader />
+                            <main className="flex-1">
+                              <ProductOverviewPage />
+                            </main>
+                            <Footer />
+                          </div>
+                        } />
+                        
+                        <Route path="/features" element={
+                          <div className="min-h-screen flex flex-col">
+                            <MainHeader />
+                            <main className="flex-1">
+                              <FeaturesPage />
+                            </main>
+                            <Footer />
+                          </div>
+                        } />
+                        
+                        <Route path="/pricing" element={
+                          <div className="min-h-screen flex flex-col">
+                            <MainHeader />
+                            <main className="flex-1">
+                              <PricingPage />
+                            </main>
+                            <Footer />
+                          </div>
+                        } />
+                        
+                        <Route path="/integrations" element={
+                          <div className="min-h-screen flex flex-col">
+                            <MainHeader />
+                            <main className="flex-1">
+                              <IntegrationsPage />
+                            </main>
+                            <Footer />
+                          </div>
+                        } />
+                        
+                        <Route path="/use-cases" element={
+                          <div className="min-h-screen flex flex-col">
+                            <MainHeader />
+                            <main className="flex-1">
+                              <UseCasesPage />
+                            </main>
+                            <Footer />
+                          </div>
+                        } />
+                        
+                        <Route path="/about" element={
+                          <div className="min-h-screen flex flex-col">
+                            <MainHeader />
+                            <main className="flex-1">
+                              <AboutPage />
+                            </main>
+                            <Footer />
+                          </div>
+                        } />
+                        
+                        <Route path="/contact" element={
+                          <div className="min-h-screen flex flex-col">
+                            <MainHeader />
+                            <main className="flex-1">
+                              <ContactPage />
+                            </main>
+                            <Footer />
+                          </div>
+                        } />
+                        
+                        <Route path="/terms" element={
+                          <div className="min-h-screen flex flex-col">
+                            <MainHeader />
+                            <main className="flex-1">
+                              <TermsPage />
+                            </main>
+                            <Footer />
+                          </div>
+                        } />
+                        
+                        <Route path="/privacy" element={
+                          <div className="min-h-screen flex flex-col">
+                            <MainHeader />
+                            <main className="flex-1">
+                              <PrivacyPage />
+                            </main>
+                            <Footer />
+                          </div>
+                        } />
                         
                         {/* Dashboard routes with DashboardLayout */}
                         <Route path="/dashboard" element={<DashboardLayout />}>
