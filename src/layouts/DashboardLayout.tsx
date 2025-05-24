@@ -8,7 +8,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -17,12 +16,20 @@ import { Profile } from "@/types/supabase";
 import { profileService } from "@/services/profileService";
 
 export function DashboardLayout() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Redirect to auth if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth", { replace: true });
+      return;
+    }
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -58,21 +65,26 @@ export function DashboardLayout() {
     try {
       await signOut();
       toast.success("Logged out successfully");
-      navigate("/login");
+      navigate("/auth");
     } catch (error) {
       console.error('Error signing out:', error);
       toast.error("Failed to log out");
     }
   };
 
-  // Function to handle navigation clicks - will be passed to both mobile and desktop sidebars
-  const handleNavClick = () => {
-    // For mobile, we want to close the sheet when navigation occurs
-    if (isMobile) {
-      setSidebarOpen(false);
-    }
-    // Could add additional navigation handling here if needed in the future
-  };
+  // Show loading spinner while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (redirect will happen)
+  if (!user) {
+    return null;
+  }
 
   const userName = profile?.username || user?.email?.split('@')[0] || "User";
   const userEmail = user?.email || "";
@@ -148,7 +160,7 @@ export function DashboardLayout() {
       </header>
       <div className="flex flex-1 overflow-hidden">
         <div className="hidden md:flex h-full">
-          <DashboardSidebar onNavClick={handleNavClick} />
+          <DashboardSidebar onNavClick={() => {}} />
         </div>
         <main className="flex-1 overflow-y-auto">
           <div className="p-4 md:p-6">

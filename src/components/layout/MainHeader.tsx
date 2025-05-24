@@ -1,10 +1,12 @@
-import { Link } from "react-router-dom";
+
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function MainHeader() {
   const { session } = useAuth();
+  const location = useLocation();
   
   const openChatbot = () => {
     // This will trigger the chatbot to open
@@ -67,10 +69,10 @@ export function MainHeader() {
           ) : (
             <>
               <Button asChild variant="ghost">
-                <Link to="/login">Log in</Link>
+                <Link to="/auth">Log in</Link>
               </Button>
               <Button asChild>
-                <Link to="/register">Sign up</Link>
+                <Link to="/auth">Sign up</Link>
               </Button>
             </>
           )}

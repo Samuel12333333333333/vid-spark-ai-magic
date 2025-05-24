@@ -8,11 +8,13 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminProvider } from "@/contexts/AdminContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import MainLayout from "@/layouts/MainLayout";
+import { DashboardLayout } from "@/layouts/DashboardLayout";
 
 const queryClient = new QueryClient();
 
 // Lazy load components
-const Index = lazy(() => import("@/pages/Index"));
+const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const AuthPage = lazy(() => import("@/pages/AuthPage"));
 const DashboardHome = lazy(() => import("@/pages/dashboard/DashboardHome"));
 const GeneratorPage = lazy(() => import("@/pages/dashboard/GeneratorPage"));
@@ -42,16 +44,20 @@ function App() {
                       </div>
                     }>
                       <Routes>
-                        {/* Public routes */}
-                        <Route path="/" element={<Index />} />
-                        <Route path="/auth" element={<AuthPage />} />
+                        {/* Public routes with MainLayout */}
+                        <Route path="/" element={<MainLayout />}>
+                          <Route index element={<LandingPage />} />
+                          <Route path="auth" element={<AuthPage />} />
+                        </Route>
                         
-                        {/* Dashboard routes */}
-                        <Route path="/dashboard" element={<DashboardHome />} />
-                        <Route path="/dashboard/generator" element={<GeneratorPage />} />
-                        <Route path="/dashboard/videos" element={<VideosPage />} />
-                        <Route path="/dashboard/templates" element={<TemplatesPage />} />
-                        <Route path="/dashboard/settings" element={<SettingsPage />} />
+                        {/* Dashboard routes with DashboardLayout */}
+                        <Route path="/dashboard" element={<DashboardLayout />}>
+                          <Route index element={<DashboardHome />} />
+                          <Route path="generator" element={<GeneratorPage />} />
+                          <Route path="videos" element={<VideosPage />} />
+                          <Route path="templates" element={<TemplatesPage />} />
+                          <Route path="settings" element={<SettingsPage />} />
+                        </Route>
                         
                         {/* Admin routes */}
                         <Route path="/admin" element={<AdminDashboardPage />} />
