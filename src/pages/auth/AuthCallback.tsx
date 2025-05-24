@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 
 export default function AuthCallback() {
@@ -15,8 +14,6 @@ export default function AuthCallback() {
     const handleAuthCallback = async () => {
       try {
         console.log("Processing auth callback...");
-        console.log("Current URL:", window.location.href);
-        console.log("Current location:", location);
         
         // Check for error in URL
         const queryParams = new URLSearchParams(location.search);
@@ -25,68 +22,12 @@ export default function AuthCallback() {
         
         if (errorParam) {
           console.error("Auth error:", errorParam, errorDescription);
-          
-          // Handle the database error specifically
-          if (errorDescription && errorDescription.includes('Database error saving new user')) {
-            setError(`Authentication error: There was an issue creating your profile. This is likely a temporary database permission issue. Please try again in a few minutes or contact support.`);
-            toast.error("Profile creation failed. Please try again later.");
-          } else {
-            setError(`Authentication error: ${errorDescription || errorParam}`);
-          }
-          
-          setTimeout(() => navigate("/login"), 5000);
+          setError(`Authentication error: ${errorDescription || errorParam}`);
+          setTimeout(() => navigate("/auth"), 5000);
           return;
         }
 
-        // Deal with malformed Supabase URL redirects 
-        // (e.g. https://project-id.supabase.co/domain.com#access_token=...)
-        const currentUrl = window.location.href;
-        if (currentUrl.includes('.supabase.co/')) {
-          console.log("Detected Supabase redirect with potentially malformed URL");
-          
-          // Check if it has the incorrect format we need to handle
-          if (currentUrl.includes('.supabase.co/') && 
-              (currentUrl.includes('smartvideofy.com') || 
-               currentUrl.includes('lovable.app') || 
-               currentUrl.includes('localhost'))) {
-            
-            console.log("Detected malformed redirect URL, extracting tokens...");
-            
-            try {
-              // Look for the access token in the full URL
-              const fullUrl = currentUrl;
-              const accessTokenMatch = fullUrl.match(/access_token=([^&]+)/);
-              const refreshTokenMatch = fullUrl.match(/refresh_token=([^&]+)/);
-              
-              if (accessTokenMatch && refreshTokenMatch) {
-                const accessToken = decodeURIComponent(accessTokenMatch[1]);
-                const refreshToken = decodeURIComponent(refreshTokenMatch[1]);
-                
-                console.log("Found tokens in malformed URL, setting session...");
-                
-                const { data, error } = await supabase.auth.setSession({
-                  access_token: accessToken,
-                  refresh_token: refreshToken,
-                });
-                
-                if (error) {
-                  console.error("Error setting session:", error);
-                  setError(`Error setting session: ${error.message}`);
-                  toast.error(`Authentication failed: ${error.message}`);
-                } else if (data?.session) {
-                  console.log("Session set successfully");
-                  toast.success("Successfully signed in!");
-                  navigate("/dashboard");
-                  return;
-                }
-              }
-            } catch (err) {
-              console.error("Error processing malformed URL:", err);
-            }
-          }
-        }
-
-        // Handle normal hash fragment for OAuth redirects
+        // Handle hash fragment for OAuth redirects
         if (location.hash && location.hash.length > 1) {
           try {
             console.log("Found hash parameters:", location.hash);
@@ -99,17 +40,16 @@ export default function AuthCallback() {
             if (errorInHash) {
               console.error("Auth error in hash:", errorInHash, errorDescInHash);
               setError(`Authentication error: ${errorDescInHash || errorInHash}`);
-              setTimeout(() => navigate("/login"), 5000);
+              setTimeout(() => navigate("/auth"), 5000);
               return;
             }
             
-            // Process the hash parameters from the OAuth redirect - safely
+            // Process the hash parameters from the OAuth redirect
             const accessToken = hashParams.get('access_token');
             const refreshToken = hashParams.get('refresh_token');
             
             if (accessToken && refreshToken) {
               console.log("Setting session with tokens from hash");
-              // Set the session with the tokens from the hash
               const { data, error } = await supabase.auth.setSession({
                 access_token: accessToken,
                 refresh_token: refreshToken,
@@ -135,21 +75,21 @@ export default function AuthCallback() {
           }
         }
 
-        // Check for a valid session if there's no hash or error processing it
+        // Check for a valid session if there's no hash
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
           console.log("Valid session found, redirecting to dashboard");
           navigate("/dashboard");
         } else {
-          console.log("No valid session found, redirecting to login");
+          console.log("No valid session found, redirecting to auth");
           setError("Authentication failed. Please try again.");
-          setTimeout(() => navigate("/login"), 2000);
+          setTimeout(() => navigate("/auth"), 2000);
         }
       } catch (err) {
         console.error("Error in auth callback:", err);
         setError("An unexpected error occurred. Please try again.");
-        setTimeout(() => navigate("/login"), 2000);
+        setTimeout(() => navigate("/auth"), 2000);
       } finally {
         setIsProcessing(false);
       }
@@ -163,7 +103,7 @@ export default function AuthCallback() {
       <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
         {isProcessing ? (
           <div className="text-center">
-            <Spinner size="lg" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
             <h1 className="mt-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
               Completing authentication...
             </h1>
@@ -194,7 +134,7 @@ export default function AuthCallback() {
             <p className="mt-2 text-gray-600 dark:text-gray-400">{error}</p>
             <button
               className="mt-6 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-              onClick={() => navigate("/login")}
+              onClick={() => navigate("/auth")}
             >
               Return to login
             </button>

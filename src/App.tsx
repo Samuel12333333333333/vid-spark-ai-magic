@@ -1,3 +1,4 @@
+
 import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +14,7 @@ const queryClient = new QueryClient();
 // Lazy load components
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const AuthPage = lazy(() => import("@/pages/AuthPage"));
+const AuthCallback = lazy(() => import("@/pages/auth/AuthCallback"));
 const PricingPage = lazy(() => import("@/pages/PricingPage"));
 const ContactPage = lazy(() => import("@/pages/ContactPage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
@@ -24,6 +26,7 @@ const GeneratorPage = lazy(() => import("@/pages/dashboard/GeneratorPage"));
 const VideosPage = lazy(() => import("@/pages/dashboard/VideosPage"));
 const TemplatesPage = lazy(() => import("@/pages/dashboard/TemplatesPage"));
 const SettingsPage = lazy(() => import("@/pages/dashboard/SettingsPage"));
+const ScriptsPage = lazy(() => import("@/pages/dashboard/ScriptsPage"));
 
 // Product pages
 const ProductOverviewPage = lazy(() => import("@/pages/product/ProductOverviewPage"));
@@ -40,6 +43,10 @@ const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 const AdminDashboardPage = lazy(() => import("@/pages/admin/AdminDashboardPage"));
 const AdminUsersPage = lazy(() => import("@/pages/admin/AdminUsersPage"));
 const AdminRenderLogsPage = lazy(() => import("@/pages/admin/AdminRenderLogsPage"));
+
+// Community and Help pages
+const CommunityPage = lazy(() => import("@/pages/resources/CommunityPage"));
+const HelpCenterPage = lazy(() => import("@/pages/resources/HelpCenterPage"));
 
 // Main Layout for public pages
 const MainLayout = lazy(() => import("@/components/layout/MainLayout"));
@@ -72,10 +79,13 @@ function App() {
                           <Route path="contact" element={<ContactPage />} />
                           <Route path="terms" element={<TermsPage />} />
                           <Route path="privacy" element={<PrivacyPage />} />
+                          <Route path="community" element={<CommunityPage />} />
+                          <Route path="help" element={<HelpCenterPage />} />
                         </Route>
                         
                         {/* Auth routes without layout */}
                         <Route path="/auth" element={<AuthPage />} />
+                        <Route path="/auth/callback" element={<AuthCallback />} />
                         <Route path="/login" element={<AuthPage />} />
                         <Route path="/register" element={<AuthPage />} />
                         
@@ -86,6 +96,7 @@ function App() {
                           <Route path="videos" element={<VideosPage />} />
                           <Route path="templates" element={<TemplatesPage />} />
                           <Route path="settings" element={<SettingsPage />} />
+                          <Route path="scripts" element={<ScriptsPage />} />
                         </Route>
                         
                         {/* Admin routes */}

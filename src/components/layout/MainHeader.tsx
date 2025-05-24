@@ -46,7 +46,7 @@ export function MainHeader() {
           <Link to="/pricing" className="text-sm font-medium hover:text-primary transition-colors">
             Pricing
           </Link>
-          <Link to="/dashboard/templates" className="text-sm font-medium hover:text-primary transition-colors">
+          <Link to="/templates" className="text-sm font-medium hover:text-primary transition-colors">
             Templates
           </Link>
           <Link to="/integrations" className="text-sm font-medium hover:text-primary transition-colors">
@@ -69,10 +69,10 @@ export function MainHeader() {
           ) : (
             <>
               <Button asChild variant="ghost">
-                <Link to="/login">Log in</Link>
+                <Link to="/auth">Log in</Link>
               </Button>
               <Button asChild>
-                <Link to="/register">Sign up</Link>
+                <Link to="/auth">Sign up</Link>
               </Button>
             </>
           )}
