@@ -1,4 +1,3 @@
-
 import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,6 +21,19 @@ const VideosPage = lazy(() => import("@/pages/dashboard/VideosPage"));
 const TemplatesPage = lazy(() => import("@/pages/dashboard/TemplatesPage"));
 const SettingsPage = lazy(() => import("@/pages/dashboard/SettingsPage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
+
+// Product pages
+const ProductOverviewPage = lazy(() => import("@/pages/product/ProductOverviewPage"));
+const FeaturesPage = lazy(() => import("@/pages/product/FeaturesPage"));
+const IntegrationsPage = lazy(() => import("@/pages/product/IntegrationsPage"));
+const UseCasesPage = lazy(() => import("@/pages/product/UseCasesPage"));
+
+// Other pages
+const PricingPage = lazy(() => import("@/pages/PricingPage"));
+const AboutPage = lazy(() => import("@/pages/AboutPage"));
+const ContactPage = lazy(() => import("@/pages/ContactPage"));
+const TermsPage = lazy(() => import("@/pages/TermsPage"));
+const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 
 // Admin pages
 const AdminDashboardPage = lazy(() => import("@/pages/admin/AdminDashboardPage"));
@@ -48,6 +60,17 @@ function App() {
                         <Route path="/" element={<MainLayout />}>
                           <Route index element={<LandingPage />} />
                           <Route path="auth" element={<AuthPage />} />
+                          <Route path="login" element={<AuthPage />} />
+                          <Route path="register" element={<AuthPage />} />
+                          <Route path="product" element={<ProductOverviewPage />} />
+                          <Route path="features" element={<FeaturesPage />} />
+                          <Route path="pricing" element={<PricingPage />} />
+                          <Route path="integrations" element={<IntegrationsPage />} />
+                          <Route path="use-cases" element={<UseCasesPage />} />
+                          <Route path="about" element={<AboutPage />} />
+                          <Route path="contact" element={<ContactPage />} />
+                          <Route path="terms" element={<TermsPage />} />
+                          <Route path="privacy" element={<PrivacyPage />} />
                         </Route>
                         
                         {/* Dashboard routes with DashboardLayout */}

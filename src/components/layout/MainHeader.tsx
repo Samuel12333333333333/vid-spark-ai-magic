@@ -69,10 +69,10 @@ export function MainHeader() {
           ) : (
             <>
               <Button asChild variant="ghost">
-                <Link to="/auth">Log in</Link>
+                <Link to="/login">Log in</Link>
               </Button>
               <Button asChild>
-                <Link to="/auth">Sign up</Link>
+                <Link to="/register">Sign up</Link>
               </Button>
             </>
           )}

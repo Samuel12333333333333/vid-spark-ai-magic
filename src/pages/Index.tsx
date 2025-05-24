@@ -1,9 +1,8 @@
-
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 // The Index component serves as the entry point
-// Redirect authenticated users to dashboard, others to landing page
+// Redirect authenticated users to dashboard, others stay on landing page
 const Index = () => {
   const { session, loading } = useAuth();
   
@@ -15,11 +14,13 @@ const Index = () => {
     );
   }
   
+  // If user is authenticated, redirect to dashboard
   if (session) {
     return <Navigate to="/dashboard" replace />;
   }
   
-  return <Navigate to="/" replace />;
+  // Otherwise, they stay on the current page (landing page)
+  return null;
 };
 
 export default Index;
