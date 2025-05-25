@@ -1,3 +1,4 @@
+
 import { Outlet, useNavigate } from "react-router-dom";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -10,17 +11,12 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { NotificationsDropdown } from "@/components/notifications/NotificationsDropdown";
-import { Profile } from "@/types/supabase";
-import { profileService } from "@/services/profileService";
 
-function DashboardLayout() {
+export default function DashboardLayout() {
   const { user, signOut, loading: authLoading } = useAuth();
-  const [profile, setProfile] = useState<Profile | null>(null);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
   // Redirect to auth if not authenticated
   useEffect(() => {
@@ -29,36 +25,6 @@ function DashboardLayout() {
       return;
     }
   }, [user, authLoading, navigate]);
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-      
-      try {
-        setIsLoading(true);
-        const profileData = await profileService.getProfile(user.id);
-        
-        if (profileData) {
-          setProfile(profileData as Profile);
-        } else {
-          // Try to create a profile if none exists
-          const newProfile = await profileService.getProfile(user.id);
-          if (newProfile) {
-            setProfile(newProfile as Profile);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching profile:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchProfile();
-  }, [user]);
 
   const handleSignOut = async () => {
     try {
@@ -85,7 +51,7 @@ function DashboardLayout() {
     return null;
   }
 
-  const userName = profile?.username || user?.email?.split('@')[0] || "User";
+  const userName = user?.email?.split('@')[0] || "User";
   const userEmail = user?.email || "";
   const userInitials = userName
     .split(" ")
@@ -118,7 +84,6 @@ function DashboardLayout() {
           </div>
           
           <div className="flex items-center gap-4">
-            <NotificationsDropdown />
             <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -128,15 +93,8 @@ function DashboardLayout() {
                   aria-label="Open user menu"
                 >
                   <Avatar className="h-8 w-8">
-                    {!isLoading && profile?.avatar_url ? (
-                      <AvatarImage src={profile.avatar_url} alt={userName} />
-                    ) : null}
                     <AvatarFallback>
-                      {isLoading ? (
-                        <User className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        userInitials
-                      )}
+                      <User className="h-4 w-4 text-muted-foreground" />
                     </AvatarFallback>
                   </Avatar>
                 </Button>
@@ -170,5 +128,3 @@ function DashboardLayout() {
     </div>
   );
 }
-
-export default DashboardLayout;

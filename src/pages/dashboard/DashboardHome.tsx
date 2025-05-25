@@ -1,98 +1,103 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/contexts/AuthContext";
-import { useSubscription } from "@/contexts/SubscriptionContext";
-import { Link } from "react-router-dom";
-import { NotificationTester } from '@/components/debug/NotificationTester';
 
-const DashboardHome = () => {
-  const { session } = useAuth();
-  const { subscription, isLoading } = useSubscription();
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
+import { Video, FileText, LayoutTemplate } from "lucide-react";
+
+export default function DashboardHome() {
+  const { user } = useAuth();
 
   return (
-    <div className="container py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <NotificationTester />
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">Dashboard</h1>
+        <p className="text-muted-foreground">
+          Welcome back, {user?.email?.split('@')[0]}! Create amazing videos with AI.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Profile Card */}
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle>Welcome</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5 text-primary" />
+              Generate Video
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {session?.user ? (
-              <>
-                <p>
-                  Hello, {session.user.email}! 👋
-                </p>
-                <Link to="/dashboard/settings" className="inline-block text-primary hover:underline mt-4">
-                  Update your profile
-                </Link>
-              </>
-            ) : (
-              <Skeleton className="h-4 w-[200px]" />
-            )}
+            <p className="text-sm text-muted-foreground mb-4">
+              Create a new video from text using AI
+            </p>
+            <Button asChild className="w-full">
+              <Link to="/dashboard/generator">Start Creating</Link>
+            </Button>
           </CardContent>
         </Card>
 
-        {/* Subscription Status Card */}
-        <Card>
+        <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle>Subscription Status</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <LayoutTemplate className="h-5 w-5 text-primary" />
+              Templates
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-4 w-[200px]" />
-            ) : subscription ? (
-              <>
-                <p>
-                  Status: {subscription.status}
-                </p>
-                <p>
-                  Plan: {subscription.plan_name}
-                </p>
-                <Link to="/dashboard/upgrade" className="inline-block text-primary hover:underline mt-4">
-                  Manage subscription
-                </Link>
-              </>
-            ) : (
-              <>
-                <p>
-                  No active subscription.
-                </p>
-                <Link to="/dashboard/upgrade" className="inline-block text-primary hover:underline mt-4">
-                  Explore plans
-                </Link>
-              </>
-            )}
+            <p className="text-sm text-muted-foreground mb-4">
+              Browse video templates to get started quickly
+            </p>
+            <Button asChild variant="outline" className="w-full">
+              <Link to="/dashboard/templates">Browse Templates</Link>
+            </Button>
           </CardContent>
         </Card>
 
-        {/* Quick Actions Card */}
-        <Card>
+        <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Scripts
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col space-y-2">
-              <Link to="/dashboard/videos" className="text-primary hover:underline">
-                View Videos
-              </Link>
-              <Link to="/dashboard/generator" className="text-primary hover:underline">
-                Create New Video
-              </Link>
-              <Link to="/dashboard/templates" className="text-primary hover:underline">
-                Explore Templates
-              </Link>
+            <p className="text-sm text-muted-foreground mb-4">
+              Generate scripts and captions with AI
+            </p>
+            <Button asChild variant="outline" className="w-full">
+              <Link to="/dashboard/scripts">Write Scripts</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">No recent videos yet. Start creating your first video!</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Stats</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm">Videos Created:</span>
+                <span className="text-sm font-medium">0</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm">Templates Used:</span>
+                <span className="text-sm font-medium">0</span>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
     </div>
   );
-};
-
-export default DashboardHome;
+}

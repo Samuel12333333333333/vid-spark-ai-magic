@@ -1,118 +1,65 @@
 
-import { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TemplateFilters } from "@/components/templates/TemplateFilters";
-import { TemplateList } from "@/components/templates/TemplateList";
-import { useNavigate } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
-import { useTemplates } from "@/hooks/useTemplates";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export default function TemplatesPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const navigate = useNavigate();
-  
-  const { data: templates = [], isLoading } = useTemplates();
-
-  // Filter templates based on search query
-  const filterTemplates = (templates: any[], category: string) => {
-    return templates.filter(template => {
-      const matchesSearch = !searchQuery || 
-        template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        template.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesCategory = category === "all" || template.category.toLowerCase() === category.toLowerCase();
-      
-      return matchesSearch && matchesCategory;
-    });
-  };
-
-  const marketingTemplates = filterTemplates(templates, "marketing");
-  const socialTemplates = filterTemplates(templates, "social");
-  const educationTemplates = filterTemplates(templates, "education");
-  const businessTemplates = filterTemplates(templates, "business");
-  const allFilteredTemplates = filterTemplates(templates, "all");
-  
-  const handleSelectTemplate = (id: string) => {
-    navigate(`/dashboard/templates/${id}`);
-  };
+  const templates = [
+    {
+      id: 1,
+      name: "Product Showcase",
+      description: "Perfect for highlighting product features",
+      category: "Marketing",
+      thumbnail: "/placeholder.svg"
+    },
+    {
+      id: 2,
+      name: "Social Media Story",
+      description: "Vertical format for Instagram and TikTok",
+      category: "Social",
+      thumbnail: "/placeholder.svg"
+    },
+    {
+      id: 3,
+      name: "Educational Explainer",
+      description: "Step-by-step educational content",
+      category: "Education",
+      thumbnail: "/placeholder.svg"
+    }
+  ];
 
   return (
     <div className="space-y-8">
-      <Helmet>
-        <title>Video Templates | SmartVid</title>
-      </Helmet>
-      
       <div>
-        <h1 className="text-3xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-          Video Templates
-        </h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">Video Templates</h1>
         <p className="text-muted-foreground">
-          Start with a pre-designed template to create your video faster
+          Choose from our collection of professional video templates
         </p>
       </div>
 
-      <TemplateFilters
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-      />
-
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="all">All Templates</TabsTrigger>
-          <TabsTrigger value="marketing">Marketing</TabsTrigger>
-          <TabsTrigger value="social">Social Media</TabsTrigger>
-          <TabsTrigger value="education">Education</TabsTrigger>
-          <TabsTrigger value="business">Business</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="all" className="pt-2">
-          <TemplateList 
-            templates={allFilteredTemplates} 
-            viewMode={viewMode} 
-            isLoading={isLoading}
-            onSelectTemplate={handleSelectTemplate}
-          />
-        </TabsContent>
-        
-        <TabsContent value="marketing" className="pt-2">
-          <TemplateList 
-            templates={marketingTemplates} 
-            viewMode={viewMode}
-            isLoading={isLoading}
-            onSelectTemplate={handleSelectTemplate}
-          />
-        </TabsContent>
-        
-        <TabsContent value="social" className="pt-2">
-          <TemplateList 
-            templates={socialTemplates} 
-            viewMode={viewMode}
-            isLoading={isLoading}
-            onSelectTemplate={handleSelectTemplate}
-          />
-        </TabsContent>
-        
-        <TabsContent value="education" className="pt-2">
-          <TemplateList 
-            templates={educationTemplates} 
-            viewMode={viewMode}
-            isLoading={isLoading}
-            onSelectTemplate={handleSelectTemplate}
-          />
-        </TabsContent>
-        
-        <TabsContent value="business" className="pt-2">
-          <TemplateList 
-            templates={businessTemplates} 
-            viewMode={viewMode}
-            isLoading={isLoading}
-            onSelectTemplate={handleSelectTemplate}
-          />
-        </TabsContent>
-      </Tabs>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {templates.map((template) => (
+          <Card key={template.id} className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <img
+                src={template.thumbnail}
+                alt={template.name}
+                className="w-full h-32 object-cover rounded-md mb-2"
+              />
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">{template.name}</CardTitle>
+                <Badge variant="outline">{template.category}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                {template.description}
+              </p>
+              <Button className="w-full">Use Template</Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
