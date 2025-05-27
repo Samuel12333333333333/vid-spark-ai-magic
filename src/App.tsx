@@ -17,12 +17,18 @@ const PricingPage = lazy(() => import("@/pages/PricingPage"));
 const ContactPage = lazy(() => import("@/pages/ContactPage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
+// Product pages
+const ProductPage = lazy(() => import("@/pages/product/ProductPage"));
+const FeaturesPage = lazy(() => import("@/pages/FeaturesPage"));
+const TemplatesPage = lazy(() => import("@/pages/TemplatesPage"));
+const IntegrationsPage = lazy(() => import("@/pages/IntegrationsPage"));
+
 // Dashboard layout and pages
 const DashboardLayout = lazy(() => import("@/layouts/DashboardLayout"));
 const DashboardHome = lazy(() => import("@/pages/dashboard/DashboardHome"));
 const GeneratorPage = lazy(() => import("@/pages/dashboard/GeneratorPage"));
 const VideosPage = lazy(() => import("@/pages/dashboard/VideosPage"));
-const TemplatesPage = lazy(() => import("@/pages/dashboard/TemplatesPage"));
+const TemplatesPageDashboard = lazy(() => import("@/pages/dashboard/TemplatesPage"));
 const SettingsPage = lazy(() => import("@/pages/dashboard/SettingsPage"));
 const ScriptsPage = lazy(() => import("@/pages/dashboard/ScriptsPage"));
 
@@ -48,6 +54,10 @@ function App() {
                       <Route index element={<LandingPage />} />
                       <Route path="pricing" element={<PricingPage />} />
                       <Route path="contact" element={<ContactPage />} />
+                      <Route path="product" element={<ProductPage />} />
+                      <Route path="features" element={<FeaturesPage />} />
+                      <Route path="templates" element={<TemplatesPage />} />
+                      <Route path="integrations" element={<IntegrationsPage />} />
                     </Route>
                     
                     {/* Auth routes without layout */}
@@ -61,7 +71,7 @@ function App() {
                       <Route index element={<DashboardHome />} />
                       <Route path="generator" element={<GeneratorPage />} />
                       <Route path="videos" element={<VideosPage />} />
-                      <Route path="templates" element={<TemplatesPage />} />
+                      <Route path="templates" element={<TemplatesPageDashboard />} />
                       <Route path="settings" element={<SettingsPage />} />
                       <Route path="scripts" element={<ScriptsPage />} />
                     </Route>
