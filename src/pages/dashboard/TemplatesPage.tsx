@@ -8,7 +8,7 @@ import { useTemplates } from "@/hooks/useTemplates";
 import { Link } from "react-router-dom";
 
 export default function TemplatesPage() {
-  const { templates, loading, error } = useTemplates();
+  const { data: templates, isLoading: loading, error } = useTemplates();
 
   if (loading) {
     return (
@@ -64,13 +64,13 @@ export default function TemplatesPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {templates.map((template) => (
+        {templates?.map((template) => (
           <Card key={template.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="aspect-video bg-gray-100 rounded-md mb-4 flex items-center justify-center relative overflow-hidden">
-                {template.thumbnail_url ? (
+                {template.thumbnail ? (
                   <img
-                    src={template.thumbnail_url}
+                    src={template.thumbnail}
                     alt={template.name}
                     className="w-full h-full object-cover"
                   />
@@ -93,16 +93,12 @@ export default function TemplatesPage() {
                 {template.description}
               </p>
               <div className="flex items-center justify-between mb-4">
-                {template.duration && (
-                  <span className="text-xs text-muted-foreground">
-                    Duration: {template.duration}s
-                  </span>
-                )}
-                {template.style && (
-                  <Badge variant="secondary" className="text-xs">
-                    {template.style}
-                  </Badge>
-                )}
+                <span className="text-xs text-muted-foreground">
+                  {template.created_at && new Date(template.created_at).toLocaleDateString()}
+                </span>
+                <Badge variant="secondary" className="text-xs">
+                  {template.category}
+                </Badge>
               </div>
               <Button className="w-full" asChild>
                 <Link to={`/dashboard/templates/${template.id}`}>
@@ -111,7 +107,7 @@ export default function TemplatesPage() {
               </Button>
             </CardContent>
           </Card>
-        ))}
+        )) || []}
       </div>
     </div>
   );
