@@ -1,11 +1,10 @@
 
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Footer } from '@/components/landing/Footer';
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950">
+    <>
       <Helmet>
         <title>Privacy Policy | SmartVid AI Video Generator</title>
         <meta name="description" content="Privacy policy for SmartVid - the AI-powered video generation platform. Learn how we collect, use, and protect your personal information." />
@@ -18,10 +17,10 @@ export default function PrivacyPage() {
       </Helmet>
 
       <div className="container px-4 md:px-6 py-12 max-w-6xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-bold mb-6 text-gray-900 dark:text-white">Privacy Policy</h1>
+        <h1 className="text-3xl md:text-4xl font-bold mb-6">Privacy Policy</h1>
         
         <div className="prose prose-gray max-w-none dark:prose-invert">
-          <p className="text-lg text-gray-700 dark:text-gray-300 mb-6">
+          <p className="text-lg text-muted-foreground mb-6">
             Last Updated: April 20, 2025
           </p>
           
@@ -118,8 +117,6 @@ export default function PrivacyPage() {
           <p>If you have any questions about this Privacy Policy, please contact us at: privacy@smartvid.ai</p>
         </div>
       </div>
-      
-      <Footer />
-    </div>
+    </>
   );
 }
