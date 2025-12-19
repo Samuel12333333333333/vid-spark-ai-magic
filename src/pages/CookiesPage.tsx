@@ -1,10 +1,9 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Footer } from '@/components/landing/Footer';
 
 export default function CookiesPage() {
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950">
+    <>
       <Helmet>
         <title>Cookie Policy | SmartVid AI Video Generator</title>
         <meta name="description" content="Cookie policy for SmartVid - the AI-powered video generation platform. Learn how we use cookies and similar technologies to enhance your experience." />
@@ -17,10 +16,10 @@ export default function CookiesPage() {
       </Helmet>
 
       <div className="container px-4 md:px-6 py-12 max-w-6xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-bold mb-6 text-gray-900 dark:text-white">Cookie Policy</h1>
+        <h1 className="text-3xl md:text-4xl font-bold mb-6">Cookie Policy</h1>
         
         <div className="prose prose-gray max-w-none dark:prose-invert">
-          <p className="text-lg text-gray-700 dark:text-gray-300 mb-6">
+          <p className="text-lg text-muted-foreground mb-6">
             Last Updated: April 20, 2025
           </p>
           
@@ -46,16 +45,16 @@ export default function CookiesPage() {
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">3. Specific Cookies We Use</h2>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700 mb-6">
+            <table className="min-w-full divide-y divide-border mb-6">
               <thead>
                 <tr>
-                  <th className="py-3 px-4 text-left bg-gray-100 dark:bg-gray-800">Category</th>
-                  <th className="py-3 px-4 text-left bg-gray-100 dark:bg-gray-800">Name</th>
-                  <th className="py-3 px-4 text-left bg-gray-100 dark:bg-gray-800">Purpose</th>
-                  <th className="py-3 px-4 text-left bg-gray-100 dark:bg-gray-800">Duration</th>
+                  <th className="py-3 px-4 text-left bg-muted">Category</th>
+                  <th className="py-3 px-4 text-left bg-muted">Name</th>
+                  <th className="py-3 px-4 text-left bg-muted">Purpose</th>
+                  <th className="py-3 px-4 text-left bg-muted">Duration</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody className="divide-y divide-border">
                 <tr>
                   <td className="py-2 px-4">Essential</td>
                   <td className="py-2 px-4">auth-token</td>
@@ -113,33 +112,31 @@ export default function CookiesPage() {
           <h2 className="text-2xl font-semibold mb-4 mt-8">5. Other Tracking Technologies</h2>
           <p>In addition to cookies, we may also use other similar technologies to track your activity on our website:</p>
           <ul className="list-disc pl-6 mb-6">
-            <li><strong>Web Beacons:</strong> Small graphic files (also known as &quot;pixel tags&quot; or &quot;clear GIFs&quot;) that can be embedded in webpages and emails to track user behavior and collect data.</li>
+            <li><strong>Web Beacons:</strong> Small graphic files (also known as "pixel tags" or "clear GIFs") that can be embedded in webpages and emails to track user behavior and collect data.</li>
             <li><strong>Local Storage Objects:</strong> HTML5 local storage that allows websites to store information locally on your device.</li>
             <li><strong>Device Fingerprinting:</strong> Collecting information about your device, such as your browser type, operating system, and installed plugins, to identify your device over time.</li>
           </ul>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">6. Managing Cookies</h2>
-          <p>Most web browsers allow you to control cookies through their settings. Here&apos;s how to manage cookies in the most popular browsers:</p>
+          <p>Most web browsers allow you to control cookies through their settings. Here's how to manage cookies in the most popular browsers:</p>
           <ul className="list-disc pl-6 mb-6">
-            <li><strong>Google Chrome:</strong> Click the three dots in the top right corner, then &quot;Settings&quot; &gt; &quot;Privacy and security&quot; &gt; &quot;Cookies and other site data&quot;.</li>
-            <li><strong>Mozilla Firefox:</strong> Click the three lines in the top right corner, then &quot;Options&quot; &gt; &quot;Privacy &amp; Security&quot; &gt; &quot;Cookies and Site Data&quot;.</li>
-            <li><strong>Safari:</strong> Click &quot;Safari&quot; in the menu bar, then &quot;Preferences&quot; &gt; &quot;Privacy&quot;.</li>
-            <li><strong>Microsoft Edge:</strong> Click the three dots in the top right corner, then &quot;Settings&quot; &gt; &quot;Cookies and site permissions&quot; &gt; &quot;Cookies and site data&quot;.</li>
+            <li><strong>Google Chrome:</strong> Click the three dots in the top right corner, then "Settings" &gt; "Privacy and security" &gt; "Cookies and other site data".</li>
+            <li><strong>Mozilla Firefox:</strong> Click the three lines in the top right corner, then "Options" &gt; "Privacy & Security" &gt; "Cookies and Site Data".</li>
+            <li><strong>Safari:</strong> Click "Safari" in the menu bar, then "Preferences" &gt; "Privacy".</li>
+            <li><strong>Microsoft Edge:</strong> Click the three dots in the top right corner, then "Settings" &gt; "Cookies and site permissions" &gt; "Cookies and site data".</li>
           </ul>
           <p>Please note that restricting cookies may impact the functionality of our website and services.</p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">7. Cookie Consent</h2>
-          <p>When you first visit our website, we may ask for your consent to set cookies through a cookie banner. You can change your cookie preferences at any time by clicking on the &quot;Cookie Settings&quot; link in the footer of our website.</p>
+          <p>When you first visit our website, we may ask for your consent to set cookies through a cookie banner. You can change your cookie preferences at any time by clicking on the "Cookie Settings" link in the footer of our website.</p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">8. Updates to This Cookie Policy</h2>
-          <p>We may update this Cookie Policy from time to time. The updated version will be indicated by an updated &quot;Last Updated&quot; date at the top of this page. We encourage you to review this Cookie Policy periodically to stay informed about how we use cookies.</p>
+          <p>We may update this Cookie Policy from time to time. The updated version will be indicated by an updated "Last Updated" date at the top of this page. We encourage you to review this Cookie Policy periodically to stay informed about how we use cookies.</p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">9. Contact Us</h2>
           <p>If you have any questions about our use of cookies or this Cookie Policy, please contact us at: privacy@smartvid.ai</p>
         </div>
       </div>
-      
-      <Footer />
-    </div>
+    </>
   );
 }
