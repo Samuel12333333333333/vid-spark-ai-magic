@@ -37,6 +37,10 @@ const footerLinks = {
     { name: 'Privacy', href: '/privacy' },
     { name: 'Terms', href: '/terms' },
   ],
+  partners: [
+    { name: 'AI Free Text Pro', href: 'https://aifreetextpro.com', description: 'AI Detector & Humanizer', external: true },
+    { name: 'AI Text App', href: 'https://app.aifreetextpro.com', description: 'Humanize Your Content', external: true },
+  ],
   social: [
     { name: 'Twitter', href: 'https://twitter.com/smartvideofy', icon: 'twitter' },
     { name: 'Discord', href: 'https://discord.gg/smartvideofy', icon: 'discord' },
@@ -180,22 +184,48 @@ export default function Footer() {
                 </ul>
               </div>
             </div>
+            <div className="md:grid md:grid-cols-2 md:gap-8">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-900 dark:text-white">
+                  Company
+                </h3>
+                <ul className="mt-4 space-y-4" role="list">
+                  {footerLinks.company.map((item) => (
+                    <li key={item.name}>
+                      <Link
+                        to={item.href}
+                        className="text-base text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary-light"
+                      >
+                        {item.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="mt-12 md:mt-0">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-900 dark:text-white">
+                  Partner Tools
+                </h3>
+                <ul className="mt-4 space-y-4" role="list">
+                  {footerLinks.partners.map((item) => (
+                    <li key={item.name}>
+                      <a
+                        href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-base text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary-light flex items-center gap-1"
+                      >
+                        {item.name}
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
             <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-900 dark:text-white">
-                Company
-              </h3>
-              <ul className="mt-4 space-y-4" role="list">
-                {footerLinks.company.map((item) => (
-                  <li key={item.name}>
-                    <Link
-                      to={item.href}
-                      className="text-base text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary-light"
-                    >
-                      {item.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
               <div className="mt-8">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-900 dark:text-white">
                   Subscribe to our newsletter
