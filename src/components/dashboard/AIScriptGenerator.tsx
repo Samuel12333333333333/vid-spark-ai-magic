@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Copy, Download, RefreshCw, Save } from "lucide-react";
+import { Loader2, Copy, Download, RefreshCw, Save, Sparkles, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { ScriptList } from "./ScriptList";
 
@@ -371,6 +371,18 @@ export function AIScriptGenerator() {
                   </Button>
                   <Button variant="outline" size="sm" onClick={handleCopy}>
                     <Download className="h-4 w-4 mr-1" /> Export
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    asChild
+                    className="text-primary border-primary/30 hover:bg-primary/10"
+                  >
+                    <a href="https://app.aifreetextpro.com" target="_blank" rel="noopener noreferrer">
+                      <Sparkles className="h-4 w-4 mr-1" />
+                      Humanize
+                      <ExternalLink className="h-3 w-3 ml-1" />
+                    </a>
                   </Button>
                 </div>
               )}

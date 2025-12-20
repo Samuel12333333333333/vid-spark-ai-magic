@@ -8,6 +8,8 @@ import {
   FileText,
   BrainCircuit,
   Settings,
+  ExternalLink,
+  Sparkles,
 } from "lucide-react";
 
 interface DashboardSidebarProps {
@@ -51,6 +53,22 @@ export function DashboardSidebar({ onNavClick }: DashboardSidebarProps) {
             {link.label}
           </NavLink>
         ))}
+        
+        <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+          <p className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            Partner Tools
+          </p>
+          <a
+            href="https://app.aifreetextpro.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            AI Text Humanizer
+            <ExternalLink className="ml-auto h-3 w-3 opacity-50" />
+          </a>
+        </div>
       </div>
     </aside>
   );
