@@ -22,6 +22,7 @@ const ProductPage = lazy(() => import("@/pages/product/ProductPage"));
 const FeaturesPage = lazy(() => import("@/pages/FeaturesPage"));
 const TemplatesPage = lazy(() => import("@/pages/TemplatesPage"));
 const IntegrationsPage = lazy(() => import("@/pages/IntegrationsPage"));
+const AIToolsPage = lazy(() => import("@/pages/AIToolsPage"));
 
 // Dashboard layout and pages
 const DashboardLayout = lazy(() => import("@/layouts/DashboardLayout"));
@@ -58,6 +59,7 @@ function App() {
                       <Route path="features" element={<FeaturesPage />} />
                       <Route path="templates" element={<TemplatesPage />} />
                       <Route path="integrations" element={<IntegrationsPage />} />
+                      <Route path="ai-tools" element={<AIToolsPage />} />
                     </Route>
                     
                     {/* Auth routes without layout */}
