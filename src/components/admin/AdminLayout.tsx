@@ -1,17 +1,12 @@
 
-import { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/AdminContext";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminHeader } from "./AdminHeader";
 import { Spinner } from "@/components/ui/spinner";
 
-interface AdminLayoutProps {
-  children: ReactNode;
-}
-
-export function AdminLayout({ children }: AdminLayoutProps) {
+export default function AdminLayout() {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useAdmin();
 
@@ -44,9 +39,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <div className="flex">
         <AdminSidebar />
         <main className="flex-1 p-6">
-          {children}
+          <Outlet />
         </main>
       </div>
     </div>
   );
 }
+
+// Named export for backwards compatibility
+export { AdminLayout };
