@@ -51,7 +51,7 @@ export function MainHeader() {
                 <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
               </svg>
             </div>
-            <span className="text-xl font-bold">SmartVid</span>
+            <span className="text-xl font-bold">Smart Video</span>
           </Link>
         </div>
         

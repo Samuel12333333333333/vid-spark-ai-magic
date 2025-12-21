@@ -18,29 +18,29 @@ export default function SEOMetadata({
   description,
   keywords,
   canonicalUrl,
-  ogImage = 'https://smartvideofy.com/opengraph-image.png',
+  ogImage = 'https://smartvideo.ai/opengraph-image.png',
   ogType = 'website',
   twitterCard = 'summary_large_image',
   noIndex = false
 }: SEOMetadataProps) {
   const getCanonicalUrl = () => {
     if (canonicalUrl?.startsWith('http')) return canonicalUrl;
-    if (canonicalUrl) return `https://smartvideofy.com${canonicalUrl}`;
+    if (canonicalUrl) return `https://smartvideo.ai${canonicalUrl}`;
     
     // Avoid window usage if not client-side
     if (typeof window !== 'undefined') {
-      return `https://smartvideofy.com${window.location.pathname}`;
+      return `https://smartvideo.ai${window.location.pathname}`;
     }
     
     // Safe fallback
-    return 'https://smartvideofy.com';
+    return 'https://smartvideo.ai';
   };
 
   const fullCanonicalUrl = getCanonicalUrl();
 
   return (
     <Helmet>
-      <title>{`${title} | SmartVideofy - AI Video Creator`}</title>
+      <title>{`${title} | Smart Video - AI Video Creator`}</title>
       <meta name="description" content={description} />
       {keywords && <meta name="keywords" content={keywords} />}
       

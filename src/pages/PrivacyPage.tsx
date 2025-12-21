@@ -6,14 +6,14 @@ export default function PrivacyPage() {
   return (
     <>
       <Helmet>
-        <title>Privacy Policy | SmartVid AI Video Generator</title>
-        <meta name="description" content="Privacy policy for SmartVid - the AI-powered video generation platform. Learn how we collect, use, and protect your personal information." />
-        <meta name="keywords" content="SmartVid privacy, video generator privacy, AI video privacy policy, data protection SmartVid" />
-        <meta property="og:title" content="Privacy Policy | SmartVid" />
-        <meta property="og:description" content="Privacy policy for SmartVid - the AI-powered video generation platform." />
+        <title>Privacy Policy | Smart Video AI Video Generator</title>
+        <meta name="description" content="Privacy policy for Smart Video - the AI-powered video generation platform. Learn how we collect, use, and protect your personal information." />
+        <meta name="keywords" content="Smart Video privacy, video generator privacy, AI video privacy policy, data protection Smart Video" />
+        <meta property="og:title" content="Privacy Policy | Smart Video" />
+        <meta property="og:description" content="Privacy policy for Smart Video - the AI-powered video generation platform." />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://smartvid.ai/privacy" />
-        <link rel="canonical" href="https://smartvid.ai/privacy" />
+        <meta property="og:url" content="https://smartvideo.ai/privacy" />
+        <link rel="canonical" href="https://smartvideo.ai/privacy" />
       </Helmet>
 
       <div className="container px-4 md:px-6 py-12 max-w-6xl mx-auto">
@@ -25,7 +25,7 @@ export default function PrivacyPage() {
           </p>
           
           <p className="mb-6">
-            This Privacy Policy describes how SmartVid ("we," "our," or "us") collects, uses, and shares information about you when you use our website, mobile application, and any other services we provide (collectively, the "Services"). Please read this Privacy Policy carefully to understand our practices regarding your information.
+            This Privacy Policy describes how Smart Video ("we," "our," or "us") collects, uses, and shares information about you when you use our website, mobile application, and any other services we provide (collectively, the "Services"). Please read this Privacy Policy carefully to understand our practices regarding your information.
           </p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">1. Information We Collect</h2>
@@ -69,7 +69,7 @@ export default function PrivacyPage() {
             <li><strong>Service Providers:</strong> We share information with third-party vendors, consultants, and other service providers who need access to such information to carry out work on our behalf.</li>
             <li><strong>Business Transfers:</strong> If we are involved in a merger, acquisition, financing, reorganization, bankruptcy, or sale of assets, your information may be transferred as part of that transaction.</li>
             <li><strong>Legal Requirements:</strong> We may disclose information if we believe that disclosure is necessary to comply with any applicable law, regulation, legal process, or governmental request.</li>
-            <li><strong>Protection of Rights:</strong> We may share information to protect the rights, property, and safety of SmartVid, our users, or others.</li>
+            <li><strong>Protection of Rights:</strong> We may share information to protect the rights, property, and safety of Smart Video, our users, or others.</li>
             <li><strong>With Your Consent:</strong> We may share information with your consent or at your direction.</li>
           </ul>
           
@@ -114,7 +114,7 @@ export default function PrivacyPage() {
           <p>We may change this Privacy Policy from time to time. If we make changes, we will notify you by revising the date at the top of the policy and, in some cases, providing you with additional notice (such as adding a statement to our website or sending you a notification).</p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">10. Contact Us</h2>
-          <p>If you have any questions about this Privacy Policy, please contact us at: privacy@smartvid.ai</p>
+          <p>If you have any questions about this Privacy Policy, please contact us at: privacy@smartvideo.ai</p>
         </div>
       </div>
     </>

@@ -8,18 +8,18 @@ export default function AboutPage() {
   return (
     <>
       <Helmet>
-        <title>About SmartVid | AI-Powered Video Creation Platform</title>
-        <meta name="description" content="Learn about SmartVid - the AI-powered platform that turns text into stunning videos. Discover our mission, team, and the technology behind our innovative video creation tool." />
-        <meta name="keywords" content="SmartVid, AI video creation, about us, video generation platform, video creation technology" />
-        <meta property="og:title" content="About SmartVid | AI-Powered Video Creation Platform" />
-        <meta property="og:description" content="Learn about SmartVid - the AI-powered platform that turns text into stunning videos." />
+        <title>About Smart Video | AI-Powered Video Creation Platform</title>
+        <meta name="description" content="Learn about Smart Video - the AI-powered platform that turns text into stunning videos. Discover our mission, team, and the technology behind our innovative video creation tool." />
+        <meta name="keywords" content="Smart Video, AI video creation, about us, video generation platform, video creation technology" />
+        <meta property="og:title" content="About Smart Video | AI-Powered Video Creation Platform" />
+        <meta property="og:description" content="Learn about Smart Video - the AI-powered platform that turns text into stunning videos." />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://smartvid.ai/about" />
-        <link rel="canonical" href="https://smartvid.ai/about" />
+        <meta property="og:url" content="https://smartvideo.ai/about" />
+        <link rel="canonical" href="https://smartvideo.ai/about" />
       </Helmet>
 
       <div className="container px-4 md:px-6 py-12 max-w-6xl mx-auto">
-        <h1 className="text-3xl md:text-5xl font-bold mb-6 text-center">About SmartVid</h1>
+        <h1 className="text-3xl md:text-5xl font-bold mb-6 text-center">About Smart Video</h1>
         
         <div className="max-w-3xl mx-auto text-center mb-12">
           <p className="text-xl text-muted-foreground">
@@ -34,13 +34,13 @@ export default function AboutPage() {
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div>
               <p className="text-muted-foreground mb-4">
-                SmartVid was born from a simple observation: creating high-quality video content is time-consuming, expensive, and requires specialized skills. In a world where video dominates digital communication, this creates a significant barrier for creators, marketers, educators, and businesses.
+                Smart Video was born from a simple observation: creating high-quality video content is time-consuming, expensive, and requires specialized skills. In a world where video dominates digital communication, this creates a significant barrier for creators, marketers, educators, and businesses.
               </p>
               <p className="text-muted-foreground mb-4">
                 Founded in 2025, our team of AI specialists, videographers, and product designers set out to democratize video creation. We believed that anyone should be able to transform their ideas into compelling visual stories without the traditional barriers.
               </p>
               <p className="text-muted-foreground">
-                Today, SmartVid is helping thousands of users around the world create professional-quality videos from simple text prompts, revolutionizing how content is created across industries.
+                Today, Smart Video is helping thousands of users around the world create professional-quality videos from simple text prompts, revolutionizing how content is created across industries.
               </p>
             </div>
             
@@ -69,7 +69,7 @@ export default function AboutPage() {
             
             <div className="order-1 md:order-2">
               <p className="text-muted-foreground mb-4">
-                Our mission at SmartVid is to empower everyone to become a video creator. We're building a future where the gap between imagination and creation is bridged by intelligent technology.
+                Our mission at Smart Video is to empower everyone to become a video creator. We're building a future where the gap between imagination and creation is bridged by intelligent technology.
               </p>
               <p className="text-muted-foreground mb-4">
                 We believe that:
@@ -94,7 +94,7 @@ export default function AboutPage() {
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div>
               <p className="text-muted-foreground mb-4">
-                SmartVid combines cutting-edge AI technologies to transform text into compelling videos:
+                Smart Video combines cutting-edge AI technologies to transform text into compelling videos:
               </p>
               <ul className="list-disc pl-6 text-muted-foreground mb-4 space-y-2">
                 <li><strong>Advanced Natural Language Processing:</strong> Our platform understands the context, emotion, and intent behind your text prompts.</li>
@@ -122,7 +122,7 @@ export default function AboutPage() {
         <div className="text-center py-12 px-6 bg-primary/10 rounded-2xl mb-16">
           <h2 className="text-2xl md:text-3xl font-bold mb-4">Join the Video Revolution</h2>
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Whether you're a creator, marketer, educator, or entrepreneur, SmartVid gives you the power to communicate through professional video without the traditional barriers.
+            Whether you're a creator, marketer, educator, or entrepreneur, Smart Video gives you the power to communicate through professional video without the traditional barriers.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg">

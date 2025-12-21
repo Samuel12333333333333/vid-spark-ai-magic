@@ -44,7 +44,7 @@ export default function IntegrationsPage() {
       <div className="text-center mb-16">
         <h1 className="text-4xl font-bold mb-4">Integrations</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Connect SmartVid with your favorite platforms
+          Connect Smart Video with your favorite platforms
         </p>
       </div>
 

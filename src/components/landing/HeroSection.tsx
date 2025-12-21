@@ -45,7 +45,7 @@ export function HeroSection() {
 
           {/* Animated Description */}
           <p className="text-lg md:text-xl text-muted-foreground max-w-[42rem] leading-relaxed animate-fade-in [animation-delay:400ms]">
-            SmartVid uses AI to instantly turn your ideas into professional, engaging videos. 
+            Smart Video uses AI to instantly turn your ideas into professional, engaging videos. 
             No technical skills required — just type and watch the magic happen.
           </p>
 
