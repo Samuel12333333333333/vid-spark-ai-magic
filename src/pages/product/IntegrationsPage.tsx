@@ -6,8 +6,8 @@ export default function IntegrationsPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950">
       <Helmet>
-        <title>Integrations | SmartVid AI Video Generator</title>
-        <meta name="description" content="Connect SmartVid with your favorite tools. Seamlessly integrate with YouTube, Shotstack, Google Drive, and more." />
+        <title>Integrations | Smart Video AI Video Generator</title>
+        <meta name="description" content="Connect Smart Video with your favorite tools. Seamlessly integrate with YouTube, Shotstack, Google Drive, and more." />
       </Helmet>
 
       <div className="container px-4 md:px-6 py-12 max-w-6xl mx-auto">

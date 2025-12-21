@@ -128,7 +128,7 @@ export default function BlogPostPage() {
       <SEOMetadata
         title={post.title}
         description={post.summary}
-        keywords={`${post.title}, AI video creation, SmartVid`}
+        keywords={`${post.title}, AI video creation, Smart Video`}
         canonicalUrl={`/blog/${post.slug || post.id}`}
         ogType="article"
       />

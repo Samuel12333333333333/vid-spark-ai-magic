@@ -33,7 +33,7 @@ const aiTools: AITool[] = [
     category: "Content & Text"
   },
   {
-    name: "SmartVid AI",
+    name: "Smart Video AI",
     description: "Transform your ideas into engaging short-form videos instantly. Use AI to generate scripts, find stock footage, and render professional videos.",
     features: [
       "AI Script Generation",
@@ -52,7 +52,7 @@ const aiTools: AITool[] = [
 const useCases = [
   {
     title: "Content Creators",
-    description: "Generate video scripts with SmartVid, then humanize them with AI Free Text Pro to ensure your content feels authentic and passes AI detection.",
+    description: "Generate video scripts with Smart Video, then humanize them with AI Free Text Pro to ensure your content feels authentic and passes AI detection.",
     icon: <FileText className="h-6 w-6" />
   },
   {
@@ -76,7 +76,7 @@ const AIToolsPage = () => {
   return (
     <>
       <SEOMetadata
-        title="AI Tools - Partner Ecosystem | SmartVid"
+        title="AI Tools - Partner Ecosystem | Smart Video"
         description="Discover our ecosystem of AI tools for content creation, text humanization, and video generation. Explore partner tools to enhance your workflow."
         keywords="AI tools, AI detector, text humanizer, video generator, content creation, AI ecosystem"
       />

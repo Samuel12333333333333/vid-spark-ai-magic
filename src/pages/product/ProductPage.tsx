@@ -31,7 +31,7 @@ export default function ProductPage() {
   return (
     <div className="container mx-auto px-4 py-16">
       <div className="text-center mb-16">
-        <h1 className="text-4xl font-bold mb-4">SmartVid Product Overview</h1>
+        <h1 className="text-4xl font-bold mb-4">Smart Video Product Overview</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           Everything you need to create stunning videos with AI
         </p>

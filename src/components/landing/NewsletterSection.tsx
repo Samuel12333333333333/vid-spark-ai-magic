@@ -58,7 +58,7 @@ export function NewsletterSection() {
               Stay updated with our newsletter
             </h2>
             <p className="mt-3 text-muted-foreground">
-              Get the latest SmartVid updates, tips, and special offers delivered straight to your inbox.
+              Get the latest Smart Video updates, tips, and special offers delivered straight to your inbox.
             </p>
           </div>
           <div className="lg:w-1/2">

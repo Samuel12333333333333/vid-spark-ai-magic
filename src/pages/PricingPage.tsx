@@ -7,7 +7,7 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950">
       <Helmet>
-        <title>Pricing | SmartVideofy AI Video Generator</title>
+        <title>Pricing | Smart Video AI Video Generator</title>
         <meta name="description" content="Choose the perfect plan for your video creation needs. Flexible pricing options for individuals, teams, and enterprises." />
       </Helmet>
 

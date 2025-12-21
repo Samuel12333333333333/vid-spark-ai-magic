@@ -157,7 +157,7 @@ export default function ProductOverviewPage() {
                 Turn Text into<br/>Stunning Videos with AI
               </h1>
               <p className="text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-3xl mx-auto">
-                SmartVideofy uses artificial intelligence to transform your text into professional-quality videos in minutes, not hours. No design skills required.
+                Smart Video uses artificial intelligence to transform your text into professional-quality videos in minutes, not hours. No design skills required.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button asChild size="lg" className="bg-primary hover:bg-primary-dark text-white font-semibold px-8 py-3 rounded-lg transition-all duration-300 transform hover:scale-105">
@@ -186,7 +186,7 @@ export default function ProductOverviewPage() {
         <ScrollReveal>
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">See SmartVideofy in Action</h2>
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">See Smart Video in Action</h2>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
                 Watch how quickly and easily you can create professional videos with just text input.
               </p>
@@ -201,7 +201,7 @@ export default function ProductOverviewPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <ScrollReveal>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Why Choose SmartVideofy?</h2>
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Why Choose Smart Video?</h2>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
                 Our platform offers unique advantages that make video creation simple, fast, and professional.
               </p>
@@ -234,7 +234,7 @@ export default function ProductOverviewPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollReveal>
             <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">How SmartVideofy Works</h2>
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">How Smart Video Works</h2>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
                 Our streamlined process makes video creation incredibly simple.
               </p>
@@ -270,7 +270,7 @@ export default function ProductOverviewPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollReveal>
             <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Who Uses SmartVideofy?</h2>
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Who Uses Smart Video?</h2>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
                 Our platform is designed for a wide range of users who need to create engaging videos quickly.
               </p>
@@ -312,7 +312,7 @@ export default function ProductOverviewPage() {
                     Marketing professionals who need to create promotional videos, ads, and social media content quickly.
                   </p>
                   <p className="italic text-gray-500 dark:text-gray-400">
-                    "Our campaign turnaround time decreased by 80% with SmartVideofy." – Sarah M.
+                    "Our campaign turnaround time decreased by 80% with Smart Video." – Sarah M.
                   </p>
                 </CardContent>
               </Card>
@@ -351,7 +351,7 @@ export default function ProductOverviewPage() {
             <div className="text-center mb-16">
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Perfect for Creating</h2>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                SmartVideofy can help you create a wide variety of video content.
+                Smart Video can help you create a wide variety of video content.
               </p>
             </div>
           </ScrollReveal>
@@ -375,7 +375,7 @@ export default function ProductOverviewPage() {
             <ScrollReveal>
               <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Ready to Transform Your Content?</h2>
               <p className="text-xl text-white/90 mb-10 max-w-3xl mx-auto">
-                Join thousands of creators, marketers, and educators who are already using SmartVideofy to create stunning videos.
+                Join thousands of creators, marketers, and educators who are already using Smart Video to create stunning videos.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button asChild size="lg" className="bg-white text-primary hover:bg-gray-100 font-semibold px-8 py-3 rounded-lg transition-all duration-300 transform hover:scale-105">

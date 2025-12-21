@@ -196,7 +196,7 @@ export function FeaturesSection() {
           </div>
           <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Everything You Need to Create Amazing Videos</h2>
           <p className="text-gray-500 md:text-xl dark:text-gray-400">
-            SmartVid combines powerful AI with intuitive tools to streamline your video creation process.
+            Smart Video combines powerful AI with intuitive tools to streamline your video creation process.
           </p>
         </div>
 
@@ -230,7 +230,7 @@ export function FeaturesSection() {
           <div className="text-center mb-12">
             <h3 className="text-2xl font-bold mb-4">Detailed Feature Breakdown</h3>
             <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
-              Explore all the powerful features that make SmartVid the leading AI video creation platform.
+              Explore all the powerful features that make Smart Video the leading AI video creation platform.
             </p>
           </div>
 
@@ -268,7 +268,7 @@ export function FeaturesSection() {
         <div className="max-w-5xl mx-auto mt-20 bg-gray-50 dark:bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-100 dark:border-gray-800">
           <div className="flex flex-col md:flex-row">
             <div className="md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
-              <h3 className="text-2xl font-bold mb-4">See SmartVid in Action</h3>
+              <h3 className="text-2xl font-bold mb-4">See Smart Video in Action</h3>
               <p className="text-gray-600 dark:text-gray-300 mb-6">
                 Watch how easy it is to transform a simple idea into a professional video in just minutes using our AI-powered platform.
               </p>

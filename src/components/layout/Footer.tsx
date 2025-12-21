@@ -42,10 +42,10 @@ const footerLinks = {
     { name: 'AI Text App', href: 'https://app.aifreetextpro.com', description: 'Humanize Your Content', external: true },
   ],
   social: [
-    { name: 'Twitter', href: 'https://twitter.com/smartvideofy', icon: 'twitter' },
-    { name: 'Discord', href: 'https://discord.gg/smartvideofy', icon: 'discord' },
-    { name: 'GitHub', href: 'https://github.com/smartvideofy', icon: 'github' },
-    { name: 'YouTube', href: 'https://youtube.com/smartvideofy', icon: 'youtube' },
+    { name: 'Twitter', href: 'https://twitter.com/smartvideo', icon: 'twitter' },
+    { name: 'Discord', href: 'https://discord.gg/smartvideo', icon: 'discord' },
+    { name: 'GitHub', href: 'https://github.com/smartvideo', icon: 'github' },
+    { name: 'YouTube', href: 'https://youtube.com/smartvideo', icon: 'youtube' },
   ],
 };
 
@@ -96,10 +96,10 @@ export default function Footer() {
                 <path d="m22 8-6 4 6 4V8Z" />
                 <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
               </svg>
-              <span className="text-xl font-bold text-gray-900 dark:text-white">SmartVideofy</span>
+              <span className="text-xl font-bold text-gray-900 dark:text-white">Smart Video</span>
             </div>
             <p className="text-base text-gray-500 dark:text-gray-400 max-w-md">
-              Transform your text into compelling videos with AI. SmartVideofy helps creators,
+              Transform your text into compelling videos with AI. Smart Video helps creators,
               marketers, and educators bring their ideas to life.
             </p>
             <div className="flex space-x-6">
@@ -274,7 +274,7 @@ export default function Footer() {
         </div>
         <div className="mt-12 border-t border-gray-200 dark:border-gray-700 pt-8">
           <p className="text-base text-gray-400 xl:text-center">
-            &copy; {new Date().getFullYear()} SmartVideofy. All rights reserved.
+            &copy; {new Date().getFullYear()} Smart Video. All rights reserved.
           </p>
         </div>
       </div>

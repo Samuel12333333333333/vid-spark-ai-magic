@@ -36,7 +36,7 @@ export default function FeaturesPage() {
       <div className="text-center mb-16">
         <h1 className="text-4xl font-bold mb-4">Powerful Features</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Discover all the tools and features that make SmartVid the best choice for video creation
+          Discover all the tools and features that make Smart Video the best choice for video creation
         </p>
       </div>
 

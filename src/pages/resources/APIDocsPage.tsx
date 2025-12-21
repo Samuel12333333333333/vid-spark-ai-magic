@@ -115,8 +115,8 @@ export default function APIDocsPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950">
       <Helmet>
-        <title>API Documentation | SmartVid AI Video Generator</title>
-        <meta name="description" content="Technical documentation for the SmartVid API. Learn how to integrate video generation into your applications." />
+        <title>API Documentation | Smart Video AI Video Generator</title>
+        <meta name="description" content="Technical documentation for the Smart Video API. Learn how to integrate video generation into your applications." />
       </Helmet>
 
       <div className="container px-4 md:px-6 py-12 max-w-6xl mx-auto">
@@ -139,7 +139,7 @@ export default function APIDocsPage() {
             <CardContent>
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">Authentication</h3>
-                <p>SmartVid API uses API keys to authenticate requests. You can view and manage your API keys in your account dashboard.</p>
+                <p>Smart Video API uses API keys to authenticate requests. You can view and manage your API keys in your account dashboard.</p>
                 <p>All API requests must include your API key in an Authorization header:</p>
                 
                 <pre className="bg-muted p-3 rounded-md overflow-auto text-sm font-mono">
@@ -179,7 +179,7 @@ export default function APIDocsPage() {
             <TabsContent value="videos" className="space-y-6">
               <ApiEndpoint 
                 method="GET" 
-                url="https://api.smartvideofy.com/v1/videos" 
+                url="https://api.smartvideo.ai/v1/videos" 
                 description="Returns a list of all videos created by the authenticated user."
                 responseBody={`{
   "videos": [
@@ -189,7 +189,7 @@ export default function APIDocsPage() {
       "status": "completed",
       "duration": 45,
       "created_at": "2025-04-20T15:30:00Z",
-      "url": "https://storage.smartvideofy.com/videos/vid_123abc.mp4"
+      "url": "https://storage.smartvideo.ai/videos/vid_123abc.mp4"
     },
     {
       "id": "vid_456def",
@@ -211,7 +211,7 @@ export default function APIDocsPage() {
               
               <ApiEndpoint 
                 method="POST" 
-                url="https://api.smartvideofy.com/v1/videos" 
+                url="https://api.smartvideo.ai/v1/videos"
                 description="Create a new video from a prompt or script."
                 requestBody={`{
   "title": "My Awesome Video",
@@ -231,7 +231,7 @@ export default function APIDocsPage() {
               
               <ApiEndpoint 
                 method="GET" 
-                url="https://api.smartvideofy.com/v1/videos/{video_id}" 
+                url="https://api.smartvideo.ai/v1/videos/{video_id}" 
                 description="Get details for a specific video."
                 responseBody={`{
   "id": "vid_123abc",
@@ -242,8 +242,8 @@ export default function APIDocsPage() {
   "duration": 45,
   "created_at": "2025-04-20T15:30:00Z",
   "updated_at": "2025-04-20T15:35:00Z",
-  "url": "https://storage.smartvideofy.com/videos/vid_123abc.mp4",
-  "thumbnail_url": "https://storage.smartvideofy.com/thumbnails/vid_123abc.jpg"
+  "url": "https://storage.smartvideo.ai/videos/vid_123abc.mp4",
+  "thumbnail_url": "https://storage.smartvideo.ai/thumbnails/vid_123abc.jpg"
 }`}
                 parameters={[
                   {name: "video_id", type: "string", required: true, description: "The ID of the video to retrieve"}
@@ -252,7 +252,7 @@ export default function APIDocsPage() {
               
               <ApiEndpoint 
                 method="DELETE" 
-                url="https://api.smartvideofy.com/v1/videos/{video_id}" 
+                url="https://api.smartvideo.ai/v1/videos/{video_id}"
                 description="Delete a video."
                 responseBody={`{
   "success": true
@@ -266,7 +266,7 @@ export default function APIDocsPage() {
             <TabsContent value="templates" className="space-y-6">
               <ApiEndpoint 
                 method="GET" 
-                url="https://api.smartvideofy.com/v1/templates" 
+                url="https://api.smartvideo.ai/v1/templates"
                 description="Get a list of available templates."
                 responseBody={`{
   "templates": [
@@ -297,7 +297,7 @@ export default function APIDocsPage() {
               
               <ApiEndpoint 
                 method="GET" 
-                url="https://api.smartvideofy.com/v1/templates/{template_id}" 
+                url="https://api.smartvideo.ai/v1/templates/{template_id}" 
                 description="Get details for a specific template."
                 responseBody={`{
   "id": "tmpl_123abc",
@@ -305,8 +305,8 @@ export default function APIDocsPage() {
   "description": "A template for introducing new products with animated features and benefits",
   "category": "marketing",
   "is_premium": false,
-  "thumbnail": "https://storage.smartvideofy.com/templates/tmpl_123abc.jpg",
-  "sample_video_url": "https://storage.smartvideofy.com/samples/tmpl_123abc.mp4"
+  "thumbnail": "https://storage.smartvideo.ai/templates/tmpl_123abc.jpg",
+  "sample_video_url": "https://storage.smartvideo.ai/samples/tmpl_123abc.mp4"
 }`}
                 parameters={[
                   {name: "template_id", type: "string", required: true, description: "The ID of the template to retrieve"}
@@ -317,7 +317,7 @@ export default function APIDocsPage() {
             <TabsContent value="scripts" className="space-y-6">
               <ApiEndpoint 
                 method="GET" 
-                url="https://api.smartvideofy.com/v1/scripts" 
+                url="https://api.smartvideo.ai/v1/scripts"
                 description="Get a list of your saved scripts."
                 responseBody={`{
   "scripts": [
@@ -342,7 +342,7 @@ export default function APIDocsPage() {
               
               <ApiEndpoint 
                 method="POST" 
-                url="https://api.smartvideofy.com/v1/scripts" 
+                url="https://api.smartvideo.ai/v1/scripts"
                 description="Create a new script."
                 requestBody={`{
   "title": "My Marketing Script",
@@ -360,7 +360,7 @@ export default function APIDocsPage() {
               
               <ApiEndpoint 
                 method="GET" 
-                url="https://api.smartvideofy.com/v1/scripts/generate" 
+                url="https://api.smartvideo.ai/v1/scripts/generate"
                 description="Generate a new script using AI."
                 requestBody={`{
   "topic": "Introduction to machine learning concepts for beginners",
@@ -380,7 +380,7 @@ export default function APIDocsPage() {
             <TabsContent value="users" className="space-y-6">
               <ApiEndpoint 
                 method="GET" 
-                url="https://api.smartvideofy.com/v1/user" 
+                url="https://api.smartvideo.ai/v1/user"
                 description="Get information about the authenticated user."
                 responseBody={`{
   "id": "usr_123abc",
@@ -401,7 +401,7 @@ export default function APIDocsPage() {
               
               <ApiEndpoint 
                 method="GET" 
-                url="https://api.smartvideofy.com/v1/user/usage" 
+                url="https://api.smartvideo.ai/v1/user/usage"
                 description="Get detailed usage information for the authenticated user."
                 responseBody={`{
   "quota": {

@@ -25,7 +25,7 @@ export default {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "#6366F1", // SmartVid purple
+          DEFAULT: "#6366F1", // Smart Video purple
           light: "#818CF8",
           dark: "#4F46E5",
           foreground: "hsl(var(--primary-foreground))"
