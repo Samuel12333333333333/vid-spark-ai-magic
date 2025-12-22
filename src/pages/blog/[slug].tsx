@@ -12,6 +12,7 @@ import { SocialShare } from "@/components/blog/SocialShare";
 import { TextToSpeech } from "@/components/blog/TextToSpeech";
 import { TableOfContents } from "@/components/blog/TableOfContents";
 import { RelatedPosts } from "@/components/blog/RelatedPosts";
+import { BlogNewsletterCTA } from "@/components/blog/BlogNewsletterCTA";
 import { Button } from "@/components/ui/button";
 import { ThumbsUp, ThumbsDown, ArrowLeft } from "lucide-react";
 
@@ -208,6 +209,9 @@ export default function BlogPostPage() {
                 </p>
               )}
             </div>
+            
+            {/* Newsletter CTA */}
+            <BlogNewsletterCTA />
             
             {/* Related Posts Section */}
             <RelatedPosts posts={posts} currentPostId={post.id} />
