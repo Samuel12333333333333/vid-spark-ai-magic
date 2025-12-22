@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +11,7 @@ import { BlogProgress } from "@/components/blog/BlogProgress";
 import { SocialShare } from "@/components/blog/SocialShare";
 import { TextToSpeech } from "@/components/blog/TextToSpeech";
 import { TableOfContents } from "@/components/blog/TableOfContents";
+import { RelatedPosts } from "@/components/blog/RelatedPosts";
 import { Button } from "@/components/ui/button";
 import { ThumbsUp, ThumbsDown, ArrowLeft } from "lucide-react";
 
@@ -208,6 +208,9 @@ export default function BlogPostPage() {
                 </p>
               )}
             </div>
+            
+            {/* Related Posts Section */}
+            <RelatedPosts posts={posts} currentPostId={post.id} />
           </div>
         </div>
       </div>
