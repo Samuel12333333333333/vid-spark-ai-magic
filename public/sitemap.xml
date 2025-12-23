@@ -49,9 +49,23 @@
   <!-- Resources -->
   <url>
     <loc>https://smartvideofy.com/blog</loc>
-    <lastmod>2025-04-23</lastmod>
+    <lastmod>2025-12-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
+  </url>
+  
+  <!-- Blog Posts (Dynamic - add new posts here) -->
+  <url>
+    <loc>https://smartvideofy.com/blog/how-to-create-ai-videos</loc>
+    <lastmod>2025-12-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://smartvideofy.com/blog/video-marketing-tips</loc>
+    <lastmod>2025-12-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://smartvideofy.com/help</loc>

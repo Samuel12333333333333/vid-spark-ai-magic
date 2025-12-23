@@ -1,4 +1,3 @@
-
 import { HeroSection } from "@/components/landing/HeroSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
 import { PricingSection } from "@/components/landing/PricingSection";
@@ -12,6 +11,7 @@ import { PerformanceMetricsSection } from "@/components/landing/PerformanceMetri
 import { AwardsSection } from "@/components/landing/AwardsSection";
 import { DemoVideo } from "@/components/product/DemoVideo";
 import { Button } from "@/components/ui/button";
+import SEOMetadata from "@/components/SEOMetadata";
 
 export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -41,6 +41,13 @@ export default function LandingPage() {
 
   return (
     <>
+      <SEOMetadata
+        title="AI-Powered Video Generator"
+        description="Transform your text into stunning videos in minutes with Smart Videofy's AI technology. No design skills required. Create professional videos for marketing, education, and social media. Start free today."
+        keywords="AI video generator, text to video, video creation, AI video maker, Smart Videofy, automated video creation, video marketing, social media videos"
+        canonicalUrl="/"
+        ogType="website"
+      />
       <HeroSection />
       <PerformanceMetricsSection />
 
@@ -55,7 +62,7 @@ export default function LandingPage() {
             className="text-center mb-12"
           >
             <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-              See Smart Video in Action
+              See Smart Videofy in Action
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Watch how easily you can transform plain text into professional videos
