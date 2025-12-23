@@ -29,7 +29,7 @@ export function DashboardSidebar({ onNavClick }: DashboardSidebarProps) {
   return (
     <aside className="bg-white transition-all duration-300 ease-in-out dark:bg-gray-950 w-64 min-w-64 shrink-0 border-r">
       <div className="flex h-16 items-center border-b px-6">
-        <h1 className="text-xl font-bold text-primary">Smart Video</h1>
+        <h1 className="text-xl font-bold text-primary">Smart Videofy</h1>
       </div>
       <div className="space-y-1 p-2 overflow-y-auto h-[calc(100vh-4rem)]">
         {links.map((link) => (

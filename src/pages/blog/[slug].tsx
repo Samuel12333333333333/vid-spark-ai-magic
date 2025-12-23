@@ -124,14 +124,48 @@ export default function BlogPostPage() {
 
   const articleUrl = `${window.location.origin}/blog/${post.slug || post.id}`;
 
+  // Article schema for SEO
+  const articleSchema = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": post.title,
+    "description": post.summary || post.description,
+    "image": post.thumbnail || "https://smartvideofy.com/opengraph-image.png",
+    "datePublished": post.created_at,
+    "dateModified": post.updated_at || post.created_at,
+    "author": {
+      "@type": "Organization",
+      "name": "Smart Videofy"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Smart Videofy",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://smartvideofy.com/logo.png"
+      }
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": articleUrl
+    }
+  };
+
   return (
     <>
       <SEOMetadata
         title={post.title}
-        description={post.summary}
-        keywords={`${post.title}, AI video creation, Smart Video`}
+        description={post.summary || post.description}
+        keywords={`${post.title}, AI video creation, Smart Videofy`}
         canonicalUrl={`/blog/${post.slug || post.id}`}
         ogType="article"
+        structuredData={articleSchema}
+        article={{
+          publishedTime: post.created_at,
+          modifiedTime: post.updated_at || post.created_at,
+          author: "Smart Videofy",
+          section: post.category || "Technology"
+        }}
       />
       
       <BlogProgress />

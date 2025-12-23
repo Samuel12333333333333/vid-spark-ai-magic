@@ -1,20 +1,16 @@
-
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
+import SEOMetadata from '@/components/SEOMetadata';
 
 export default function TermsPage() {
   return (
     <>
-      <Helmet>
-        <title>Terms of Service | Smart Video AI Video Generator</title>
-        <meta name="description" content="Terms of Service for Smart Video - the AI-powered video generation platform. Learn about our terms, conditions, and usage policies." />
-        <meta name="keywords" content="Smart Video terms, video generation terms, AI video terms of service, Smart Video conditions" />
-        <meta property="og:title" content="Terms of Service | Smart Video" />
-        <meta property="og:description" content="Terms of Service for Smart Video - the AI-powered video generation platform." />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://smartvideo.ai/terms" />
-        <link rel="canonical" href="https://smartvideo.ai/terms" />
-      </Helmet>
+      <SEOMetadata
+        title="Terms of Service"
+        description="Terms of Service for Smart Videofy - the AI-powered video generation platform. Learn about our terms, conditions, and usage policies."
+        keywords="Smart Videofy terms, video generation terms, AI video terms of service, Smart Videofy conditions"
+        canonicalUrl="/terms"
+        ogType="website"
+      />
 
       <div className="container px-4 md:px-6 py-12 max-w-6xl mx-auto">
         <h1 className="text-3xl md:text-4xl font-bold mb-6">Terms of Service</h1>
@@ -25,13 +21,13 @@ export default function TermsPage() {
           </p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">1. Introduction</h2>
-          <p>Welcome to Smart Video ("we," "our," or "us"). By accessing or using our website, mobile application, or any other services we provide (collectively, the "Services"), you agree to be bound by these Terms of Service ("Terms").</p>
+          <p>Welcome to Smart Videofy ("we," "our," or "us"). By accessing or using our website, mobile application, or any other services we provide (collectively, the "Services"), you agree to be bound by these Terms of Service ("Terms").</p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">2. Acceptance of Terms</h2>
           <p>By accessing or using our Services, you confirm that you accept these Terms and agree to comply with them. If you do not agree to these Terms, you must not access or use our Services.</p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">3. Services Description</h2>
-          <p>Smart Video is an AI-powered platform that turns text prompts into short-form videos using AI technology, stock video clips, and other media. Our Services include but are not limited to:</p>
+          <p>Smart Videofy is an AI-powered platform that turns text prompts into short-form videos using AI technology, stock video clips, and other media. Our Services include but are not limited to:</p>
           <ul className="list-disc pl-6 mb-6">
             <li>Creating videos from text prompts</li>
             <li>Providing stock video clips and audio</li>
@@ -56,7 +52,7 @@ export default function TermsPage() {
           </ul>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">7. Intellectual Property</h2>
-          <p>Our Services and all content, features, and functionality thereof, including but not limited to text, graphics, logos, button icons, images, audio clips, digital downloads, data compilations, software, and code, are the exclusive property of Smart Video or our licensors and are protected by United States and international copyright, trademark, patent, trade secret, and other intellectual property or proprietary rights laws.</p>
+          <p>Our Services and all content, features, and functionality thereof, including but not limited to text, graphics, logos, button icons, images, audio clips, digital downloads, data compilations, software, and code, are the exclusive property of Smart Videofy or our licensors and are protected by United States and international copyright, trademark, patent, trade secret, and other intellectual property or proprietary rights laws.</p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">8. AI-Generated Content Ownership</h2>
           <p>Videos generated through our Services are created by combining your text prompts with AI-generated elements and stock media. The ownership and rights to use these videos are as follows:</p>
@@ -74,7 +70,7 @@ export default function TermsPage() {
           <p>We may terminate or suspend your account and access to our Services immediately, without prior notice or liability, for any reason, including if you breach these Terms. Upon termination, your right to use the Services will immediately cease.</p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">11. Limitation of Liability</h2>
-          <p>To the maximum extent permitted by law, in no event shall Smart Video, our directors, employees, partners, agents, suppliers, or affiliates be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of or inability to access or use the Services.</p>
+          <p>To the maximum extent permitted by law, in no event shall Smart Videofy, our directors, employees, partners, agents, suppliers, or affiliates be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of or inability to access or use the Services.</p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">12. Governing Law</h2>
           <p>These Terms shall be governed by and construed in accordance with the laws of the United States of America, without regard to its conflict of law provisions.</p>
@@ -83,7 +79,7 @@ export default function TermsPage() {
           <p>We reserve the right to modify or replace these Terms at any time. If a revision is material, we will try to provide at least 30 days' notice prior to any new terms taking effect. What constitutes a material change will be determined at our sole discretion.</p>
           
           <h2 className="text-2xl font-semibold mb-4 mt-8">14. Contact Us</h2>
-          <p>If you have any questions about these Terms, please contact us at: support@smartvideo.ai</p>
+          <p>If you have any questions about these Terms, please contact us at: support@smartvideofy.com</p>
         </div>
       </div>
     </>
