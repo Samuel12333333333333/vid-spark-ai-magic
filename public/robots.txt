@@ -1,9 +1,7 @@
-
 User-agent: *
 Allow: /
 
 # Allow search engines to crawl all pages
-Allow: /
 Allow: /features
 Allow: /pricing
 Allow: /product
@@ -29,5 +27,5 @@ Allow: /login/
 Allow: /register/
 Allow: /logout/
 
-# Sitemap location
-Sitemap: https://smartvideofy.com/sitemap.xml
+# Dynamic sitemap generated from database
+Sitemap: https://edwpmysfxxijxhworisc.supabase.co/functions/v1/sitemap
