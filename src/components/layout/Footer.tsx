@@ -111,7 +111,7 @@ export default function Footer() {
                   href={item.href}
                   className="text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors"
                   target="_blank"
-                  rel="noopener noreferrer"
+                  rel="dofollow"
                   aria-label={`${item.name} social link`}
                 >
                   <span className="sr-only">{item.name}</span>
