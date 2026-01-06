@@ -14,12 +14,9 @@ import {
 } from "@/components/ui/sheet";
 
 const navLinks = [
-  { to: "/product", label: "Product" },
   { to: "/features", label: "Features" },
   { to: "/pricing", label: "Pricing" },
   { to: "/templates", label: "Templates" },
-  { to: "/integrations", label: "Integrations" },
-  { to: "/ai-tools", label: "AI Tools" },
 ];
 
 export function MainHeader() {
