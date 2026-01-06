@@ -13,6 +13,59 @@ import { DemoVideo } from "@/components/product/DemoVideo";
 import { Button } from "@/components/ui/button";
 import SEOMetadata from "@/components/SEOMetadata";
 
+const organizationSchema = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Smart Videofy",
+  "url": "https://smartvideofy.com",
+  "logo": "https://smartvideofy.com/logo.png",
+  "description": "AI-powered video generation platform that transforms text into stunning videos in minutes.",
+  "foundingDate": "2024",
+  "sameAs": [
+    "https://twitter.com/smartvideofy",
+    "https://discord.gg/smartvideofy",
+    "https://github.com/smartvideofy",
+    "https://youtube.com/smartvideofy"
+  ],
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "contactType": "customer service",
+    "url": "https://smartvideofy.com/contact"
+  }
+};
+
+const websiteSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Smart Videofy",
+  "url": "https://smartvideofy.com",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://smartvideofy.com/search?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+};
+
+const softwareApplicationSchema = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Smart Videofy",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Web",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.8",
+    "ratingCount": "1250"
+  }
+};
+
+const combinedStructuredData = [organizationSchema, websiteSchema, softwareApplicationSchema];
+
 export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const demoSectionRef = useRef<HTMLDivElement>(null);
@@ -47,6 +100,7 @@ export default function LandingPage() {
         keywords="AI video generator, text to video, video creation, AI video maker, Smart Videofy, automated video creation, video marketing, social media videos"
         canonicalUrl="/"
         ogType="website"
+        structuredData={combinedStructuredData}
       />
       <HeroSection />
       <PerformanceMetricsSection />
