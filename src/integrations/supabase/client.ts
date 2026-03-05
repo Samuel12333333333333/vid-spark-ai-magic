@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
 // Project URL and key are from the project settings
-const SUPABASE_URL = "https://rtzitylynowjenfoztum.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0eml0eWx5bm93amVuZm96dHVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3MDAyMDUsImV4cCI6MjA2MjI3NjIwNX0.SwmjgSYe5r2nD69YLPu9ZXOBZKYFc9EDTU0SSdc4_mA";
+const SUPABASE_URL = "https://edwpmysfxxijxhworisc.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkd3BteXNmeHhpanhod29yaXNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNDk3NzcsImV4cCI6MjA4MTcyNTc3N30.e3lf0vzx1Y8BFjNu1bLaBMbEgkOlJlwZK2OuUYjNg8Q";
 
 // Create a custom database type that integrates with our existing types
 export type CustomDatabase = {
